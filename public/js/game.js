@@ -1,5 +1,7 @@
 /**
- * Scout 游戏客户端逻辑
+ * Scout 游戏客户端逻辑 v2
+ * - 从 URL 参数读取稳定的 playerId（pid）和 roomCode（room）
+ * - 连接后立即用 playerId 重连，彻底解决 socketId 变化问题
  */
 
 const socket = io();
@@ -7,20 +9,18 @@ const socket = io();
 // ── 状态 ──────────────────────────────────────────────────────
 let myPlayerId = null;
 let myRoomCode = null;
-let myPlayerName = null;
 let gameState = null;
-let selectedCardIndices = []; // 当前选中的手牌索引
+let selectedCardIndices = [];
 let isMyTurn = false;
-let scoutPanelMode = false; // false = 纯scout, true = scout_and_show
-let selectedScoutPos = null; // 'left' | 'right'
+let scoutPanelMode = false;
+let selectedScoutPos = null;
 
-// ── 从 URL 参数获取房间信息并重连 ────────────────────────────
+// ── 从 URL 读取身份信息 ────────────────────────────────────────
 (function initFromURL() {
   const params = new URLSearchParams(window.location.search);
   myRoomCode = params.get('room');
-  myPlayerName = params.get('name');
-  if (!myRoomCode || !myPlayerName) {
-    // 没有参数，回到大厅
+  myPlayerId = params.get('pid');
+  if (!myRoomCode || !myPlayerId) {
     window.location.href = '/';
   }
 })();
@@ -32,7 +32,7 @@ function showToast(msg, type = '') {
   el.className = type;
   el.style.display = 'block';
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 3500);
 }
 
 function getCardValue(card) {
@@ -51,7 +51,7 @@ function getValClass(val) {
   return 'val-9';
 }
 
-// ── 渲染一张卡牌 ──────────────────────────────────────────────
+// ── 渲染卡牌 ──────────────────────────────────────────────────
 function renderCard(card, options = {}) {
   const val = getCardValue(card);
   const otherVal = getCardOtherValue(card);
@@ -78,14 +78,13 @@ function renderPlayersBar(state) {
     let classes = 'player-chip';
     if (isMe) classes += ' me';
     if (isActive) classes += ' active';
-
     return `
       <div class="${classes}">
         <div class="chip-avatar">${p.name.charAt(0)}</div>
         <div class="chip-info">
           <div class="chip-name">${p.name}${isMe ? ' (我)' : ''}</div>
           <div class="chip-score">手牌:${p.handCount} · 总分:${p.totalScore}</div>
-          ${isActive ? '<div class="chip-turn">▶ 行动中</div>' : ''}
+          ${isActive ? '<div class="chip-turn">▶ 轮到你</div>' : ''}
           ${p.usedScoutAndShow ? '<div style="font-size:0.65rem;color:#8b949e">已用S&S</div>' : ''}
         </div>
       </div>
@@ -97,15 +96,12 @@ function renderPlayersBar(state) {
 function renderStage(state) {
   const stageEl = document.getElementById('stage-cards');
   const stageInfo = document.getElementById('stage-info');
-
   if (!state.stage || state.stage.length === 0) {
     stageEl.innerHTML = '<div class="stage-empty-hint">舞台空置 — 第一个出牌吧！</div>';
     stageInfo.innerHTML = '';
     return;
   }
-
   stageEl.innerHTML = state.stage.map(card => renderCard(card, { isStage: true })).join('');
-
   const ownerName = state.players.find(p => p.id === state.stageOwner)?.name || '?';
   const typeBadge = state.stageType === 'set'
     ? '<span class="stage-type-badge badge-set">同值组</span>'
@@ -118,21 +114,15 @@ function renderHand(hand) {
   const container = document.getElementById('my-hand-cards');
   const badge = document.getElementById('hand-count-badge');
   badge.textContent = `(${hand.length}张)`;
-
   container.innerHTML = hand.map((card, i) => {
     const selected = selectedCardIndices.includes(i);
-    return renderCard(card, {
-      index: i,
-      selected,
-      onClick: `toggleCard(${i})`,
-    });
+    return renderCard(card, { index: i, selected, onClick: `toggleCard(${i})` });
   }).join('');
 }
 
 // ── 切换选牌 ──────────────────────────────────────────────────
 function toggleCard(index) {
   if (!isMyTurn) return showToast('还没轮到你', 'error');
-
   const idx = selectedCardIndices.indexOf(index);
   if (idx === -1) {
     selectedCardIndices.push(index);
@@ -140,12 +130,11 @@ function toggleCard(index) {
   } else {
     selectedCardIndices.splice(idx, 1);
   }
-
   renderHand(gameState.myHand);
   updateActionButtons();
 }
 
-// ── 更新操作按钮状态 ──────────────────────────────────────────
+// ── 更新操作按钮 ──────────────────────────────────────────────
 function updateActionButtons() {
   const btnShow = document.getElementById('btn-show');
   const btnScout = document.getElementById('btn-scout');
@@ -158,14 +147,9 @@ function updateActionButtons() {
     return;
   }
 
-  // SHOW：需要选了至少1张牌
   btnShow.disabled = selectedCardIndices.length === 0;
-
-  // SCOUT：需要舞台有牌
   const hasStage = gameState.stage && gameState.stage.length > 0;
   btnScout.disabled = !hasStage;
-
-  // SCOUT & SHOW：需要舞台有牌且未用过
   btnScoutShow.disabled = !hasStage || gameState.usedScoutAndShow;
 }
 
@@ -175,17 +159,14 @@ function renderGameState(state) {
   isMyTurn = state.currentPlayerId === myPlayerId && state.state === 'playing';
 
   document.getElementById('round-num').textContent = state.roundNumber;
-
   renderPlayersBar(state);
   renderStage(state);
-  renderHand(state.myHand);
+  renderHand(state.myHand || []);
   updateActionButtons();
 
-  // 等待提示
   const waitingEl = document.getElementById('waiting-overlay');
-  waitingEl.style.display = (isMyTurn || state.state !== 'playing') ? 'none' : 'block';
+  waitingEl.style.display = (!isMyTurn && state.state === 'playing') ? 'block' : 'none';
 
-  // 翻牌阶段处理
   if (state.state === 'flip_phase') {
     showFlipPhase(state);
   } else {
@@ -198,11 +179,9 @@ function showFlipPhase(state) {
   const panel = document.getElementById('flip-phase');
   panel.style.display = 'flex';
 
-  // 预览手牌
   const preview = document.getElementById('flip-preview');
-  preview.innerHTML = state.myHand.map(card => renderCard(card)).join('');
+  preview.innerHTML = (state.myHand || []).map(card => renderCard(card)).join('');
 
-  // 显示各玩家确认状态
   const statusEl = document.getElementById('flip-wait-status');
   statusEl.innerHTML = state.players.map(p => `
     <div class="flip-status-item ${p.flipConfirmed ? 'confirmed' : ''}">
@@ -219,14 +198,14 @@ function doConfirmFlip() {
   socket.emit('confirm_flip');
 }
 
-// ── 行动：SHOW ────────────────────────────────────────────────
+// ── SHOW ──────────────────────────────────────────────────────
 function doShow() {
   if (selectedCardIndices.length === 0) return showToast('请先点击手牌中要出的牌（需连续）', 'error');
   socket.emit('show', { cardIndices: selectedCardIndices });
   selectedCardIndices = [];
 }
 
-// ── 行动：SCOUT 面板 ──────────────────────────────────────────
+// ── SCOUT 面板 ────────────────────────────────────────────────
 function openScoutPanel(isScoutAndShow = false) {
   scoutPanelMode = isScoutAndShow;
   selectedScoutPos = null;
@@ -236,31 +215,26 @@ function openScoutPanel(isScoutAndShow = false) {
   const confirmBtn = document.getElementById('scout-confirm-btn');
 
   if (isScoutAndShow) {
-    desc.textContent = '先从舞台取一张牌，插入手牌，然后你需要再从手牌中选择连续的牌出牌。';
+    desc.textContent = '先从舞台取一张牌插入手牌，然后从手牌中选择连续的牌出牌。';
     scoutShowSelect.style.display = 'block';
-    confirmBtn.textContent = '确认 Scout（再去选出牌）';
+    confirmBtn.textContent = '确认 Scout';
   } else {
-    desc.textContent = '从舞台两端选一张牌，插入你的手牌中（可插在任意位置），并给出牌人1分补偿。';
+    desc.textContent = '从舞台两端取一张牌，插入你的手牌（可插任意位置），并给出牌人1分补偿。';
     scoutShowSelect.style.display = 'none';
     confirmBtn.textContent = '确认 Scout';
   }
 
-  // 更新左右端牌显示
   const stage = gameState?.stage || [];
   document.getElementById('scout-left-card').textContent = stage.length > 0 ? getCardValue(stage[0]) : '-';
   document.getElementById('scout-right-card').textContent = stage.length > 0 ? getCardValue(stage[stage.length - 1]) : '-';
 
-  // 更新插入位置滑块
   const slider = document.getElementById('insert-slider');
-  const handLen = gameState?.myHand?.length || 0;
-  slider.max = handLen;
+  slider.max = gameState?.myHand?.length || 0;
   slider.value = 0;
   updateInsertDisplay(0);
 
-  // 重置按钮选中状态
   document.getElementById('scout-left-btn').classList.remove('selected');
   document.getElementById('scout-right-btn').classList.remove('selected');
-
   document.getElementById('scout-panel').style.display = 'flex';
 }
 
@@ -284,13 +258,11 @@ function confirmScout() {
   const insertIndex = parseInt(document.getElementById('insert-slider').value);
 
   if (scoutPanelMode) {
-    // Scout & Show 模式：先关闭面板，提示用户选择出牌
-    closeScoutPanel();
-    showToast('✅ Scout 位置已确定，请点击手牌选择要出的牌，再点击 SHOW 按钮', 'success');
-    // 保存 scout 参数等待后续 show 操作
+    // Scout & Show：先关闭面板，让用户选牌
     window._pendingScoutPos = selectedScoutPos;
     window._pendingInsertIndex = insertIndex;
-    // 让用户选牌完毕后，把 SHOW 按钮替换成"确认 S&S"
+    closeScoutPanel();
+    showToast('✅ Scout 位置已定，请点选手牌后点"SHOW"', 'success');
     document.getElementById('btn-show').textContent = '⚡ 确认 SCOUT+SHOW';
     document.getElementById('btn-show').onclick = () => confirmScoutAndShow();
   } else {
@@ -308,12 +280,16 @@ function confirmScoutAndShow() {
     showIndices: selectedCardIndices,
   });
   selectedCardIndices = [];
-  // 恢复按钮
-  document.getElementById('btn-show').textContent = '🎭 SHOW 出牌';
-  document.getElementById('btn-show').onclick = () => doShow();
+  resetShowButton();
 }
 
-// ── 下一轮 ────────────────────────────────────────────────────
+function resetShowButton() {
+  const btn = document.getElementById('btn-show');
+  btn.textContent = '🎭 SHOW 出牌';
+  btn.onclick = () => doShow();
+}
+
+// ── 下一轮/返回大厅 ──────────────────────────────────────────
 function nextRound() {
   document.getElementById('round-end-modal').style.display = 'none';
   socket.emit('next_round');
@@ -323,71 +299,61 @@ function backToLobby() {
   window.location.href = '/';
 }
 
-// ── 回合/游戏结束弹窗 ─────────────────────────────────────────
+// ── 回合结束弹窗 ──────────────────────────────────────────────
 function showRoundEnd(data) {
-  const modal = document.getElementById('round-end-modal');
-  document.getElementById('round-winner-name').textContent =
-    `🏆 ${data.roundWinnerName} 赢得了本轮！`;
+  document.getElementById('round-winner-name').textContent = `🏆 ${data.roundWinnerName} 赢得了本轮！`;
 
-  const tbody = document.getElementById('round-scores-body');
-  const sorted = Object.entries(data.totalScores)
-    .sort(([, a], [, b]) => b - a);
-
-  tbody.innerHTML = sorted.map(([id, total]) => {
+  const sorted = Object.entries(data.totalScores).sort(([, a], [, b]) => b - a);
+  document.getElementById('round-scores-body').innerHTML = sorted.map(([id, total]) => {
     const name = data.playerNames[id] || id;
     const roundScore = data.roundScores[id] || 0;
     const isWinner = id === data.roundWinnerId;
-    return `
-      <tr class="${isWinner ? 'winner-row' : ''}">
-        <td>${name}${isWinner ? ' 🏆' : ''}</td>
-        <td>+${roundScore}</td>
-        <td>${total}</td>
-      </tr>
-    `;
+    return `<tr class="${isWinner ? 'winner-row' : ''}">
+      <td>${name}${isWinner ? ' 🏆' : ''}</td>
+      <td>+${roundScore}</td>
+      <td>${total}</td>
+    </tr>`;
   }).join('');
 
-  modal.style.display = 'flex';
+  document.getElementById('round-end-modal').style.display = 'flex';
 }
 
 function showGameEnd(data) {
   document.getElementById('round-end-modal').style.display = 'none';
-  const modal = document.getElementById('game-end-modal');
   document.getElementById('game-winner-name').textContent = `🏆 ${data.gameWinnerName}`;
 
-  const sorted = Object.entries(data.totalScores)
-    .sort(([, a], [, b]) => b - a);
-
-  const tbody = document.getElementById('game-scores-body');
-  tbody.innerHTML = sorted.map(([id, score], rank) => {
+  const sorted = Object.entries(data.totalScores).sort(([, a], [, b]) => b - a);
+  document.getElementById('game-scores-body').innerHTML = sorted.map(([id, score], rank) => {
     const name = data.playerNames[id] || id;
-    const isWinner = id === data.gameWinnerId;
     const medal = ['🥇', '🥈', '🥉'][rank] || `${rank + 1}.`;
-    return `
-      <tr class="${isWinner ? 'winner-row' : ''}">
-        <td>${medal}</td>
-        <td>${name}</td>
-        <td>${score} 分</td>
-      </tr>
-    `;
+    return `<tr class="${id === data.gameWinnerId ? 'winner-row' : ''}">
+      <td>${medal}</td><td>${name}</td><td>${score} 分</td>
+    </tr>`;
   }).join('');
 
-  modal.style.display = 'flex';
+  document.getElementById('game-end-modal').style.display = 'flex';
 }
 
-// ── Socket 事件监听 ───────────────────────────────────────────
+// ── Socket 事件 ───────────────────────────────────────────────
 
-// 连接成功后，用 URL 参数重新加入房间获取游戏状态
+// 连接成功后立即用稳定 playerId 重连
 socket.on('connect', () => {
-  myPlayerId = socket.id;
-  if (myRoomCode && myPlayerName) {
-    socket.emit('rejoin_game', { roomCode: myRoomCode, playerName: myPlayerName });
+  if (myRoomCode && myPlayerId) {
+    socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+    document.getElementById('action-log').textContent = '🔄 正在连接游戏...';
   }
 });
 
-socket.on('game_started', (state) => {
-  myPlayerId = socket.id;
-  renderGameState(state);
-  document.getElementById('action-log').textContent = '🎮 游戏开始！翻牌阶段：决定是否翻转你的手牌';
+socket.on('rejoin_result', ({ success, state, message }) => {
+  if (success && state) {
+    renderGameState(state);
+    document.getElementById('action-log').textContent = state.state === 'flip_phase'
+      ? '🎮 游戏已开始！请决定是否翻转手牌'
+      : '🎮 游戏进行中...';
+  } else {
+    showToast('⚠️ ' + (message || '连接失败，请返回大厅'), 'error');
+    setTimeout(() => { window.location.href = '/'; }, 2500);
+  }
 });
 
 socket.on('game_state', (state) => {
@@ -398,16 +364,13 @@ socket.on('hand_updated', ({ myHand, message }) => {
   if (gameState) {
     gameState.myHand = myHand;
     renderHand(myHand);
-    // 更新翻牌预览
     const preview = document.getElementById('flip-preview');
-    if (preview) {
-      preview.innerHTML = myHand.map(card => renderCard(card)).join('');
-    }
+    if (preview) preview.innerHTML = myHand.map(card => renderCard(card)).join('');
   }
   showToast(message, 'success');
 });
 
-socket.on('game_phase_changed', ({ phase }) => {
+socket.on('phase_changed', ({ phase }) => {
   if (phase === 'playing') {
     document.getElementById('flip-phase').style.display = 'none';
     document.getElementById('action-log').textContent = '游戏正式开始！轮流出牌...';
@@ -435,7 +398,7 @@ socket.on('round_end', (data) => {
 });
 
 socket.on('game_over', (data) => {
-  showRoundEnd(data); // 先显示本轮结算
+  showRoundEnd(data);
   setTimeout(() => showGameEnd(data), 1500);
 });
 
@@ -443,26 +406,13 @@ socket.on('round_started', ({ roundNumber }) => {
   document.getElementById('round-num').textContent = roundNumber;
   document.getElementById('action-log').textContent = `第 ${roundNumber} 轮开始！`;
   selectedCardIndices = [];
-  // 恢复按钮
-  document.getElementById('btn-show').textContent = '🎭 SHOW 出牌';
-  document.getElementById('btn-show').onclick = () => doShow();
+  resetShowButton();
 });
 
-socket.on('player_left', ({ leftPlayer }) => {
-  showToast(`${leftPlayer} 离开了游戏`, 'error');
+socket.on('player_offline', ({ playerName }) => {
+  showToast(`${playerName} 暂时离线`, 'error');
 });
 
 socket.on('error', ({ message }) => {
   showToast('⚠️ ' + message, 'error');
-});
-
-socket.on('rejoin_result', ({ success, state, message }) => {
-  if (success) {
-    myPlayerId = socket.id;
-    renderGameState(state);
-    document.getElementById('action-log').textContent = '🎮 游戏进行中...';
-  } else {
-    showToast('⚠️ ' + (message || '重新加入失败，请返回大厅'), 'error');
-    setTimeout(() => { window.location.href = '/'; }, 2000);
-  }
 });

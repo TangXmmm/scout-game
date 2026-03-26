@@ -51,6 +51,9 @@ function handleRoundEnd(room, result) {
     totalScores: result.totalScores,
     playerNames: {},
     gameOver: result.gameOver,
+    // 计分明细（用于前端展示计算过程）
+    scoutTokens: result.scoutTokens || {},
+    handCounts: result.handCounts || {},
   };
   room.players.forEach(p => { roundEndData.playerNames[p.id] = p.name; });
 
@@ -235,12 +238,12 @@ io.on('connection', (socket) => {
   });
 
   // ── SCOUT & SHOW ──────────────────────────────────────────
-  socket.on('scout_and_show', ({ scoutPosition, insertIndex, showIndices }) => {
+  socket.on('scout_and_show', ({ scoutPosition, insertIndex, showIndices, flipCard }) => {
     const room = gameManager.getRoom(socket.id);
     const playerId = gameManager.getPlayerId(socket.id);
     if (!room?.game) return socket.emit('error', { message: '未在游戏中' });
 
-    const result = room.game.scoutAndShow(playerId, scoutPosition, insertIndex, showIndices);
+    const result = room.game.scoutAndShow(playerId, scoutPosition, insertIndex, showIndices, !!flipCard);
     if (result.success) {
       if (result.action === 'round_end') {
         handleRoundEnd(room, result);

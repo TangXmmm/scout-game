@@ -1,7 +1,11 @@
 /**
- * Scout 游戏客户端逻辑 v2
- * - 从 URL 参数读取稳定的 playerId（pid）和 roomCode（room）
- * - 连接后立即用 playerId 重连，彻底解决 socketId 变化问题
+ * Scout 游戏客户端逻辑 v3
+ * 修复：
+ * 1. 挖角面板显示完整卡牌（含翻转选项），明确"只取1张"
+ * 2. 支持挖角时翻转牌（传flipCard参数）
+ * 3. 实时分数明细展示（tokens - handCount）
+ * 4. 回合结束详细计分过程
+ * 5. 挖角插入位置可视化（手牌间点击插入）
  */
 
 const socket = io();
@@ -13,7 +17,9 @@ let gameState = null;
 let selectedCardIndices = [];
 let isMyTurn = false;
 let scoutPanelMode = false;
-let selectedScoutPos = null;
+let selectedScoutPos = null;  // 'left' | 'right'
+let selectedInsertIndex = 0;  // 插入位置
+let willFlipScoutedCard = false; // 是否翻转挖到的牌
 
 // ── 从 URL 读取身份信息 ────────────────────────────────────────
 (function initFromURL() {
@@ -51,7 +57,7 @@ function getValClass(val) {
   return 'val-9';
 }
 
-// ── 渲染卡牌 ──────────────────────────────────────────────────
+// ── 渲染卡牌 HTML ──────────────────────────────────────────────
 function renderCard(card, options = {}) {
   const val = getCardValue(card);
   const otherVal = getCardOtherValue(card);
@@ -69,6 +75,34 @@ function renderCard(card, options = {}) {
   `;
 }
 
+// ── 渲染迷你卡牌（用于Scout插入预览） ───────────────────────────
+function renderMiniCard(card, isInsertTarget = false) {
+  const val = getCardValue(card);
+  const valClass = getValClass(val);
+  const targetClass = isInsertTarget ? 'insert-target' : '';
+  return `<div class="mini-card ${targetClass} ${valClass}">${val}</div>`;
+}
+
+// ── 渲染挖到的牌预览（带翻转状态） ───────────────────────────────
+function renderScoutedCardPreview(card, flipped = false) {
+  const displayCard = flipped
+    ? { ...card, face: card.face === 'top' ? 'bottom' : 'top' }
+    : card;
+  const val = getCardValue(displayCard);
+  const otherVal = getCardOtherValue(displayCard);
+  const valClass = getValClass(val);
+  return `
+    <div class="scout-card-preview">
+      <div class="ctop ${getValClass(otherVal)}">${otherVal}</div>
+      <div class="cmv ${valClass}">${val}</div>
+      <div class="cbot ${getValClass(otherVal)}">${otherVal}</div>
+    </div>
+    <div style="font-size:0.72rem;color:#8b949e;margin-top:4px;">
+      ${flipped ? '（已翻转，将以此面朝上插入）' : '（以当前方向插入）'}
+    </div>
+  `;
+}
+
 // ── 渲染玩家信息栏 ────────────────────────────────────────────
 function renderPlayersBar(state) {
   const bar = document.getElementById('players-bar');
@@ -78,15 +112,48 @@ function renderPlayersBar(state) {
     let classes = 'player-chip';
     if (isMe) classes += ' me';
     if (isActive) classes += ' active';
+
+    // 实时预估得分（tokens - handCount，赢家不扣）
+    const tokens = p.scoutTokens || 0;
+    const handCount = p.handCount || 0;
+    const liveScore = tokens - handCount;
+    const liveScoreDisplay = liveScore >= 0 ? `+${liveScore}` : `${liveScore}`;
+
     return `
       <div class="${classes}">
         <div class="chip-avatar">${p.name.charAt(0)}</div>
         <div class="chip-info">
           <div class="chip-name">${p.name}${isMe ? ' (我)' : ''}</div>
-          <div class="chip-score">手牌:${p.handCount} · 总分:${p.totalScore}</div>
-          ${isActive ? '<div class="chip-turn">▶ 轮到你</div>' : ''}
-          ${p.usedScoutAndShow ? '<div style="font-size:0.65rem;color:#8b949e">已用S&S</div>' : ''}
+          <div class="chip-score">
+            手牌:${handCount} · 总:${p.totalScore}
+            <span class="live-score">(${liveScoreDisplay})</span>
+          </div>
+          ${isActive ? '<div class="chip-turn">▶ 行动中</div>' : ''}
+          ${p.usedScoutAndShow ? '<div style="font-size:0.65rem;color:#8b949e">已用挖+演</div>' : ''}
         </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── 渲染实时分数明细条 ────────────────────────────────────────
+function renderScoreDetailBar(state) {
+  const bar = document.getElementById('score-detail-bar');
+  if (!state || !state.players) { bar.innerHTML = ''; return; }
+
+  bar.innerHTML = state.players.map(p => {
+    const tokens = p.scoutTokens || 0;
+    const handCount = p.handCount || 0;
+    const thisRound = tokens - handCount;
+    const totalIfWin = p.totalScore + tokens; // 如果赢（不扣手牌）
+    const totalIfLose = p.totalScore + thisRound; // 如果输
+
+    return `
+      <div class="score-chip">
+        <span class="sc-name">${p.name}</span>
+        <span class="sc-tokens">🎫×${tokens}</span>
+        <span class="sc-hands">🃏×${handCount}</span>
+        <span class="sc-total ${thisRound < 0 ? 'neg' : ''}">(${thisRound >= 0 ? '+' : ''}${thisRound})</span>
       </div>
     `;
   }).join('');
@@ -96,16 +163,30 @@ function renderPlayersBar(state) {
 function renderStage(state) {
   const stageEl = document.getElementById('stage-cards');
   const stageInfo = document.getElementById('stage-info');
+
   if (!state.stage || state.stage.length === 0) {
-    stageEl.innerHTML = '<div class="stage-empty-hint">舞台空置 — 第一个出牌吧！</div>';
+    stageEl.innerHTML = '<div class="stage-empty-hint">在场组为空 — 第一个出牌吧！</div>';
     stageInfo.innerHTML = '';
     return;
   }
-  stageEl.innerHTML = state.stage.map(card => renderCard(card, { isStage: true })).join('');
+
+  // 舞台牌带左右端标记（方便玩家知道挖哪端）
+  stageEl.innerHTML = state.stage.map((card, i) => {
+    const isLeft = i === 0;
+    const isRight = i === state.stage.length - 1;
+    let endLabel = '';
+    if (state.stage.length > 1 && isLeft) {
+      endLabel = '<div class="stage-end-label stage-end-left">←左</div>';
+    } else if (state.stage.length > 1 && isRight) {
+      endLabel = '<div class="stage-end-label stage-end-right">右→</div>';
+    }
+    return `<div class="stage-card-wrap">${endLabel}${renderCard(card, { isStage: true })}</div>`;
+  }).join('');
+
   const ownerName = state.players.find(p => p.id === state.stageOwner)?.name || '?';
   const typeBadge = state.stageType === 'set'
-    ? '<span class="stage-type-badge badge-set">同值组</span>'
-    : '<span class="stage-type-badge badge-seq">顺子</span>';
+    ? '<span class="stage-type-badge badge-set">同号组</span>'
+    : '<span class="stage-type-badge badge-seq">连号顺子</span>';
   stageInfo.innerHTML = `<div class="stage-owner">${ownerName} 出的牌 ${typeBadge} ${state.stage.length}张</div>`;
 }
 
@@ -134,7 +215,7 @@ function toggleCard(index) {
   updateActionButtons();
 }
 
-// ── 更新操作按钮 ──────────────────────────────────────────────
+// ── 更新操作按钮状态 ──────────────────────────────────────────
 function updateActionButtons() {
   const btnShow = document.getElementById('btn-show');
   const btnScout = document.getElementById('btn-scout');
@@ -160,6 +241,7 @@ function renderGameState(state) {
 
   document.getElementById('round-num').textContent = state.roundNumber;
   renderPlayersBar(state);
+  renderScoreDetailBar(state);
   renderStage(state);
   renderHand(state.myHand || []);
   updateActionButtons();
@@ -176,9 +258,7 @@ function renderGameState(state) {
 
 // ── 翻牌阶段 ──────────────────────────────────────────────────
 function showFlipPhase(state) {
-  const panel = document.getElementById('flip-phase');
-  panel.style.display = 'flex';
-
+  document.getElementById('flip-phase').style.display = 'flex';
   const preview = document.getElementById('flip-preview');
   preview.innerHTML = (state.myHand || []).map(card => renderCard(card)).join('');
 
@@ -190,83 +270,249 @@ function showFlipPhase(state) {
   `).join('');
 }
 
-function doFlip() {
-  socket.emit('flip_hand');
-}
-
-function doConfirmFlip() {
-  socket.emit('confirm_flip');
-}
+function doFlip() { socket.emit('flip_hand'); }
+function doConfirmFlip() { socket.emit('confirm_flip'); }
 
 // ── SHOW ──────────────────────────────────────────────────────
 function doShow() {
-  if (selectedCardIndices.length === 0) return showToast('请先点击手牌中要出的牌（需连续）', 'error');
+  if (selectedCardIndices.length === 0) return showToast('请先点击手牌中要出的牌（需位置连续）', 'error');
   socket.emit('show', { cardIndices: selectedCardIndices });
   selectedCardIndices = [];
 }
 
-// ── SCOUT 面板 ────────────────────────────────────────────────
+// ── SCOUT 面板（全新可视化版本）────────────────────────────────
 function openScoutPanel(isScoutAndShow = false) {
   scoutPanelMode = isScoutAndShow;
   selectedScoutPos = null;
+  selectedInsertIndex = 0;
+  willFlipScoutedCard = false;
 
+  const title = document.getElementById('scout-panel-title');
   const desc = document.getElementById('scout-panel-desc');
   const scoutShowSelect = document.getElementById('scout-show-select');
   const confirmBtn = document.getElementById('scout-confirm-btn');
 
   if (isScoutAndShow) {
-    desc.textContent = '先从舞台取一张牌插入手牌，然后从手牌中选择连续的牌出牌。';
+    title.textContent = '⚡ 挖角并演出';
+    desc.textContent = '先挖角取1张牌，插入手牌，然后再选连续手牌演出。每轮只能用1次。';
     scoutShowSelect.style.display = 'block';
-    confirmBtn.textContent = '确认 Scout';
+    confirmBtn.textContent = '确认挖角（再去选牌演出）';
   } else {
-    desc.textContent = '从舞台两端取一张牌，插入你的手牌（可插任意位置），并给出牌人1分补偿。';
+    title.textContent = '🔍 挖角';
+    desc.textContent = '从在场组两端取1张牌（注意：每次只取1张！），插入你手牌任意位置，在场组主人获得1个挖角Token。';
     scoutShowSelect.style.display = 'none';
-    confirmBtn.textContent = '确认 Scout';
+    confirmBtn.textContent = '确认挖角';
   }
 
-  const stage = gameState?.stage || [];
-  document.getElementById('scout-left-card').textContent = stage.length > 0 ? getCardValue(stage[0]) : '-';
-  document.getElementById('scout-right-card').textContent = stage.length > 0 ? getCardValue(stage[stage.length - 1]) : '-';
+  // 渲染左右端牌选择
+  updateScoutPositionBtns();
 
-  const slider = document.getElementById('insert-slider');
-  slider.max = gameState?.myHand?.length || 0;
-  slider.value = 0;
-  updateInsertDisplay(0);
+  // 重置插入位置可视化
+  updateInsertHandPreview();
 
-  document.getElementById('scout-left-btn').classList.remove('selected');
-  document.getElementById('scout-right-btn').classList.remove('selected');
+  // 隐藏已选预览
+  document.getElementById('scouted-card-preview-area').style.display = 'none';
+
   document.getElementById('scout-panel').style.display = 'flex';
 }
 
-function selectScoutPos(pos) {
-  selectedScoutPos = pos;
-  document.getElementById('scout-left-btn').classList.toggle('selected', pos === 'left');
-  document.getElementById('scout-right-btn').classList.toggle('selected', pos === 'right');
+// ── 更新左右端牌的显示 ────────────────────────────────────────
+function updateScoutPositionBtns() {
+  const stage = gameState?.stage || [];
+  const leftCard = stage.length > 0 ? stage[0] : null;
+  const rightCard = stage.length > 0 ? stage[stage.length - 1] : null;
+
+  // 左端按钮
+  const leftPreview = document.getElementById('scout-left-preview');
+  const leftFlip = document.getElementById('scout-left-flip');
+  if (leftCard) {
+    const val = getCardValue(leftCard);
+    const otherVal = getCardOtherValue(leftCard);
+    leftPreview.innerHTML = `
+      <div class="scout-card-preview" style="margin:4px auto;">
+        <div class="ctop ${getValClass(otherVal)}">${otherVal}</div>
+        <div class="cmv ${getValClass(val)}">${val}</div>
+        <div class="cbot ${getValClass(otherVal)}">${otherVal}</div>
+      </div>
+    `;
+    // 只有两面不同时才显示翻转选项
+    if (leftCard.top !== leftCard.bottom) {
+      leftFlip.style.display = 'block';
+      document.getElementById('flip-left-cb').checked = false;
+    } else {
+      leftFlip.style.display = 'none';
+    }
+  } else {
+    leftPreview.innerHTML = '<div style="color:#8b949e;font-size:0.8rem;">无</div>';
+    leftFlip.style.display = 'none';
+  }
+
+  // 右端按钮
+  const rightPreview = document.getElementById('scout-right-preview');
+  const rightFlip = document.getElementById('scout-right-flip');
+  if (rightCard) {
+    const val = getCardValue(rightCard);
+    const otherVal = getCardOtherValue(rightCard);
+    // 只有一张牌时左右是同一张，显示"仅一张"
+    const isSingle = stage.length === 1;
+    rightPreview.innerHTML = isSingle
+      ? '<div style="font-size:0.7rem;color:#8b949e;">(同左端)</div>'
+      : `<div class="scout-card-preview" style="margin:4px auto;">
+          <div class="ctop ${getValClass(otherVal)}">${otherVal}</div>
+          <div class="cmv ${getValClass(val)}">${val}</div>
+          <div class="cbot ${getValClass(otherVal)}">${otherVal}</div>
+        </div>`;
+    if (!isSingle && rightCard.top !== rightCard.bottom) {
+      rightFlip.style.display = 'block';
+      document.getElementById('flip-right-cb').checked = false;
+    } else {
+      rightFlip.style.display = 'none';
+    }
+  } else {
+    rightPreview.innerHTML = '<div style="color:#8b949e;font-size:0.8rem;">无</div>';
+    rightFlip.style.display = 'none';
+  }
 }
 
-function updateInsertDisplay(val) {
-  document.getElementById('insert-pos-display').textContent = parseInt(val) + 1;
+// ── 选择左/右端 ──────────────────────────────────────────────
+function selectScoutPos(pos) {
+  selectedScoutPos = pos;
+  willFlipScoutedCard = false; // 切换端时重置翻转
+
+  document.getElementById('scout-left-btn').classList.toggle('selected', pos === 'left');
+  document.getElementById('scout-right-btn').classList.toggle('selected', pos === 'right');
+
+  // 重置对应的翻转checkbox
+  if (pos === 'left') {
+    document.getElementById('flip-left-cb').checked = false;
+    document.getElementById('flip-right-cb').checked = false;
+  } else {
+    document.getElementById('flip-right-cb').checked = false;
+    document.getElementById('flip-left-cb').checked = false;
+  }
+
+  // 显示将挖到的牌
+  const stage = gameState?.stage || [];
+  const card = pos === 'left' ? stage[0] : stage[stage.length - 1];
+  if (card) {
+    const previewArea = document.getElementById('scouted-card-preview-area');
+    previewArea.style.display = 'block';
+    document.getElementById('scouted-card-display').innerHTML = renderScoutedCardPreview(card, false);
+  }
+
+  // 更新插入预览
+  updateInsertHandPreview();
+}
+
+// ── 翻转checkbox变化 ──────────────────────────────────────────
+function onFlipCheckChange() {
+  if (!selectedScoutPos) return;
+  const cbId = selectedScoutPos === 'left' ? 'flip-left-cb' : 'flip-right-cb';
+  willFlipScoutedCard = document.getElementById(cbId).checked;
+
+  // 更新挖到的牌预览
+  const stage = gameState?.stage || [];
+  const card = selectedScoutPos === 'left' ? stage[0] : stage[stage.length - 1];
+  if (card) {
+    document.getElementById('scouted-card-display').innerHTML =
+      renderScoutedCardPreview(card, willFlipScoutedCard);
+  }
+
+  // 更新插入预览中的目标牌
+  updateInsertHandPreview();
+}
+
+// ── 插入位置可视化（点击手牌之间的位置）────────────────────────
+function updateInsertHandPreview() {
+  const container = document.getElementById('insert-hand-preview');
+  const hint = document.getElementById('insert-hint-text');
+  const hand = gameState?.myHand || [];
+
+  if (hand.length === 0) {
+    container.innerHTML = '<div style="font-size:0.8rem;color:#8b949e;">手牌为空，将插在唯一位置</div>';
+    hint.textContent = '';
+    return;
+  }
+
+  // 获取当前挖到的牌（用于在插入位置显示）
+  const stage = gameState?.stage || [];
+  const scoutedCard = selectedScoutPos
+    ? (selectedScoutPos === 'left' ? stage[0] : stage[stage.length - 1])
+    : null;
+
+  // 构建手牌+插入线的预览
+  // 在每张手牌前可以点击插入（共 hand.length+1 个位置）
+  let html = '';
+
+  for (let i = 0; i <= hand.length; i++) {
+    // 插入位置点击区域
+    const isCurrentInsertPos = i === selectedInsertIndex;
+    if (isCurrentInsertPos && scoutedCard) {
+      // 显示橙色插入线 + 挖到的牌
+      html += `<div class="mini-insert-line"></div>`;
+      const displayCard = willFlipScoutedCard
+        ? { ...scoutedCard, face: scoutedCard.face === 'top' ? 'bottom' : 'top' }
+        : scoutedCard;
+      const val = getCardValue(displayCard);
+      html += `<div class="mini-scouted-card ${getValClass(val)}" style="background:${getCardBg(val)};color:#1a1a2e;">${val}</div>`;
+    } else {
+      // 可点击的插入位置（竖线占位符）
+      html += `<div onclick="setInsertIndex(${i})" style="width:12px;height:42px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;" title="插在第${i+1}位">
+        <div style="width:2px;height:28px;background:rgba(255,255,255,0.1);border-radius:2px;"></div>
+      </div>`;
+    }
+
+    // 手牌
+    if (i < hand.length) {
+      html += renderMiniCard(hand[i]);
+    }
+  }
+
+  container.innerHTML = html;
+  hint.textContent = scoutedCard
+    ? `将插在第 ${selectedInsertIndex + 1} 位（点击位置线调整）`
+    : '请先选择取哪端的牌';
+}
+
+function getCardBg(val) {
+  // 返回迷你挖到的牌背景色
+  if (val <= 2) return '#fde8e8';
+  if (val <= 4) return '#fde8cc';
+  if (val <= 6) return '#fef9e7';
+  if (val <= 8) return '#e8f8ed';
+  return '#e8f0fe';
+}
+
+function setInsertIndex(idx) {
+  selectedInsertIndex = idx;
+  updateInsertHandPreview();
 }
 
 function closeScoutPanel() {
   document.getElementById('scout-panel').style.display = 'none';
   selectedScoutPos = null;
+  willFlipScoutedCard = false;
 }
 
 function confirmScout() {
-  if (!selectedScoutPos) return showToast('请选择从哪端取牌', 'error');
-  const insertIndex = parseInt(document.getElementById('insert-slider').value);
+  if (!selectedScoutPos) return showToast('请先选择从哪端取牌', 'error');
 
   if (scoutPanelMode) {
-    // Scout & Show：先关闭面板，让用户选牌
+    // Scout & Show：先保存Scout参数，关闭面板，让用户选牌
     window._pendingScoutPos = selectedScoutPos;
-    window._pendingInsertIndex = insertIndex;
+    window._pendingInsertIndex = selectedInsertIndex;
+    window._pendingFlipCard = willFlipScoutedCard;
     closeScoutPanel();
-    showToast('✅ Scout 位置已定，请点选手牌后点"SHOW"', 'success');
-    document.getElementById('btn-show').textContent = '⚡ 确认 SCOUT+SHOW';
+    showToast('✅ 挖角位置已定！请在手牌中选择要出的连续牌，再点"演出"按钮', 'info');
+    // 更改演出按钮为确认S&S
+    document.getElementById('btn-show').textContent = '⚡ 确认挖角+演出';
     document.getElementById('btn-show').onclick = () => confirmScoutAndShow();
   } else {
-    socket.emit('scout', { position: selectedScoutPos, insertIndex });
+    socket.emit('scout', {
+      position: selectedScoutPos,
+      insertIndex: selectedInsertIndex,
+      flipCard: willFlipScoutedCard,
+    });
     closeScoutPanel();
     selectedCardIndices = [];
   }
@@ -278,6 +524,7 @@ function confirmScoutAndShow() {
     scoutPosition: window._pendingScoutPos,
     insertIndex: window._pendingInsertIndex,
     showIndices: selectedCardIndices,
+    flipCard: window._pendingFlipCard || false,
   });
   selectedCardIndices = [];
   resetShowButton();
@@ -285,7 +532,7 @@ function confirmScoutAndShow() {
 
 function resetShowButton() {
   const btn = document.getElementById('btn-show');
-  btn.textContent = '🎭 SHOW 出牌';
+  btn.textContent = '🎭 演出';
   btn.onclick = () => doShow();
 }
 
@@ -299,7 +546,7 @@ function backToLobby() {
   window.location.href = '/';
 }
 
-// ── 回合结束弹窗 ──────────────────────────────────────────────
+// ── 回合结束弹窗（含详细计分过程）────────────────────────────
 function showRoundEnd(data) {
   document.getElementById('round-winner-name').textContent = `🏆 ${data.roundWinnerName} 赢得了本轮！`;
 
@@ -308,14 +555,34 @@ function showRoundEnd(data) {
     const name = data.playerNames[id] || id;
     const roundScore = data.roundScores[id] || 0;
     const isWinner = id === data.roundWinnerId;
+    const tokens = data.scoutTokens?.[id] || 0;
+    const handCount = data.handCounts?.[id] || 0;
+
+    // 显示详细计分过程
+    let detailStr = '';
+    if (isWinner) {
+      detailStr = `Token(${tokens}) + 手牌=0（赢家不扣）`;
+    } else {
+      detailStr = `Token(${tokens}) - 手牌(${handCount}) = ${roundScore}`;
+    }
+
     return `<tr class="${isWinner ? 'winner-row' : ''}">
       <td>${name}${isWinner ? ' 🏆' : ''}</td>
-      <td>+${roundScore}</td>
-      <td>${total}</td>
+      <td class="score-detail-col">${detailStr}</td>
+      <td style="color:${roundScore >= 0 ? '#3fb950' : '#f85149'};font-weight:700;">${roundScore >= 0 ? '+' : ''}${roundScore}</td>
+      <td style="font-weight:700;">${total}</td>
     </tr>`;
   }).join('');
 
   document.getElementById('round-end-modal').style.display = 'flex';
+
+  // 只有未游戏结束时显示"下一轮"按钮
+  const nextBtn = document.getElementById('btn-next-round');
+  if (data.gameOver) {
+    nextBtn.style.display = 'none';
+  } else {
+    nextBtn.style.display = 'inline-block';
+  }
 }
 
 function showGameEnd(data) {
@@ -336,7 +603,6 @@ function showGameEnd(data) {
 
 // ── Socket 事件 ───────────────────────────────────────────────
 
-// 连接成功后立即用稳定 playerId 重连
 socket.on('connect', () => {
   if (myRoomCode && myPlayerId) {
     socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
@@ -348,7 +614,7 @@ socket.on('rejoin_result', ({ success, state, message }) => {
   if (success && state) {
     renderGameState(state);
     document.getElementById('action-log').textContent = state.state === 'flip_phase'
-      ? '🎮 游戏已开始！请决定是否翻转手牌'
+      ? '🎮 游戏开始！请决定是否翻转手牌'
       : '🎮 游戏进行中...';
   } else {
     showToast('⚠️ ' + (message || '连接失败，请返回大厅'), 'error');
@@ -373,15 +639,15 @@ socket.on('hand_updated', ({ myHand, message }) => {
 socket.on('phase_changed', ({ phase }) => {
   if (phase === 'playing') {
     document.getElementById('flip-phase').style.display = 'none';
-    document.getElementById('action-log').textContent = '游戏正式开始！轮流出牌...';
+    document.getElementById('action-log').textContent = '🎮 游戏正式开始！轮流出牌...';
   }
 });
 
 socket.on('action_log', ({ type, playerName, count, position }) => {
   const msgs = {
     show: `${playerName} 出了 ${count} 张牌`,
-    scout: `${playerName} 从舞台${position === 'left' ? '左' : '右'}端挖了一张牌`,
-    scout_and_show: `${playerName} 挖角后出牌！`,
+    scout: `${playerName} 从在场组${position === 'left' ? '左' : '右'}端挖了1张牌`,
+    scout_and_show: `${playerName} 挖角并演出！`,
   };
   document.getElementById('action-log').textContent = msgs[type] || '';
 });

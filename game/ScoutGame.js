@@ -398,6 +398,14 @@ class ScoutGame {
       this.startPlayerIndex = (this.startPlayerIndex + 1) % this.playerCount;
     }
 
+    // 构建计分明细（供前端展示计算过程）
+    const scoutTokensSnapshot = {};
+    const handCountsSnapshot = {};
+    this.players.forEach(p => {
+      scoutTokensSnapshot[p.id] = this.scoutTokens[p.id] || 0;
+      handCountsSnapshot[p.id] = this.hands[p.id].length;
+    });
+
     return {
       success: true,
       action: 'round_end',
@@ -405,6 +413,8 @@ class ScoutGame {
       winnerType,
       roundScores,
       totalScores: this.totalScores,
+      scoutTokens: scoutTokensSnapshot,
+      handCounts: handCountsSnapshot,
       gameOver: this.state === 'game_end',
     };
   }

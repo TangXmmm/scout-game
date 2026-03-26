@@ -7,11 +7,23 @@ const socket = io();
 // ── 状态 ──────────────────────────────────────────────────────
 let myPlayerId = null;
 let myRoomCode = null;
+let myPlayerName = null;
 let gameState = null;
 let selectedCardIndices = []; // 当前选中的手牌索引
 let isMyTurn = false;
 let scoutPanelMode = false; // false = 纯scout, true = scout_and_show
 let selectedScoutPos = null; // 'left' | 'right'
+
+// ── 从 URL 参数获取房间信息并重连 ────────────────────────────
+(function initFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  myRoomCode = params.get('room');
+  myPlayerName = params.get('name');
+  if (!myRoomCode || !myPlayerName) {
+    // 没有参数，回到大厅
+    window.location.href = '/';
+  }
+})();
 
 // ── 工具函数 ──────────────────────────────────────────────────
 function showToast(msg, type = '') {
@@ -363,6 +375,15 @@ function showGameEnd(data) {
 }
 
 // ── Socket 事件监听 ───────────────────────────────────────────
+
+// 连接成功后，用 URL 参数重新加入房间获取游戏状态
+socket.on('connect', () => {
+  myPlayerId = socket.id;
+  if (myRoomCode && myPlayerName) {
+    socket.emit('rejoin_game', { roomCode: myRoomCode, playerName: myPlayerName });
+  }
+});
+
 socket.on('game_started', (state) => {
   myPlayerId = socket.id;
   renderGameState(state);
@@ -435,7 +456,13 @@ socket.on('error', ({ message }) => {
   showToast('⚠️ ' + message, 'error');
 });
 
-// ── 初始化：重新连接时请求游戏状态 ──────────────────────────
-socket.on('connect', () => {
-  myPlayerId = socket.id;
+socket.on('rejoin_result', ({ success, state, message }) => {
+  if (success) {
+    myPlayerId = socket.id;
+    renderGameState(state);
+    document.getElementById('action-log').textContent = '🎮 游戏进行中...';
+  } else {
+    showToast('⚠️ ' + (message || '重新加入失败，请返回大厅'), 'error');
+    setTimeout(() => { window.location.href = '/'; }, 2000);
+  }
 });

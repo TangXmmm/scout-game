@@ -198,6 +198,42 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── 重新加入游戏（页面跳转/刷新后重连）────────────────────
+  socket.on('rejoin_game', ({ roomCode, playerName }) => {
+    const room = gameManager.rooms[roomCode?.toUpperCase()];
+    if (!room || !room.game) {
+      return socket.emit('rejoin_result', { success: false, message: '游戏不存在或尚未开始' });
+    }
+    const player = room.players.find(p => p.name === playerName);
+    if (!player) {
+      return socket.emit('rejoin_result', { success: false, message: '找不到该玩家，请重新创建房间' });
+    }
+    const oldSocketId = player.socketId;
+    player.socketId = socket.id;
+    if (room.hostId === oldSocketId) room.hostId = socket.id;
+    delete gameManager.socketToRoom[oldSocketId];
+    delete gameManager.socketToPlayer[oldSocketId];
+    gameManager.socketToRoom[socket.id] = roomCode.toUpperCase();
+    gameManager.socketToPlayer[socket.id] = player.id;
+    // 更新游戏内部 playerId（因为 playerId === socketId）
+    const game = room.game;
+    const gamePlayer = game.players.find(p => p.id === oldSocketId);
+    if (gamePlayer) {
+      gamePlayer.id = socket.id;
+      ['hands', 'flipConfirmed', 'scoutTokens', 'usedScoutAndShow', 'totalScores'].forEach(key => {
+        if (game[key] && game[key][oldSocketId] !== undefined) {
+          game[key][socket.id] = game[key][oldSocketId];
+          delete game[key][oldSocketId];
+        }
+      });
+      if (game.stageOwner === oldSocketId) game.stageOwner = socket.id;
+    }
+    socket.join(roomCode.toUpperCase());
+    const state = room.game.getStateForPlayer(socket.id);
+    socket.emit('rejoin_result', { success: true, state });
+    console.log(`[重连] ${playerName} 重新加入房间 ${roomCode}`);
+  });
+
   // ── 下一轮 ────────────────────────────────────────────────
   socket.on('next_round', () => {
     const room = gameManager.getRoom(socket.id);

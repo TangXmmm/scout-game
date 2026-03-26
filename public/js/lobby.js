@@ -98,8 +98,13 @@ socket.on('player_left', ({ players, leftPlayer }) => {
 });
 
 socket.on('game_started', (state) => {
-  // 跳转到游戏页
-  window.location.href = '/game.html';
+  // 跳转到游戏页，携带 roomCode 和 playerName
+  const playerName = document.getElementById('player-name').value.trim();
+  const params = new URLSearchParams({
+    room: myRoomCode,
+    name: playerName,
+  });
+  window.location.href = '/game.html?' + params.toString();
 });
 
 socket.on('error', ({ message }) => {

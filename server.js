@@ -212,12 +212,12 @@ io.on('connection', (socket) => {
   });
 
   // ── SCOUT（挖角）────────────────────────────────────────
-  socket.on('scout', ({ position, insertIndex }) => {
+  socket.on('scout', ({ position, insertIndex, flipCard }) => {
     const room = gameManager.getRoom(socket.id);
     const playerId = gameManager.getPlayerId(socket.id);
     if (!room?.game) return socket.emit('error', { message: '未在游戏中' });
 
-    const result = room.game.scout(playerId, position, insertIndex);
+    const result = room.game.scout(playerId, position, insertIndex, !!flipCard);
     if (result.success) {
       if (result.action === 'round_end') {
         handleRoundEnd(room, result);

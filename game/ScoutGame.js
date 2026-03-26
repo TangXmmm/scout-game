@@ -1,8 +1,16 @@
 /**
- * Scout 核心游戏逻辑
+ * Scout 核心游戏逻辑 v3
+ *
+ * 对照官方规则书修复：
+ * 1. 发牌数量：3人=12张，4人=11张，5人=9张
+ * 2. 顺子可以升序或降序（手牌中的连续性按牌值判断）
+ * 3. Scout 挖到的牌可以改变上下方向（翻转）
+ * 4. 顺子强弱比较用最小值（规则书图例：56 OK vs 45，最小值5>4）
+ * 5. 计分规则（官方）：每张剩余手牌 -1分，每个scoutToken +1分，赢家（条件i）手牌0扣
+ * 6. 回合结束条件：i.演出后手牌耗尽 ii.演出后其他所有人都无法/不能演出（只能挖角）
  */
 
-const { createShuffledDeck, getHandSizeForPlayers, getCardValue, flipHand } = require('./CardDeck');
+const { createShuffledDeck, getHandSizeForPlayers, getCardValue, flipCard, flipHand } = require('./CardDeck');
 
 class ScoutGame {
   constructor(players) {
@@ -37,22 +45,24 @@ class ScoutGame {
     this.flipConfirmed = {};
     this.players.forEach(p => { this.flipConfirmed[p.id] = false; });
 
-    // 舞台区（当前出的牌组）
+    // 舞台区（当前在场组）
     this.stage = [];
-    this.stageOwner = null; // 谁出的当前舞台牌
-    this.stageType = null;  // 'set' | 'sequence'
+    this.stageOwner = null;
+    this.stageType = null;
 
-    // 当前回合轮次顺序
+    // 行动轮次
     this.currentPlayerIndex = this.startPlayerIndex;
-    this.consecutiveScouts = 0; // 连续scout次数（无人能show时回合结束）
+    // consecutiveScouts：从上次 show 后连续 scout 的次数
+    // 当 consecutiveScouts >= playerCount - 1 且 stageOwner !== null，回合结束（条件ii）
+    this.consecutiveScouts = 0;
     this.roundOver = false;
     this.roundWinner = null;
 
-    // 本轮scout补偿记录
+    // 本轮挖角标记（补偿token）
     this.scoutTokens = {};
     this.players.forEach(p => { this.scoutTokens[p.id] = 0; });
 
-    // 本轮是否使用过"scout & show"
+    // 本轮是否使用过"挖角并演出"标记
     this.usedScoutAndShow = {};
     this.players.forEach(p => { this.usedScoutAndShow[p.id] = false; });
 
@@ -60,7 +70,7 @@ class ScoutGame {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 翻牌阶段：玩家可以选择翻转整手牌
+  // 翻牌阶段（每轮开始时，可选择翻转整手牌）
   // ─────────────────────────────────────────────────────────────
   flipPlayerHand(playerId) {
     if (this.state !== 'flip_phase') return { success: false, message: '不在翻牌阶段' };
@@ -85,39 +95,60 @@ class ScoutGame {
   // 出牌合法性校验
   // ─────────────────────────────────────────────────────────────
 
-  /** 从手牌中按照索引选取的牌（索引必须连续） */
+  /**
+   * 从手牌中按照索引选取的牌（索引必须在手牌中连续）
+   * 规则书：必须是手牌中"一组"连续的牌
+   */
   getCardsAtIndices(playerId, indices) {
     const hand = this.hands[playerId];
     if (!hand) return null;
-    // 检查连续性
+    if (indices.length === 0) return null;
+
+    // 检查索引连续性（手牌位置连续）
     const sorted = [...indices].sort((a, b) => a - b);
     for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i] !== sorted[i - 1] + 1) return null; // 非连续
+      if (sorted[i] !== sorted[i - 1] + 1) return null; // 手牌位置不连续
     }
+    // 检查索引范围
+    if (sorted[0] < 0 || sorted[sorted.length - 1] >= hand.length) return null;
+
     return sorted.map(i => hand[i]);
   }
 
-  /** 检查是否为合法的同值组 */
+  /** 检查是否为合法的同值组（所有牌数值相同） */
   isValidSet(cards) {
     if (cards.length < 1) return false;
     const val = getCardValue(cards[0]);
     return cards.every(c => getCardValue(c) === val);
   }
 
-  /** 检查是否为合法的顺子 */
+  /**
+   * 检查是否为合法的顺子（连续数字，升序或降序均可）
+   * 规则书明确：数字可以是升序也可以是降序
+   */
   isValidSequence(cards) {
     if (cards.length < 2) return false;
     const vals = cards.map(getCardValue);
+
+    // 检查升序（递增）
+    let ascending = true;
     for (let i = 1; i < vals.length; i++) {
-      if (vals[i] !== vals[i - 1] + 1) return false;
+      if (vals[i] !== vals[i - 1] + 1) { ascending = false; break; }
     }
-    return true;
+    if (ascending) return true;
+
+    // 检查降序（递减）
+    let descending = true;
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i] !== vals[i - 1] - 1) { descending = false; break; }
+    }
+    return descending;
   }
 
   /** 判断一组牌的类型 */
   getPlayType(cards) {
     if (cards.length === 1) {
-      return 'set'; // 单张既是set也是sequence，统一归set
+      return 'set'; // 单张统一归set，便于比较（单张能被任何同张数或更多张压）
     }
     if (this.isValidSet(cards)) return 'set';
     if (this.isValidSequence(cards)) return 'sequence';
@@ -125,65 +156,73 @@ class ScoutGame {
   }
 
   /**
-   * 新出牌是否强于当前舞台牌
-   * 正确规则（官方 Scout）：
-   * 1. 张数多的直接赢
-   * 2. 张数相同时，同值组（set）强于顺子（sequence）
-   * 3. 张数相同且类型相同时，比数值大小（同值组比同值大小，顺子比最高值大小）
+   * 获取一组牌的"比较数值"
+   * 规则书：比较每组中数字最小的卡牌（最小值更大则更强）
+   */
+  getCompareValue(cards) {
+    return Math.min(...cards.map(getCardValue));
+  }
+
+  /**
+   * 新出牌是否强于当前在场组
+   *
+   * 官方规则（规则书）：
+   * 1. 首先比张数：更多张直接赢；更少张直接输
+   * 2. 张数相同比类型：同号组（set）强于连号组（sequence）
+   * 3. 张数和类型都相同：比每组中最小的数字，更大则更强；相等则不能出
    */
   beats(newCards, newType) {
-    if (this.stage.length === 0) return true; // 舞台为空，任何牌都能出
+    if (this.stage.length === 0) return true; // 无在场组，任何牌都能出
 
     const oldCount = this.stage.length;
     const newCount = newCards.length;
 
-    // 规则1：张数更多直接赢
+    // 规则1：张数
     if (newCount > oldCount) return true;
     if (newCount < oldCount) return false;
 
-    // 张数相同时：
-    // 规则2：同值组（set）强于顺子（sequence）
+    // 规则2：类型（set > sequence）
     if (newType === 'set' && this.stageType === 'sequence') return true;
     if (newType === 'sequence' && this.stageType === 'set') return false;
 
-    // 规则3：类型相同时比数值
-    const newMax = Math.max(...newCards.map(getCardValue));
-    const oldMax = Math.max(...this.stage.map(getCardValue));
-    return newMax > oldMax;
+    // 规则3：比最小值（规则书图例确认用最小值比较）
+    const newMin = this.getCompareValue(newCards);
+    const oldMin = this.getCompareValue(this.stage);
+    return newMin > oldMin; // 严格大于，相等不能出
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 行动：SHOW（出牌）
+  // 行动 A：演出（SHOW）
   // ─────────────────────────────────────────────────────────────
   show(playerId, cardIndices) {
     if (this.state !== 'playing') return { success: false, message: '游戏未在进行中' };
     if (this.getCurrentPlayer().id !== playerId) return { success: false, message: '还没轮到你' };
 
     const cards = this.getCardsAtIndices(playerId, cardIndices);
-    if (!cards) return { success: false, message: '请选择手牌中连续的牌' };
+    if (!cards) return { success: false, message: '请选择手牌中位置连续的牌' };
 
     const type = this.getPlayType(cards);
-    if (!type) return { success: false, message: '所选牌不构成合法出牌（同值组或连续顺子）' };
+    if (!type) return { success: false, message: '所选牌不构成合法出牌（同号组或连号顺子）' };
 
     if (!this.beats(cards, type)) {
-      return { success: false, message: '出牌不够强，无法压制当前舞台' };
+      return { success: false, message: '出牌不够强，无法压制当前在场组' };
     }
 
-    // 从手牌中移除
+    // 从手牌移除（从后往前删避免索引偏移）
     const sorted = [...cardIndices].sort((a, b) => a - b);
     for (let i = sorted.length - 1; i >= 0; i--) {
       this.hands[playerId].splice(sorted[i], 1);
     }
 
-    // 更新舞台
+    // 更新在场组
     this.stage = cards;
     this.stageOwner = playerId;
     this.stageType = type;
     this.consecutiveScouts = 0;
 
-    // 检查是否手牌清空
+    // 条件 i：演出后手牌耗尽，回合立即结束
     if (this.hands[playerId].length === 0) {
-      return this.endRound(playerId);
+      return this.endRound(playerId, 'empty_hand');
     }
 
     this.nextPlayer();
@@ -191,16 +230,20 @@ class ScoutGame {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 行动：SCOUT（挖角）
+  // 行动 B：挖角（SCOUT）
   // ─────────────────────────────────────────────────────────────
-  scout(playerId, position, insertIndex) {
-    // position: 'left' | 'right' - 从舞台左端或右端取牌
-    // insertIndex: 插入手牌的位置（0=最左）
+  /**
+   * @param {string} playerId
+   * @param {'left'|'right'} position - 从在场组左端或右端取牌
+   * @param {number} insertIndex - 插入手牌的位置（0=最左）
+   * @param {boolean} [flipScoutedCard=false] - 是否翻转挖到的牌（规则书：可以改变上下方向）
+   */
+  scout(playerId, position, insertIndex, flipScoutedCard = false) {
     if (this.state !== 'playing') return { success: false, message: '游戏未在进行中' };
     if (this.getCurrentPlayer().id !== playerId) return { success: false, message: '还没轮到你' };
-    if (this.stage.length === 0) return { success: false, message: '舞台上没有牌可以scout' };
+    if (this.stage.length === 0) return { success: false, message: '在场组没有牌可以挖角' };
 
-    // 取牌
+    // 从在场组取牌（只能取两端之一）
     let card;
     if (position === 'left') {
       card = this.stage.shift();
@@ -208,26 +251,32 @@ class ScoutGame {
       card = this.stage.pop();
     }
 
-    // 插入手牌
+    // 规则书：挖角时可以改变该牌的上下方向
+    if (flipScoutedCard) {
+      card = flipCard(card);
+    }
+
+    // 插入手牌任意位置
     const hand = this.hands[playerId];
     const safeIndex = Math.max(0, Math.min(insertIndex, hand.length));
     hand.splice(safeIndex, 0, card);
 
-    // 给舞台主人scout补偿
+    // 在场组主人获得挖角标记（补偿）
     if (this.stageOwner && this.stageOwner !== playerId) {
       this.scoutTokens[this.stageOwner] = (this.scoutTokens[this.stageOwner] || 0) + 1;
     }
 
-    // 舞台清空处理
+    // 在场组清空后，主人和类型重置
     if (this.stage.length === 0) {
       this.stageOwner = null;
       this.stageType = null;
     }
 
     this.consecutiveScouts++;
-    // 检查是否所有其他玩家都连续scout（无人能show）
+
+    // 条件 ii：所有其他玩家都连续挖角（无人演出），在场组主人赢
     if (this.consecutiveScouts >= this.playerCount - 1 && this.stageOwner !== null) {
-      return this.endRound(this.stageOwner);
+      return this.endRound(this.stageOwner, 'all_scout');
     }
 
     this.nextPlayer();
@@ -235,20 +284,24 @@ class ScoutGame {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 行动：SCOUT & SHOW（挖角后出牌，每玩家每局只能用一次）
+  // 行动 C：挖角并演出（SCOUT & SHOW）每玩家每轮仅限一次
   // ─────────────────────────────────────────────────────────────
-  scoutAndShow(playerId, scoutPosition, insertIndex, showIndices) {
+  scoutAndShow(playerId, scoutPosition, insertIndex, showIndices, flipScoutedCard = false) {
     if (this.state !== 'playing') return { success: false, message: '游戏未在进行中' };
     if (this.getCurrentPlayer().id !== playerId) return { success: false, message: '还没轮到你' };
-    if (this.usedScoutAndShow[playerId]) return { success: false, message: '你已经用过 Scout & Show 了' };
-    if (this.stage.length === 0) return { success: false, message: '舞台上没有牌可以scout' };
+    if (this.usedScoutAndShow[playerId]) return { success: false, message: '你已经用过"挖角并演出"了' };
+    if (this.stage.length === 0) return { success: false, message: '在场组没有牌可以挖角' };
 
-    // 先Scout
+    // --- 先挖角 ---
     let card;
     if (scoutPosition === 'left') {
       card = this.stage.shift();
     } else {
       card = this.stage.pop();
+    }
+
+    if (flipScoutedCard) {
+      card = flipCard(card);
     }
 
     const hand = this.hands[playerId];
@@ -259,21 +312,25 @@ class ScoutGame {
       this.scoutTokens[this.stageOwner] = (this.scoutTokens[this.stageOwner] || 0) + 1;
     }
 
+    // 保存挖角前的在场组状态（若show失败需要知道此时状态）
+    const stageBeforeShow = [...this.stage];
+    const stageOwnerBeforeShow = this.stageOwner;
+    const stageTypeBeforeShow = this.stageType;
+
     if (this.stage.length === 0) {
       this.stageOwner = null;
       this.stageType = null;
     }
 
-    // 再Show（使用更新后的手牌）
+    // --- 再演出 ---
     const cards = this.getCardsAtIndices(playerId, showIndices);
     if (!cards) {
-      // 回滚scout（简单处理：失败提示）
       return { success: false, message: '出牌索引不合法，请重新操作' };
     }
 
     const type = this.getPlayType(cards);
     if (!type) return { success: false, message: '所选牌不构成合法出牌' };
-    if (!this.beats(cards, type)) return { success: false, message: '出牌不够强，无法压制当前舞台' };
+    if (!this.beats(cards, type)) return { success: false, message: '出牌不够强，无法压制当前在场组' };
 
     const sorted = [...showIndices].sort((a, b) => a - b);
     for (let i = sorted.length - 1; i >= 0; i--) {
@@ -287,7 +344,7 @@ class ScoutGame {
     this.usedScoutAndShow[playerId] = true;
 
     if (this.hands[playerId].length === 0) {
-      return this.endRound(playerId);
+      return this.endRound(playerId, 'empty_hand');
     }
 
     this.nextPlayer();
@@ -295,28 +352,38 @@ class ScoutGame {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 回合结束与计分
+  // 回合结束与计分（官方规则）
   // ─────────────────────────────────────────────────────────────
-  endRound(winnerId) {
+  /**
+   * 官方计分规则（规则书第6节）：
+   * - 每张已收集的翻面卡牌（即已获得的分数卡）+1分 → 对应我们的 scoutTokens
+   * - 每个挖角标记 +1分 → 同上
+   * - 每张剩余手牌 -1分
+   * - 达成条件 i（手牌耗尽）的玩家：手牌0张，不扣分
+   * - 达成条件 ii（其他人全部挖角）的玩家：手牌不为0，但不因手牌扣分
+   *
+   * 简化实现：
+   * - winnerType 'empty_hand'：赢家不扣手牌分；其他人：scoutTokens - handCount
+   * - winnerType 'all_scout'：同上
+   */
+  endRound(winnerId, winnerType = 'empty_hand') {
     this.roundOver = true;
     this.roundWinner = winnerId;
     this.state = 'round_end';
 
     const roundScores = {};
-    this.players.forEach(p => { roundScores[p.id] = 0; });
 
-    // 赢家获得其他玩家手牌总数的分数
-    let othersCards = 0;
     this.players.forEach(p => {
-      if (p.id !== winnerId) {
-        othersCards += this.hands[p.id].length;
+      const tokens = this.scoutTokens[p.id] || 0;
+      const handCount = this.hands[p.id].length;
+
+      if (p.id === winnerId) {
+        // 赢家：scoutTokens + 不扣手牌分（规则书：达成结束条件的玩家不失去分数）
+        roundScores[p.id] = tokens;
+      } else {
+        // 非赢家：scoutTokens - 剩余手牌数
+        roundScores[p.id] = tokens - handCount;
       }
-    });
-    roundScores[winnerId] += othersCards;
-
-    // 加上scout补偿
-    this.players.forEach(p => {
-      roundScores[p.id] += (this.scoutTokens[p.id] || 0);
     });
 
     // 累积到总分
@@ -324,7 +391,7 @@ class ScoutGame {
       this.totalScores[p.id] = (this.totalScores[p.id] || 0) + roundScores[p.id];
     });
 
-    // 判断是否游戏结束（轮数 = 玩家数）
+    // 判断是否游戏结束（总轮次 = 玩家数）
     if (this.roundNumber >= this.playerCount) {
       this.state = 'game_end';
     } else {
@@ -335,6 +402,7 @@ class ScoutGame {
       success: true,
       action: 'round_end',
       roundWinner: winnerId,
+      winnerType,
       roundScores,
       totalScores: this.totalScores,
       gameOver: this.state === 'game_end',
@@ -350,10 +418,9 @@ class ScoutGame {
 
   nextPlayer() {
     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playerCount;
-    // 跳过轮到舞台主人自己（因为主人不能自己scout自己的牌）- 无需跳，自然流转即可
   }
 
-  /** 获取供客户端渲染的游戏状态（隐藏其他玩家手牌背面） */
+  /** 获取供客户端渲染的游戏状态 */
   getStateForPlayer(viewPlayerId) {
     const currentPlayer = this.getCurrentPlayer();
     return {
@@ -374,21 +441,6 @@ class ScoutGame {
         flipConfirmed: this.flipConfirmed[p.id] || false,
       })),
       usedScoutAndShow: this.usedScoutAndShow[viewPlayerId] || false,
-    };
-  }
-
-  /** 获取完整游戏状态（用于调试或旁观） */
-  getFullState() {
-    return {
-      state: this.state,
-      roundNumber: this.roundNumber,
-      currentPlayerId: this.getCurrentPlayer()?.id,
-      stage: this.stage,
-      stageOwner: this.stageOwner,
-      stageType: this.stageType,
-      hands: this.hands,
-      totalScores: this.totalScores,
-      scoutTokens: this.scoutTokens,
     };
   }
 }

@@ -60,6 +60,31 @@ function showWaitingRoom(roomCode, players) {
   updateStartButton(players);
 }
 
+function copyRoomCode() {
+  const code = myRoomCode || document.getElementById('display-room-code').textContent;
+  const btn = document.getElementById('copy-btn');
+  // 构建分享文本
+  const shareText = `来和我一起玩 Scout！马戏星探 🎪\n房间码：${code}\n${window.location.origin}`;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(shareText).then(() => {
+      btn.textContent = '✅ 已复制！';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 复制房间码'; btn.classList.remove('copied'); }, 2500);
+    });
+  } else {
+    // 兼容旧版浏览器
+    const ta = document.createElement('textarea');
+    ta.value = shareText;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✅ 已复制！';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 复制房间码'; btn.classList.remove('copied'); }, 2500);
+  }
+}
+
 function updateStartButton(players) {
   const btn = document.getElementById('btn-start');
   const hint = document.getElementById('waiting-hint');

@@ -2,188 +2,266 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>🎪 Scout！马戏星探 - 在线多人桌游</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --gold: #f7971e;
+      --gold-light: #ffd200;
+      --blue: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --bg: #1a1a2e;
+      --bg2: #16213e;
+      --bg3: #0f3460;
+      --text: #e2e8f0;
+      --text-muted: #a0aec0;
+      --border: rgba(255,255,255,0.1);
+      --card-bg: rgba(255,255,255,0.05);
+    }
+
+    html { font-size: 16px; }
 
     body {
       min-height: 100vh;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100dvh;
+      background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 50%, var(--bg3) 100%);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      color: #fff;
+      font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      padding: 0 0 env(safe-area-inset-bottom, 16px) 0;
     }
 
-    .lobby-container {
+    /* ── 整体布局容器 ─────────────────────────────── */
+    .lobby-wrap {
       width: 100%;
-      max-width: 480px;
-      padding: 20px;
+      max-width: 1100px;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
+    /* ── Logo 区 ─────────────────────────────────── */
     .logo {
       text-align: center;
-      margin-bottom: 40px;
+      padding: 8px 0;
     }
 
     .logo h1 {
-      font-size: 3rem;
+      font-size: clamp(2rem, 8vw, 3.5rem);
       font-weight: 900;
       letter-spacing: 4px;
-      background: linear-gradient(90deg, #f7971e, #ffd200);
+      background: linear-gradient(90deg, var(--gold), var(--gold-light));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      text-shadow: none;
       filter: drop-shadow(0 0 20px rgba(255,210,0,0.4));
+      line-height: 1.1;
     }
 
     .logo p {
-      color: #a0aec0;
-      margin-top: 8px;
-      font-size: 1rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: clamp(0.75rem, 3vw, 1rem);
       letter-spacing: 2px;
     }
 
+    /* ── 主内容区（PC双栏，手机单栏）──────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 768px) {
+      .main-grid {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+      }
+      .logo { margin-bottom: 8px; }
+      .lobby-wrap { padding: 32px 24px; }
+    }
+
+    @media (min-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 420px 1fr;
+        gap: 24px;
+      }
+    }
+
+    /* ── 卡片 ─────────────────────────────────────── */
     .card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 32px;
+      padding: clamp(20px, 5vw, 32px);
       backdrop-filter: blur(10px);
-      margin-bottom: 16px;
+      -webkit-backdrop-filter: blur(10px);
     }
 
     .card h2 {
-      font-size: 1.2rem;
-      color: #e2e8f0;
-      margin-bottom: 20px;
+      font-size: clamp(1rem, 3.5vw, 1.2rem);
+      color: var(--text);
+      margin-bottom: 18px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .input-group {
-      margin-bottom: 16px;
-    }
+    /* ── 输入框 ───────────────────────────────────── */
+    .input-group { margin-bottom: 14px; }
 
     .input-group label {
       display: block;
-      color: #a0aec0;
-      font-size: 0.85rem;
-      margin-bottom: 8px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-bottom: 6px;
     }
 
     .input-group input {
       width: 100%;
-      padding: 12px 16px;
+      padding: 13px 16px;
       background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid var(--border);
       border-radius: 12px;
-      color: #fff;
+      color: var(--text);
       font-size: 1rem;
       outline: none;
       transition: all 0.2s;
       font-family: inherit;
+      /* 防止 iOS 自动缩放 */
+      font-size: max(16px, 1rem);
     }
 
     .input-group input:focus {
-      border-color: #f7971e;
+      border-color: var(--gold);
       background: rgba(247,151,30,0.1);
       box-shadow: 0 0 0 3px rgba(247,151,30,0.2);
     }
 
-    .input-group input::placeholder {
-      color: #4a5568;
-    }
+    .input-group input::placeholder { color: #4a5568; }
 
+    /* ── 按钮 ─────────────────────────────────────── */
     .btn {
       width: 100%;
       padding: 14px;
       border: none;
       border-radius: 12px;
-      font-size: 1rem;
+      font-size: clamp(0.9rem, 3vw, 1rem);
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
       font-family: inherit;
       letter-spacing: 1px;
+      /* 移动端最小可点击高度 */
+      min-height: 48px;
+      touch-action: manipulation;
     }
 
     .btn-primary {
-      background: linear-gradient(90deg, #f7971e, #ffd200);
+      background: linear-gradient(90deg, var(--gold), var(--gold-light));
       color: #1a1a2e;
     }
 
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(247,151,30,0.4);
-    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(247,151,30,0.4); }
+    .btn-primary:active { transform: scale(0.98); }
 
     .btn-secondary {
       background: rgba(255,255,255,0.1);
-      color: #fff;
+      color: var(--text);
       border: 1px solid rgba(255,255,255,0.2);
     }
 
-    .btn-secondary:hover {
-      background: rgba(255,255,255,0.15);
+    .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+    .btn-secondary:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    .divider {
+      text-align: center;
+      color: #4a5568;
+      margin: 10px 0;
+      font-size: 0.85rem;
     }
 
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* 等待室 */
-    #lobby-waiting {
+    /* ── 错误信息 ─────────────────────────────────── */
+    .error-message {
+      background: rgba(220,38,38,0.15);
+      border: 1px solid rgba(220,38,38,0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fc8181;
+      font-size: 0.88rem;
+      margin-top: 10px;
       display: none;
     }
 
+    /* ── 等待室 ───────────────────────────────────── */
+    #lobby-waiting { display: none; }
+
     .room-code-display {
-      background: rgba(247,151,30,0.15);
-      border: 2px dashed rgba(247,151,30,0.5);
+      background: rgba(247,151,30,0.1);
+      border: 2px dashed rgba(247,151,30,0.4);
       border-radius: 16px;
-      padding: 20px;
+      padding: 18px;
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .room-code-display .label {
-      color: #a0aec0;
-      font-size: 0.85rem;
-      margin-bottom: 8px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-bottom: 6px;
     }
 
     .room-code-display .code {
-      font-size: 2.5rem;
+      font-size: clamp(1.8rem, 8vw, 2.5rem);
       font-weight: 900;
       letter-spacing: 8px;
-      color: #ffd200;
+      color: var(--gold-light);
       font-family: monospace;
     }
 
     .room-code-display .hint {
       color: #718096;
-      font-size: 0.8rem;
-      margin-top: 8px;
+      font-size: 0.78rem;
+      margin-top: 6px;
     }
 
-    .player-list {
-      margin-bottom: 20px;
+    /* 复制按钮 */
+    .copy-code-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 5px 14px;
+      background: rgba(247,151,30,0.15);
+      border: 1px solid rgba(247,151,30,0.3);
+      border-radius: 20px;
+      color: var(--gold);
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+      touch-action: manipulation;
     }
+
+    .copy-code-btn:hover { background: rgba(247,151,30,0.25); }
+    .copy-code-btn.copied { color: var(--green); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.1); }
+
+    /* ── 玩家列表 ─────────────────────────────────── */
+    .player-list { margin-bottom: 16px; }
 
     .player-list h3 {
-      color: #a0aec0;
-      font-size: 0.85rem;
-      margin-bottom: 12px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-bottom: 10px;
     }
 
     .player-item {
@@ -198,139 +276,203 @@
     }
 
     @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-20px); }
+      from { opacity: 0; transform: translateX(-16px); }
       to { opacity: 1; transform: translateX(0); }
     }
 
     .player-avatar {
-      width: 36px;
-      height: 36px;
+      width: 34px; height: 34px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #f7971e, #ffd200);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 1rem;
-      color: #1a1a2e;
-      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.95rem;
+      color: #1a1a2e; flex-shrink: 0;
     }
 
-    .player-info .name {
-      font-weight: 600;
-    }
-
-    .player-info .role {
-      font-size: 0.75rem;
-      color: #f7971e;
-    }
+    .player-info .name { font-weight: 600; font-size: 0.92rem; }
+    .player-info .role { font-size: 0.72rem; color: var(--gold); }
 
     .waiting-hint {
       text-align: center;
       color: #718096;
       font-size: 0.85rem;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      padding: 0 8px;
     }
 
-    .error-message {
-      background: rgba(220,38,38,0.15);
-      border: 1px solid rgba(220,38,38,0.3);
-      border-radius: 10px;
-      padding: 12px 16px;
-      color: #fc8181;
-      font-size: 0.9rem;
-      margin-top: 12px;
-      display: none;
-    }
-
-    /* 规则提示区 */
-    .rules-summary {
+    /* ── 规则卡片（右侧或下方）─────────────────────── */
+    .rules-card {
       background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(18px, 4vw, 28px);
     }
 
-    .rules-summary h3 {
-      color: #ffd200;
-      font-size: 0.95rem;
-      margin-bottom: 12px;
+    .rules-card h3 {
+      color: var(--gold-light);
+      font-size: clamp(0.88rem, 3vw, 1rem);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .rules-summary ul {
-      list-style: none;
-      color: #a0aec0;
-      font-size: 0.82rem;
-      line-height: 1.8;
+    .rule-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.05);
+      transition: background 0.2s;
     }
 
-    .rules-summary ul li::before {
-      content: '→ ';
-      color: #f7971e;
+    .rule-item:hover { background: rgba(255,255,255,0.04); }
+
+    .rule-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      line-height: 1.4;
     }
 
-    .divider {
-      text-align: center;
-      color: #4a5568;
-      margin: 12px 0;
-      font-size: 0.85rem;
+    .rule-content { font-size: 0.82rem; line-height: 1.6; color: var(--text-muted); }
+    .rule-content strong { color: var(--text); font-size: 0.88rem; display: block; margin-bottom: 2px; }
+
+    /* 人数说明 */
+    .player-count-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .pcount-chip {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(88,166,255,0.1);
+      border: 1px solid rgba(88,166,255,0.2);
+      color: var(--blue);
+    }
+
+    /* ── 移动端 safe area ─────────────────────────── */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      body { padding-bottom: env(safe-area-inset-bottom); }
     }
   </style>
 </head>
 <body>
-  <div class="lobby-container">
+  <div class="lobby-wrap">
+
+    <!-- Logo -->
     <div class="logo">
-      <h1>🎪 SCOUT</h1>
+      <h1>🎪 SCOUT!</h1>
       <p>马 戏 星 探 · 在 线 多 人</p>
     </div>
 
-    <!-- 登录/加入区 -->
-    <div id="lobby-entry">
-      <div class="card">
-        <h2>🎭 加入游戏</h2>
-        <div class="input-group">
-          <label>你的昵称</label>
-          <input type="text" id="player-name" placeholder="输入昵称（最多8个字）" maxlength="8" />
+    <!-- 主内容双栏 -->
+    <div class="main-grid">
+
+      <!-- 左栏：加入/等待 -->
+      <div>
+        <!-- 登录区 -->
+        <div id="lobby-entry">
+          <div class="card" style="margin-bottom:14px;">
+            <h2>🎭 开始游戏</h2>
+            <div class="input-group">
+              <label>你的昵称</label>
+              <input type="text" id="player-name" placeholder="输入昵称（最多8字）" maxlength="8"
+                     autocomplete="off" autocorrect="off" spellcheck="false" />
+            </div>
+            <div class="input-group">
+              <label>房间码 <span style="color:#4a5568;font-weight:400;">（加入已有房间时填写）</span></label>
+              <input type="text" id="room-code-input" placeholder="4位房间码" maxlength="4"
+                     style="text-transform:uppercase;letter-spacing:4px;font-family:monospace;"
+                     autocomplete="off" autocorrect="off" />
+            </div>
+            <button class="btn btn-primary" id="btn-create" onclick="createRoom()">🎪 创建新房间</button>
+            <div class="divider">— 或 —</div>
+            <button class="btn btn-secondary" id="btn-join" onclick="joinRoom()">🚪 加入已有房间</button>
+            <div class="error-message" id="entry-error"></div>
+          </div>
         </div>
-        <div class="input-group">
-          <label>房间码（加入已有房间时填写）</label>
-          <input type="text" id="room-code-input" placeholder="4位房间码（不填则创建新房间）" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;" />
+
+        <!-- 等待室 -->
+        <div id="lobby-waiting">
+          <div class="room-code-display">
+            <div class="label">房间码（分享给朋友）</div>
+            <div class="code" id="display-room-code">----</div>
+            <button class="copy-code-btn" id="copy-btn" onclick="copyRoomCode()">
+              📋 复制房间码
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="player-list">
+              <h3>已加入的玩家（<span id="player-count">0</span>/6）</h3>
+              <div id="player-list-container"></div>
+            </div>
+            <div class="waiting-hint" id="waiting-hint">等待更多玩家加入...</div>
+            <button class="btn btn-primary" id="btn-start" onclick="startGame()" style="display:none;">🚀 开始游戏！</button>
+            <div class="error-message" id="waiting-error"></div>
+          </div>
         </div>
-        <button class="btn btn-primary" id="btn-create" onclick="createRoom()">🎪 创建新房间</button>
-        <div class="divider">— 或 —</div>
-        <button class="btn btn-secondary" id="btn-join" onclick="joinRoom()">🚪 加入房间</button>
-        <div class="error-message" id="entry-error"></div>
       </div>
 
-      <div class="rules-summary">
-        <h3>📖 Scout 游戏简介</h3>
-        <ul>
-          <li>2-6 人游戏，每人持有一手牌（不可改变顺序）</li>
-          <li>SHOW：出一组连续的同值牌或顺子，压过当前舞台</li>
-          <li>SCOUT：从舞台两端取一张牌插入手牌，给出牌者1分</li>
-          <li>SCOUT & SHOW：先挖角再出牌，每局只能用一次</li>
-          <li>最先出完手牌者赢得本局，得其他人手牌数的分</li>
-        </ul>
-      </div>
-    </div>
+      <!-- 右栏：规则说明 -->
+      <div class="rules-card">
+        <h3>📖 游戏规则速览</h3>
 
-    <!-- 等待室 -->
-    <div id="lobby-waiting">
-      <div class="room-code-display">
-        <div class="label">房间码</div>
-        <div class="code" id="display-room-code">----</div>
-        <div class="hint">将房间码分享给朋友，即可一起游玩</div>
-      </div>
-
-      <div class="card">
-        <div class="player-list">
-          <h3>已加入的玩家（<span id="player-count">0</span>/6）</h3>
-          <div id="player-list-container"></div>
+        <div class="rule-item">
+          <div class="rule-icon">🎭</div>
+          <div class="rule-content">
+            <strong>演出（SHOW）</strong>
+            出一组手牌中连续位置的同值牌或顺子，压过当前在场组。张数多直接赢；同张数时，同值组强于顺子；同类型则比最小数字。
+          </div>
         </div>
-        <div class="waiting-hint" id="waiting-hint">等待更多玩家加入...</div>
-        <button class="btn btn-primary" id="btn-start" onclick="startGame()" style="display:none;">🚀 开始游戏！</button>
-        <div class="error-message" id="waiting-error"></div>
+
+        <div class="rule-item">
+          <div class="rule-icon">🔍</div>
+          <div class="rule-content">
+            <strong>挖角（SCOUT）</strong>
+            从在场组左端或右端取1张牌，插入自己手牌任意位置。在场组主人获得1个挖角Token（+1分）。
+          </div>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-icon">⚡</div>
+          <div class="rule-content">
+            <strong>挖角+演出（SCOUT & SHOW）</strong>
+            先挖角再出牌，每局每人只能用1次。
+          </div>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-icon">🏆</div>
+          <div class="rule-content">
+            <strong>计分规则</strong>
+            赢家（先出完手牌者）：只得挖角Token分；其他人：Token数 − 剩余手牌数。游戏共进行「人数」轮，总分最高者胜。
+          </div>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-icon">🔄</div>
+          <div class="rule-content">
+            <strong>翻牌阶段</strong>
+            每局开始时，你可以选择将整手牌上下翻转（正反面互换且顺序倒置），顺序固定后不可再变动。
+          </div>
+        </div>
+
+        <div class="player-count-row">
+          <div class="pcount-chip">2人: 44张/各11张</div>
+          <div class="pcount-chip">3人: 36张/各12张</div>
+          <div class="pcount-chip">4人: 44张/各11张</div>
+          <div class="pcount-chip">5人: 45张/各9张</div>
+        </div>
       </div>
+
     </div>
   </div>
 

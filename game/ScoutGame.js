@@ -126,9 +126,10 @@ class ScoutGame {
 
   /**
    * 新出牌是否强于当前舞台牌
-   * 规则：
-   * - 同类型：数量更多获胜；数量相同时，数值（最大值或同值）更大获胜
-   * - 跨类型：只有数量更多才能获胜
+   * 正确规则（官方 Scout）：
+   * 1. 张数多的直接赢
+   * 2. 张数相同时，同值组（set）强于顺子（sequence）
+   * 3. 张数相同且类型相同时，比数值大小（同值组比同值大小，顺子比最高值大小）
    */
   beats(newCards, newType) {
     if (this.stage.length === 0) return true; // 舞台为空，任何牌都能出
@@ -136,13 +137,16 @@ class ScoutGame {
     const oldCount = this.stage.length;
     const newCount = newCards.length;
 
+    // 规则1：张数更多直接赢
     if (newCount > oldCount) return true;
     if (newCount < oldCount) return false;
 
-    // 数量相同，只有同类型才比较数值
-    if (newType !== this.stageType) return false;
+    // 张数相同时：
+    // 规则2：同值组（set）强于顺子（sequence）
+    if (newType === 'set' && this.stageType === 'sequence') return true;
+    if (newType === 'sequence' && this.stageType === 'set') return false;
 
-    // 比较数值（取最大值或同值）
+    // 规则3：类型相同时比数值
     const newMax = Math.max(...newCards.map(getCardValue));
     const oldMax = Math.max(...this.stage.map(getCardValue));
     return newMax > oldMax;

@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎪 Scout！游戏中</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color: #e6edf3;
+      overflow-x: hidden;
+    }
+
+    /* ── 顶部玩家信息栏 ─────────────────────────────── */
+    #players-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      overflow-x: auto;
+      flex-wrap: wrap;
+    }
+
+    .player-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 30px;
+      background: rgba(255,255,255,0.05);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      min-width: 120px;
+      transition: all 0.3s;
+    }
+
+    .player-chip.active {
+      border-color: #f7971e;
+      background: rgba(247,151,30,0.15);
+      box-shadow: 0 0 12px rgba(247,151,30,0.3);
+    }
+
+    .player-chip.me {
+      border-color: #58a6ff;
+      background: rgba(88,166,255,0.1);
+    }
+
+    .player-chip.active.me {
+      border-color: #3fb950;
+      background: rgba(63,185,80,0.15);
+      box-shadow: 0 0 12px rgba(63,185,80,0.3);
+    }
+
+    .chip-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.8rem; color: #1a1a2e;
+      flex-shrink: 0;
+    }
+
+    .chip-info { font-size: 0.8rem; }
+    .chip-name { font-weight: 600; white-space: nowrap; }
+    .chip-score { color: #8b949e; font-size: 0.72rem; }
+    .chip-turn { font-size: 0.68rem; color: #f7971e; font-weight: 700; }
+
+    /* ── 圆形状态指示 ─────────────────────────────── */
+    #round-info {
+      text-align: center;
+      padding: 8px;
+      font-size: 0.85rem;
+      color: #8b949e;
+    }
+
+    /* ── 翻牌阶段 ─────────────────────────────────── */
+    #flip-phase {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .flip-panel {
+      background: #161b22;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .flip-panel h2 { font-size: 1.4rem; margin-bottom: 12px; }
+    .flip-panel p { color: #8b949e; margin-bottom: 24px; font-size: 0.9rem; line-height: 1.6; }
+
+    .flip-hand-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 24px;
+      min-height: 60px;
+    }
+
+    .btn { padding: 12px 24px; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .btn-gold { background: linear-gradient(90deg, #f7971e, #ffd200); color: #1a1a2e; }
+    .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(247,151,30,0.4); }
+    .btn-ghost { background: rgba(255,255,255,0.08); color: #e6edf3; border: 1px solid rgba(255,255,255,0.15); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.12); }
+    .btn-danger { background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.3); }
+    .btn-danger:hover { background: rgba(248,81,73,0.25); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+    .flip-btns { display: flex; gap: 12px; justify-content: center; }
+
+    /* ── 舞台区 ─────────────────────────────────────── */
+    #stage-area {
+      padding: 16px;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stage-label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    #stage-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-height: 90px;
+      align-items: center;
+    }
+
+    .stage-empty-hint {
+      color: #30363d;
+      font-size: 0.9rem;
+      border: 2px dashed #30363d;
+      border-radius: 12px;
+      padding: 24px 40px;
+    }
+
+    .stage-owner {
+      font-size: 0.78rem;
+      color: #f7971e;
+      margin-top: 8px;
+    }
+
+    .stage-type-badge {
+      font-size: 0.7rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      margin-left: 8px;
+    }
+
+    .badge-set { background: rgba(88,166,255,0.2); color: #58a6ff; }
+    .badge-seq { background: rgba(63,185,80,0.2); color: #3fb950; }
+
+    /* ── 卡牌样式 ─────────────────────────────────── */
+    .game-card {
+      width: 64px;
+      height: 88px;
+      border-radius: 10px;
+      background: #fff;
+      color: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      user-select: none;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+    }
+
+    .game-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+
+    .game-card.selected {
+      transform: translateY(-12px);
+      border-color: #f7971e;
+      box-shadow: 0 8px 25px rgba(247,151,30,0.5);
+    }
+
+    .game-card.stage-card { cursor: default; }
+    .game-card.stage-card:hover { transform: none; }
+
+    .card-main-value {
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .card-back-value {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 0.65rem;
+      color: #999;
+      font-weight: 600;
+    }
+
+    .card-top-left {
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      font-size: 0.65rem;
+      color: #999;
+      font-weight: 600;
+    }
+
+    /* 数字颜色 */
+    .val-1, .val-2 { color: #e74c3c; }
+    .val-3, .val-4 { color: #e67e22; }
+    .val-5, .val-6 { color: #f1c40f; }
+    .val-7, .val-8 { color: #2ecc71; }
+    .val-9, .val-10 { color: #3498db; }
+
+    /* ── 操作区 ─────────────────────────────────────── */
+    #action-area {
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      background: rgba(0,0,0,0.2);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .action-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 2px solid;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .action-btn.show-btn {
+      background: rgba(63,185,80,0.1);
+      border-color: #3fb950;
+      color: #3fb950;
+    }
+    .action-btn.show-btn:hover:not(:disabled) {
+      background: rgba(63,185,80,0.2);
+    }
+
+    .action-btn.scout-btn {
+      background: rgba(247,151,30,0.1);
+      border-color: #f7971e;
+      color: #f7971e;
+    }
+    .action-btn.scout-btn:hover:not(:disabled) {
+      background: rgba(247,151,30,0.2);
+    }
+
+    .action-btn.scout-show-btn {
+      background: rgba(88,166,255,0.1);
+      border-color: #58a6ff;
+      color: #58a6ff;
+    }
+    .action-btn.scout-show-btn:hover:not(:disabled) {
+      background: rgba(88,166,255,0.2);
+    }
+
+    .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── 我的手牌区 ───────────────────────────────── */
+    #my-hand-area {
+      padding: 16px;
+    }
+
+    .hand-label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #my-hand-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-height: 90px;
+      align-items: flex-end;
+    }
+
+    /* ── 消息提示 ─────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      z-index: 200;
+      display: none;
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    #toast.error { border-color: rgba(248,81,73,0.5); background: rgba(248,81,73,0.2); }
+    #toast.success { border-color: rgba(63,185,80,0.5); background: rgba(63,185,80,0.15); }
+
+    /* ── SCOUT挖角面板 ────────────────────────────── */
+    #scout-panel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 150;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scout-dialog {
+      background: #161b22;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 28px;
+      max-width: 420px;
+      width: 90%;
+    }
+
+    .scout-dialog h3 { font-size: 1.1rem; margin-bottom: 16px; color: #f7971e; }
+    .scout-dialog p { color: #8b949e; font-size: 0.85rem; margin-bottom: 16px; }
+
+    .scout-position-btns { display: flex; gap: 12px; margin-bottom: 20px; }
+    .scout-pos-btn {
+      flex: 1; padding: 12px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04); color: #e6edf3; cursor: pointer; font-family: inherit;
+      font-size: 0.9rem; font-weight: 600; transition: all 0.2s;
+    }
+    .scout-pos-btn.selected { border-color: #f7971e; background: rgba(247,151,30,0.15); color: #f7971e; }
+
+    .insert-area { margin-bottom: 20px; }
+    .insert-area label { display: block; color: #8b949e; font-size: 0.82rem; margin-bottom: 8px; }
+    .insert-slider { width: 100%; accent-color: #f7971e; }
+
+    .scout-action-btns { display: flex; gap: 12px; }
+
+    /* ── 回合结束弹窗 ───────────────────────────── */
+    #round-end-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .round-end-panel {
+      background: #161b22;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .round-end-panel h2 { font-size: 1.6rem; margin-bottom: 8px; }
+    .round-end-panel .winner-name { font-size: 1.2rem; color: #ffd200; font-weight: 700; margin-bottom: 24px; }
+
+    .scores-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    .scores-table th { color: #8b949e; font-size: 0.78rem; padding: 6px 10px; text-align: left; }
+    .scores-table td { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 0.9rem; }
+    .scores-table tr.winner-row td { color: #ffd200; font-weight: 700; }
+
+    /* ── 游戏结束弹窗 ───────────────────────────── */
+    #game-end-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .fireworks { font-size: 3rem; margin-bottom: 16px; }
+    .game-winner { font-size: 1.4rem; font-weight: 900; color: #ffd200; margin-bottom: 4px; }
+    .game-winner-sub { color: #8b949e; margin-bottom: 24px; }
+
+    /* ── 其他玩家手牌数量显示 ─────────────────── */
+    .other-player-hand-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.68rem;
+      color: #58a6ff;
+      background: rgba(88,166,255,0.1);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    /* ── 消息日志 ─────────────────────────────────── */
+    #action-log {
+      padding: 8px 16px;
+      font-size: 0.78rem;
+      color: #8b949e;
+      min-height: 28px;
+      text-align: center;
+    }
+
+    /* ── 等待中提示 ─────────────────────────────── */
+    .waiting-overlay {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(247,151,30,0.15);
+      border: 1px solid rgba(247,151,30,0.3);
+      border-radius: 30px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      color: #f7971e;
+      z-index: 50;
+      display: none;
+    }
+
+    /* ── 翻牌等待状态 ─────────────────────────── */
+    .flip-wait-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+
+    .flip-status-item {
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.05);
+      color: #8b949e;
+    }
+
+    .flip-status-item.confirmed {
+      background: rgba(63,185,80,0.15);
+      color: #3fb950;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部玩家信息栏 -->
+  <div id="players-bar"></div>
+
+  <!-- 当前回合信息 -->
+  <div id="round-info">第 <span id="round-num">1</span> 局</div>
+
+  <!-- 消息日志 -->
+  <div id="action-log">游戏加载中...</div>
+
+  <!-- 舞台区 -->
+  <div id="stage-area">
+    <div class="stage-label">🎭 舞台</div>
+    <div id="stage-cards">
+      <div class="stage-empty-hint">舞台空置 — 第一个出牌吧！</div>
+    </div>
+    <div id="stage-info"></div>
+  </div>
+
+  <!-- 操作按钮区 -->
+  <div id="action-area">
+    <button class="action-btn show-btn" id="btn-show" onclick="doShow()" disabled>🎭 SHOW 出牌</button>
+    <button class="action-btn scout-btn" id="btn-scout" onclick="openScoutPanel(false)" disabled>🔍 SCOUT 挖角</button>
+    <button class="action-btn scout-show-btn" id="btn-scout-show" onclick="openScoutPanel(true)" disabled>⚡ SCOUT+SHOW</button>
+  </div>
+
+  <!-- 我的手牌区 -->
+  <div id="my-hand-area">
+    <div class="hand-label">
+      🃏 我的手牌
+      <span id="hand-count-badge" style="color:#58a6ff;font-size:0.8rem;"></span>
+    </div>
+    <div id="my-hand-cards"></div>
+  </div>
+
+  <!-- 翻牌阶段弹窗 -->
+  <div id="flip-phase" style="display:flex;display:none;">
+    <div class="flip-panel">
+      <h2>🔄 是否翻转手牌？</h2>
+      <p>游戏开始时，你可以选择翻转整手牌（所有牌正反面互换，且顺序倒置）。<br/>翻转后手牌顺序固定，不可再变动。</p>
+      <div class="flip-hand-preview" id="flip-preview"></div>
+      <div class="flip-btns">
+        <button class="btn btn-gold" onclick="doFlip()">🔄 翻转手牌</button>
+        <button class="btn btn-ghost" onclick="doConfirmFlip()">✅ 确定，不翻了</button>
+      </div>
+      <div class="flip-wait-status" id="flip-wait-status"></div>
+    </div>
+  </div>
+
+  <!-- SCOUT挖角面板 -->
+  <div id="scout-panel">
+    <div class="scout-dialog">
+      <h3>🔍 SCOUT 挖角</h3>
+      <p id="scout-panel-desc">从舞台两端选一张牌，插入你的手牌中（可插在任意位置），并给出牌人1分补偿。</p>
+
+      <div>
+        <div style="font-size:0.85rem;color:#8b949e;margin-bottom:8px;">选择取舞台哪一端的牌：</div>
+        <div class="scout-position-btns">
+          <button class="scout-pos-btn" id="scout-left-btn" onclick="selectScoutPos('left')">
+            ← 左端牌<br/>
+            <span id="scout-left-card" style="font-size:1.2rem;font-weight:900;">?</span>
+          </button>
+          <button class="scout-pos-btn" id="scout-right-btn" onclick="selectScoutPos('right')">
+            右端牌 →<br/>
+            <span id="scout-right-card" style="font-size:1.2rem;font-weight:900;">?</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="insert-area">
+        <label>插入手牌的位置（当前：第 <span id="insert-pos-display">1</span> 位）</label>
+        <input type="range" class="insert-slider" id="insert-slider" min="0" value="0" oninput="updateInsertDisplay(this.value)" />
+      </div>
+
+      <div id="scout-show-select" style="display:none;margin-bottom:16px;">
+        <div style="font-size:0.85rem;color:#58a6ff;margin-bottom:8px;">✅ Scout 后，请在手牌中选择要出的连续牌，然后点击确认</div>
+      </div>
+
+      <div class="scout-action-btns">
+        <button class="btn btn-gold" id="scout-confirm-btn" onclick="confirmScout()">确认</button>
+        <button class="btn btn-ghost" onclick="closeScoutPanel()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 回合结束弹窗 -->
+  <div id="round-end-modal">
+    <div class="round-end-panel">
+      <h2>🎉 回合结束！</h2>
+      <div class="winner-name" id="round-winner-name"></div>
+      <table class="scores-table" id="round-scores-table">
+        <thead>
+          <tr><th>玩家</th><th>本轮得分</th><th>累计总分</th></tr>
+        </thead>
+        <tbody id="round-scores-body"></tbody>
+      </table>
+      <button class="btn btn-gold" id="btn-next-round" onclick="nextRound()">▶️ 下一轮</button>
+    </div>
+  </div>
+
+  <!-- 游戏结束弹窗 -->
+  <div id="game-end-modal">
+    <div class="round-end-panel">
+      <div class="fireworks">🏆🎪🎉</div>
+      <div class="game-winner" id="game-winner-name"></div>
+      <div class="game-winner-sub">赢得了游戏！</div>
+      <table class="scores-table" id="game-scores-table">
+        <thead><tr><th>名次</th><th>玩家</th><th>总分</th></tr></thead>
+        <tbody id="game-scores-body"></tbody>
+      </table>
+      <button class="btn btn-gold" onclick="backToLobby()">🏠 返回大厅</button>
+    </div>
+  </div>
+
+  <!-- 等待提示 -->
+  <div class="waiting-overlay" id="waiting-overlay">等待其他玩家行动...</div>
+
+  <!-- 消息提示 -->
+  <div id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎪 Scout！马戏星探 - 在线多人桌游</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color: #fff;
+    }
+
+    .lobby-container {
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .logo h1 {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 4px;
+      background: linear-gradient(90deg, #f7971e, #ffd200);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      filter: drop-shadow(0 0 20px rgba(255,210,0,0.4));
+    }
+
+    .logo p {
+      color: #a0aec0;
+      margin-top: 8px;
+      font-size: 1rem;
+      letter-spacing: 2px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 32px;
+      backdrop-filter: blur(10px);
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      color: #e2e8f0;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-group label {
+      display: block;
+      color: #a0aec0;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .input-group input:focus {
+      border-color: #f7971e;
+      background: rgba(247,151,30,0.1);
+      box-shadow: 0 0 0 3px rgba(247,151,30,0.2);
+    }
+
+    .input-group input::placeholder {
+      color: #4a5568;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      letter-spacing: 1px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(90deg, #f7971e, #ffd200);
+      color: #1a1a2e;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(247,151,30,0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* 等待室 */
+    #lobby-waiting {
+      display: none;
+    }
+
+    .room-code-display {
+      background: rgba(247,151,30,0.15);
+      border: 2px dashed rgba(247,151,30,0.5);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .room-code-display .label {
+      color: #a0aec0;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+
+    .room-code-display .code {
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #ffd200;
+      font-family: monospace;
+    }
+
+    .room-code-display .hint {
+      color: #718096;
+      font-size: 0.8rem;
+      margin-top: 8px;
+    }
+
+    .player-list {
+      margin-bottom: 20px;
+    }
+
+    .player-list h3 {
+      color: #a0aec0;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .player-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f7971e, #ffd200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #1a1a2e;
+      flex-shrink: 0;
+    }
+
+    .player-info .name {
+      font-weight: 600;
+    }
+
+    .player-info .role {
+      font-size: 0.75rem;
+      color: #f7971e;
+    }
+
+    .waiting-hint {
+      text-align: center;
+      color: #718096;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .error-message {
+      background: rgba(220,38,38,0.15);
+      border: 1px solid rgba(220,38,38,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: #fc8181;
+      font-size: 0.9rem;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* 规则提示区 */
+    .rules-summary {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .rules-summary h3 {
+      color: #ffd200;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+
+    .rules-summary ul {
+      list-style: none;
+      color: #a0aec0;
+      font-size: 0.82rem;
+      line-height: 1.8;
+    }
+
+    .rules-summary ul li::before {
+      content: '→ ';
+      color: #f7971e;
+    }
+
+    .divider {
+      text-align: center;
+      color: #4a5568;
+      margin: 12px 0;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="lobby-container">
+    <div class="logo">
+      <h1>🎪 SCOUT</h1>
+      <p>马 戏 星 探 · 在 线 多 人</p>
+    </div>
+
+    <!-- 登录/加入区 -->
+    <div id="lobby-entry">
+      <div class="card">
+        <h2>🎭 加入游戏</h2>
+        <div class="input-group">
+          <label>你的昵称</label>
+          <input type="text" id="player-name" placeholder="输入昵称（最多8个字）" maxlength="8" />
+        </div>
+        <div class="input-group">
+          <label>房间码（加入已有房间时填写）</label>
+          <input type="text" id="room-code-input" placeholder="4位房间码（不填则创建新房间）" maxlength="4" style="text-transform:uppercase;letter-spacing:4px;" />
+        </div>
+        <button class="btn btn-primary" id="btn-create" onclick="createRoom()">🎪 创建新房间</button>
+        <div class="divider">— 或 —</div>
+        <button class="btn btn-secondary" id="btn-join" onclick="joinRoom()">🚪 加入房间</button>
+        <div class="error-message" id="entry-error"></div>
+      </div>
+
+      <div class="rules-summary">
+        <h3>📖 Scout 游戏简介</h3>
+        <ul>
+          <li>2-6 人游戏，每人持有一手牌（不可改变顺序）</li>
+          <li>SHOW：出一组连续的同值牌或顺子，压过当前舞台</li>
+          <li>SCOUT：从舞台两端取一张牌插入手牌，给出牌者1分</li>
+          <li>SCOUT & SHOW：先挖角再出牌，每局只能用一次</li>
+          <li>最先出完手牌者赢得本局，得其他人手牌数的分</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 等待室 -->
+    <div id="lobby-waiting">
+      <div class="room-code-display">
+        <div class="label">房间码</div>
+        <div class="code" id="display-room-code">----</div>
+        <div class="hint">将房间码分享给朋友，即可一起游玩</div>
+      </div>
+
+      <div class="card">
+        <div class="player-list">
+          <h3>已加入的玩家（<span id="player-count">0</span>/6）</h3>
+          <div id="player-list-container"></div>
+        </div>
+        <div class="waiting-hint" id="waiting-hint">等待更多玩家加入...</div>
+        <button class="btn btn-primary" id="btn-start" onclick="startGame()" style="display:none;">🚀 开始游戏！</button>
+        <div class="error-message" id="waiting-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/lobby.js"></script>
+</body>
+</html>

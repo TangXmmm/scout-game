@@ -403,9 +403,10 @@ class ScoutGame {
     const type = this.getPlayType(cards);
     if (!type) return { success: false, message: '所选牌不构成合法出牌' };
 
-    // 重要：使用挖角之前保存的原始在场组进行比较（而不是挖角后的在场组）
-    if (!this.beatsOriginalStage(cards, type)) {
-      return { success: false, message: '出牌不够强，无法压制挖角前的在场组' };
+    // 修复：比较挖角后的在场组（而不是挖角前的）
+    // 如果在场组为空（挖角后没有牌了），可以直接出牌
+    if (this.stage.length > 0 && !this.beatsStage(cards, type)) {
+      return { success: false, message: '出牌不够强，无法压制当前在场组' };
     }
 
     // 演出成功：收集被压制的在场组（收集的是挖角后剩余的牌）

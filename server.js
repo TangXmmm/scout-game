@@ -143,6 +143,27 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── 房主返回等待室 ──────────────────────────────────────────
+  socket.on('rejoin_as_host', ({ roomCode, playerId }) => {
+    const result = gameManager.rejoinAsHost(socket.id, roomCode?.toUpperCase(), playerId);
+    if (result.success) {
+      socket.join(result.room.code);
+      socket.emit('host_rejoined', {
+        roomCode: result.room.code,
+        playerId: result.player.id,
+        players: getPlayersInfo(result.room),
+      });
+      // 通知其他玩家房主回来了
+      socket.to(result.room.code).emit('player_joined', {
+        players: getPlayersInfo(result.room),
+        newPlayer: result.player.name,
+      });
+      console.log(`[房主返回] ${result.room.code} by ${result.player.name}`);
+    } else {
+      socket.emit('rejoin_failed', { message: result.message });
+    }
+  });
+
   // ── 开始游戏 ──────────────────────────────────────────────
   socket.on('start_game', () => {
     const result = gameManager.startGame(socket.id);

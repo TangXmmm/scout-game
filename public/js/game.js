@@ -57,11 +57,12 @@ function cv(card) { return card.face === 'top' ? card.top : card.bottom; }
 function co(card) { return card.face === 'top' ? card.bottom : card.top; }
 
 function vc(val) {
-  if (val <= 2) return 'vc1';
-  if (val <= 4) return 'vc3';
-  if (val <= 6) return 'vc5';
-  if (val <= 8) return 'vc7';
-  return 'vc9';
+  // 颜色反转：数字越大越红，数字越小越蓝
+  if (val >= 9) return 'vc1';  // 9-10 蓝色
+  if (val >= 7) return 'vc3';  // 7-8 青色
+  if (val >= 5) return 'vc5';  // 5-6 绿色
+  if (val >= 3) return 'vc7';  // 3-4 橙色
+  return 'vc9';                 // 1-2 红色
 }
 
 function cardBg(val) {
@@ -105,7 +106,7 @@ function renderScoreBar(state) {
       <span class="sc-tok">🎴${cards}</span>
       <span class="sc-hand">🎫${tok}</span>
       <span class="sc-total ${live < 0 ? 'neg' : ''}">${live >= 0 ? '+' : ''}${live}</span>
-      <span class="sc-hand" style="opacity:0.6">(-${hc})</span>
+      <span class="sc-hand" style="opacity:0.6">(🃏${hc})</span>
     </div>`;
   }).join('');
 }
@@ -151,7 +152,7 @@ function renderPlayersSidebar(state) {
     return `<div class="sidebar-player ${active ? 'active' : ''}">
       <div class="sp-name">${p.name}${isMe ? ' 👤' : ''}</div>
       <div class="sp-score">
-        总分 ${p.totalScore} · 🎴${cards} · 🎫${tok} · 🃏-${hc}
+        总分 ${p.totalScore} · 🎴${cards} · 🎫${tok} · 🃏${hc}
       </div>
       <div class="sp-live">${live >= 0 ? '+' : ''}${live} 实时</div>
       ${active ? '<div class="sp-turn">▶ 行动中</div>' : ''}
@@ -186,7 +187,7 @@ function renderStage(state) {
   const typeBadge = state.stageType === 'set'
     ? '<span class="type-badge badge-set">同号组</span>'
     : '<span class="type-badge badge-seq">顺子</span>';
-  meta.innerHTML = `${ownerName} 出了 ${n} 张${typeBadge}`;
+  meta.innerHTML = `<strong style="font-size:1.1rem;color:var(--gold-light);text-shadow:0 0 12px rgba(247,151,30,0.8);">${ownerName}</strong> 出了 ${n} 张${typeBadge}`;
 }
 
 // ── 渲染手牌 ──────────────────────────────────────────────────

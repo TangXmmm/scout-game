@@ -180,24 +180,83 @@ class GameManager {
     const player = room.players.find(p => p.id === playerId);
     if (player) {
       player.online = false;
+      
       // 游戏中：不踢出，只标记离线，等待重连
       if (room.status === 'playing') {
         return { roomCode, type: 'offline', player, roomDeleted: false };
       }
-      // 等待室：直接移除
+      
+      // 等待室：房主离线时保留房间5分钟
+      const isHost = (room.hostPlayerId === playerId);
+      if (isHost && room.status === 'waiting') {
+        // 设置房间过期时间（5分钟）
+        room.hostOfflineAt = Date.now();
+        room.hostOfflineTimeout = setTimeout(() => {
+          // 5分钟后删除房间
+          if (this.rooms[roomCode]) {
+            console.log(`[房间过期] ${roomCode} - 房主5分钟未返回`);
+            delete this.rooms[roomCode];
+          }
+        }, 5 * 60 * 1000);
+        
+        console.log(`[房主离线] ${roomCode} - 保留房间5分钟等待返回`);
+        return { roomCode, type: 'host_offline', player, roomDeleted: false, players: room.players };
+      }
+      
+      // 非房主离线：直接移除
       room.players = room.players.filter(p => p.id !== playerId);
       if (room.players.length === 0) {
         delete this.rooms[roomCode];
         return { roomCode, type: 'removed', player, roomDeleted: true };
       }
-      // 转移房主
+      
+      // 转移房主（如果当前房主离线了但不应该到这里）
       if (room.hostPlayerId === playerId) {
         room.hostPlayerId = room.players[0].id;
       }
+      
       return { roomCode, type: 'removed', player, roomDeleted: false, players: room.players };
     }
 
     return null;
+  }
+  
+  // 房主重新进入等待室
+  rejoinAsHost(socketId, roomCode, playerId) {
+    const room = this.rooms[roomCode];
+    if (!room) {
+      return { success: false, message: '房间不存在或已过期' };
+    }
+    
+    if (room.status !== 'waiting') {
+      return { success: false, message: '房间已开始游戏，请使用重连功能' };
+    }
+    
+    if (room.hostPlayerId !== playerId) {
+      return { success: false, message: '您不是该房间的房主' };
+    }
+    
+    // 找到房主玩家并重新上线
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      return { success: false, message: '玩家信息丢失' };
+    }
+    
+    // 清除房间过期定时器
+    if (room.hostOfflineTimeout) {
+      clearTimeout(room.hostOfflineTimeout);
+      delete room.hostOfflineTimeout;
+      delete room.hostOfflineAt;
+    }
+    
+    // 更新socket映射
+    player.socketId = socketId;
+    player.online = true;
+    this.socketToRoom[socketId] = roomCode;
+    this.socketToPlayerId[socketId] = playerId;
+    
+    console.log(`[房主返回] ${roomCode} - ${player.name}`);
+    return { success: true, room, player };
   }
 }
 

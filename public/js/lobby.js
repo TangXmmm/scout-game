@@ -25,6 +25,79 @@ function saveNickname(name) {
   localStorage.setItem('scout_game_nickname', name);
 }
 
+// ── 房主房间记忆 ───────────────────────────────────────────────
+// 检测房主房间并显示返回提示
+(function checkHostRoom() {
+  const hostRoom = localStorage.getItem('scout_host_room');
+  if (hostRoom) {
+    try {
+      const { roomCode, playerId, playerName, timestamp } = JSON.parse(hostRoom);
+      const now = Date.now();
+      const elapsed = now - timestamp;
+      
+      // 如果房间在5分钟内，显示返回等待室提示
+      if (elapsed < 5 * 60 * 1000) {
+        showHostRoomModal(roomCode, playerId, playerName);
+      } else {
+        // 房间过期，清除
+        localStorage.removeItem('scout_host_room');
+      }
+    } catch (e) {
+      console.error('解析房主房间失败:', e);
+      localStorage.removeItem('scout_host_room');
+    }
+  }
+})();
+
+// 显示返回等待室提示框
+function showHostRoomModal(roomCode, playerId, playerName) {
+  const modal = document.createElement('div');
+  modal.id = 'host-room-modal';
+  modal.innerHTML = `
+    <div class="continue-modal-content">
+      <h3>👑 检测到您的房间</h3>
+      <p>房间码: <strong>${roomCode}</strong></p>
+      <p>玩家: <strong>${playerName}</strong></p>
+      <p>是否返回等待室?</p>
+      <div class="continue-modal-btns">
+        <button class="btn-primary" onclick="rejoinHostRoom('${roomCode}', '${playerId}')">返回等待室</button>
+        <button class="btn-secondary" onclick="dismissHostRoomModal()">创建新房间</button>
+      </div>
+    </div>
+  `;
+  
+  // 点击模态框背景关闭
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      dismissHostRoomModal();
+    }
+  });
+  
+  document.body.appendChild(modal);
+}
+
+// 返回等待室（房主重连）
+function rejoinHostRoom(roomCode, playerId) {
+  socket.emit('rejoin_as_host', { roomCode, playerId });
+}
+
+// 关闭房主房间提示框
+function dismissHostRoomModal() {
+  const modal = document.getElementById('host-room-modal');
+  if (modal) modal.remove();
+  localStorage.removeItem('scout_host_room');
+}
+
+// 保存房主房间信息
+function saveHostRoom(roomCode, playerId, playerName) {
+  localStorage.setItem('scout_host_room', JSON.stringify({
+    roomCode,
+    playerId,
+    playerName,
+    timestamp: Date.now()
+  }));
+}
+
 // ── 游戏会话检测与恢复 ────────────────────────────────────────
 (function checkGameSession() {
   const session = localStorage.getItem('scout_game_session');
@@ -230,6 +303,8 @@ socket.on('room_created', ({ roomCode, playerId, players }) => {
   myPlayerId = playerId;
   myRoomCode = roomCode;
   isHost = true;
+  // 保存房主房间信息
+  saveHostRoom(roomCode, playerId, myPlayerName);
   showWaitingRoom(roomCode, players);
 });
 
@@ -238,6 +313,26 @@ socket.on('room_joined', ({ roomCode, playerId, players }) => {
   myRoomCode = roomCode;
   isHost = false;
   showWaitingRoom(roomCode, players);
+});
+
+// 房主返回等待室成功
+socket.on('host_rejoined', ({ roomCode, playerId, players }) => {
+  myPlayerId = playerId;
+  myRoomCode = roomCode;
+  isHost = true;
+  // 关闭提示框
+  dismissHostRoomModal();
+  // 进入等待室
+  showWaitingRoom(roomCode, players);
+  console.log('[房主返回] 成功返回等待室');
+});
+
+// 房主重连失败
+socket.on('rejoin_failed', ({ message }) => {
+  dismissHostRoomModal();
+  showError('entry-error', message || '返回失败，房间可能已过期');
+  // 清除房主房间信息
+  localStorage.removeItem('scout_host_room');
 });
 
 socket.on('player_joined', ({ players }) => {
@@ -251,6 +346,9 @@ socket.on('player_left', ({ players }) => {
 });
 
 socket.on('game_started', () => {
+  // 游戏开始时清除房主房间记录
+  localStorage.removeItem('scout_host_room');
+  
   // 跳转时传递稳定的 playerId（不是 socketId）
   const params = new URLSearchParams({
     room: myRoomCode,

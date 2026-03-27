@@ -280,6 +280,104 @@
       to { opacity: 1; transform: translateX(0); }
     }
 
+    @keyframes slideDown {
+      from { opacity: 0; transform: translate(-50%, -20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    /* ── 继续游戏提示框 ───────────────────────────────── */
+    #continue-game-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .continue-modal-content {
+      background: linear-gradient(135deg, var(--bg2), var(--bg3));
+      border: 2px solid rgba(247,151,30,0.3);
+      border-radius: 20px;
+      padding: 28px 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      animation: slideDown 0.4s ease-out;
+    }
+
+    .continue-modal-content h3 {
+      font-size: 1.5rem;
+      color: var(--gold-light);
+      margin-bottom: 16px;
+      font-weight: 700;
+    }
+
+    .continue-modal-content p {
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 12px;
+    }
+
+    .continue-modal-content p strong {
+      color: var(--gold);
+      font-size: 1.2rem;
+      font-family: monospace;
+      letter-spacing: 2px;
+    }
+
+    .continue-modal-btns {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      justify-content: center;
+    }
+
+    .continue-modal-btns button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .continue-modal-btns .btn-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      color: #1a1a2e;
+    }
+
+    .continue-modal-btns .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(247,151,30,0.4);
+    }
+
+    .continue-modal-btns .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .continue-modal-btns .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
     .player-avatar {
       width: 34px; height: 34px;
       border-radius: 50%;

@@ -18,13 +18,30 @@ let selPos = null;          // 'left' | 'right'
 let selInsertIdx = 0;
 let willFlip = false;
 
-// ── URL 参数 ──────────────────────────────────────────────────
+// ── URL 参数 + 会话保存 ────────────────────────────────────────
 (function init() {
   const p = new URLSearchParams(window.location.search);
   myRoomCode = p.get('room');
   myPlayerId = p.get('pid');
   if (!myRoomCode || !myPlayerId) window.location.href = '/';
+  
+  // 游戏开始时保存会话信息
+  saveGameSession({
+    roomCode: myRoomCode,
+    playerId: myPlayerId,
+    timestamp: Date.now()
+  });
 })();
+
+// 保存游戏会话到 localStorage
+function saveGameSession(session) {
+  localStorage.setItem('scout_game_session', JSON.stringify(session));
+}
+
+// 清除游戏会话
+function clearGameSession() {
+  localStorage.removeItem('scout_game_session');
+}
 
 // ── 工具 ──────────────────────────────────────────────────────
 function showToast(msg, type = '') {
@@ -459,7 +476,10 @@ function nextRound() {
   socket.emit('next_round');
 }
 
-function backToLobby() { window.location.href = '/'; }
+function backToLobby() {
+  clearGameSession(); // 返回大厅时清除会话
+  window.location.href = '/';
+}
 
 // ── 回合结束弹窗 ──────────────────────────────────────────────
 function showRoundEnd(data) {
@@ -522,6 +542,7 @@ socket.on('rejoin_result', ({ success, state, message }) => {
       state.state === 'flip_phase' ? '游戏开始！请决定是否翻转手牌' : '游戏进行中';
   } else {
     showToast('⚠️ ' + (message || '连接失败'), 'error');
+    clearGameSession(); // 重连失败,清除会话
     setTimeout(() => { window.location.href = '/'; }, 2500);
   }
 });

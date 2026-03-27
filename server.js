@@ -350,6 +350,7 @@ io.on('connection', (socket) => {
   socket.on('send_chat', ({ type, content }) => {
     const room = gameManager.getRoom(socket.id);
     if (!room) {
+      console.log('[聊天] 未找到房间, socketId:', socket.id);
       socket.emit('chat_failed', { message: '未找到房间' });
       return;
     }
@@ -357,6 +358,7 @@ io.on('connection', (socket) => {
     const playerId = gameManager.getPlayerId(socket.id);
     const player = room.players.find(p => p.id === playerId);
     if (!player) {
+      console.log('[聊天] 玩家不存在, playerId:', playerId);
       socket.emit('chat_failed', { message: '玩家不存在' });
       return;
     }
@@ -371,6 +373,8 @@ io.on('connection', (socket) => {
       content: content,
       timestamp: Date.now()
     };
+    
+    console.log('[聊天] 广播消息到房间:', room.code, 'from', player.name, ':', content);
     
     // 广播到房间所有人
     io.to(room.code).emit('chat_message', message);

@@ -164,6 +164,11 @@ socket.on('kicked_out', ({ message }) => {
 
 // 监听玩家列表更新（踢人后）
 socket.on('players_updated', ({ players }) => {
+  // 更新isHost状态
+  const me = players.find(p => p.id === myPlayerId);
+  if (me) {
+    isHost = me.isHost;
+  }
   renderPlayers(players);
   updateStartButton(players);
 });

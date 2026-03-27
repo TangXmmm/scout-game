@@ -680,8 +680,12 @@ function sendEmoji(emoji) {
 
 // 显示聊天消息（弹幕式）
 function displayChatMessage(message) {
+  console.log('[聊天] 收到消息:', message);
   const container = document.getElementById('chat-messages');
-  if (!container) return;
+  if (!container) {
+    console.error('[聊天] 找不到chat-messages容器');
+    return;
+  }
   
   const div = document.createElement('div');
   div.className = 'chat-message';
@@ -718,11 +722,13 @@ function displayChatMessage(message) {
   }
   
   container.appendChild(div);
+  console.log('[聊天] 消息已添加到DOM，当前消息数:', container.children.length);
   
   // 5秒后自动移除
   setTimeout(() => {
     if (div.parentNode) {
       div.remove();
+      console.log('[聊天] 消息已淡出移除');
     }
   }, 5000);
   

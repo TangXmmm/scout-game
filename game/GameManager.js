@@ -109,6 +109,11 @@ class GameManager {
     return roomCode ? this.rooms[roomCode] : null;
   }
 
+  // 获取房间码
+  getRoomCode(socketId) {
+    return this.socketToRoom[socketId];
+  }
+
   // 获取玩家ID（稳定的）
   getPlayerId(socketId) {
     return this.socketToPlayerId[socketId];

@@ -219,14 +219,6 @@ function updateActionBtns() {
   const btnSS = document.getElementById('btn-scout-show');
   const playing = isMyTurn && gameState?.state === 'playing';
   
-  // 如果正在等待完成"挖角并演出"，禁用挖角相关按钮
-  if (window._scoutAndShowPending) {
-    btnShow.disabled = selectedIndices.length === 0;
-    btnScout.disabled = true;
-    btnSS.disabled = true;
-    return;
-  }
-  
   if (!playing) {
     [btnShow, btnScout, btnSS].forEach(b => b.disabled = true);
     return;
@@ -293,9 +285,9 @@ function openScoutModal(isAndShow = false) {
 
   if (isAndShow) {
     title.textContent = '⚡ 挖角并演出';
-    desc.textContent = '先挖角取1张牌插入手牌，然后选连续手牌演出。每轮限用1次。';
+    desc.textContent = '先在手牌中选择要演出的连续牌，然后选择挖角位置。每轮限用1次。';
     ssHint.style.display = 'block';
-    confirmBtn.textContent = '确认挖角（去选牌演出）';
+    confirmBtn.textContent = '✅ 确认挖角并演出';
   } else {
     title.textContent = '🔍 挖角';
     desc.textContent = '从在场组两端取1张牌（每次只取1张！），插入手牌任意位置。';
@@ -440,15 +432,20 @@ function confirmScout() {
   if (!selPos) return showToast('请先选择左端或右端', 'error');
 
   if (scoutAndShowMode) {
-    // 挖角并演出模式：调用专门的准备接口
-    window._scoutAndShowPending = true;
-    socket.emit('prepare_scout_and_show', { 
+    // 挖角并演出模式：先检查是否有选中的手牌
+    if (!selectedIndices.length) {
+      closeScoutModal();
+      showToast('⏳ 挖角完成！请选择手牌进行演出', 'info');
+      return;
+    }
+    // 一次性完成挖角并演出
+    socket.emit('scout_and_show', { 
       scoutPosition: selPos, 
       insertIndex: selInsertIdx, 
+      showIndices: selectedIndices,
       flipCard: willFlip 
     });
     closeScoutModal();
-    showToast('⏳ 正在挖角...请稍候', 'info');
     selectedIndices = [];
   } else {
     socket.emit('scout', { position: selPos, insertIndex: selInsertIdx, flipCard: willFlip });
@@ -457,20 +454,7 @@ function confirmScout() {
   }
 }
 
-function doPendingScoutAndShow() {
-  if (!selectedIndices.length) return showToast('请先选择要演出的连续手牌', 'error');
-  // 挖角已完成，现在完成演出部分
-  socket.emit('finish_scout_and_show', { showIndices: selectedIndices });
-  selectedIndices = [];
-  window._scoutAndShowPending = false;
-  resetShowBtn();
-}
-
-function resetShowBtn() {
-  const btn = document.getElementById('btn-show');
-  btn.textContent = '🎭 演出';
-  btn.onclick = doShow;
-}
+// doPendingScoutAndShow 和 resetShowBtn 已移除，现在使用一次性完成流程
 
 // ── 下一轮 / 返回大厅 ────────────────────────────────────────
 function nextRound() {
@@ -577,21 +561,13 @@ socket.on('action_log', ({ type, playerName, position }) => {
   document.getElementById('action-log').textContent = msgs[type] || '';
 });
 
-socket.on('scout_prepared', ({ message }) => {
-  showToast(message, 'success');
-  const btn = document.getElementById('btn-show');
-  btn.textContent = '⚡ 确认演出（完成挖+演）';
-  btn.onclick = doPendingScoutAndShow;
-  updateActionBtns(); // 更新按钮状态，禁用挖角按钮
-});
+// scout_prepared 监听已移除，现在使用一次性完成的 scout_and_show
 
 socket.on('action_error', ({ message }) => {
   showToast('❌ ' + message, 'error');
   selectedIndices = [];
-  window._scoutAndShowPending = false;
   if (gameState) renderHand(gameState.myHand);
   updateActionBtns();
-  resetShowBtn();
 });
 
 socket.on('round_end', (data) => showRoundEnd(data));
@@ -605,7 +581,6 @@ socket.on('round_started', ({ roundNumber }) => {
   document.getElementById('round-num').textContent = roundNumber;
   document.getElementById('action-log').textContent = `第 ${roundNumber} 轮开始！`;
   selectedIndices = [];
-  resetShowBtn();
 });
 
 socket.on('player_offline', ({ playerName }) => {

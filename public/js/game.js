@@ -590,3 +590,144 @@ socket.on('player_offline', ({ playerName }) => {
 });
 
 socket.on('error', ({ message }) => showToast('⚠️ ' + message, 'error'));
+
+// ── 聊天系统 ───────────────────────────────────────────────────
+
+// 快捷用语和Emoji定义
+const QUICK_PHRASES = {
+  gg: { text: 'GG！', emoji: '🎉' },
+  nice: { text: '漂亮！', emoji: '👍' },
+  think: { text: '让我想想...', emoji: '🤔' },
+  oops: { text: '哎呀！', emoji: '😅' },
+  wow: { text: '哇！', emoji: '😲' },
+  sorry: { text: '抱歉~', emoji: '🙏' },
+  hurry: { text: '快点啦！', emoji: '⏰' },
+  lucky: { text: '运气真好！', emoji: '🍀' },
+  unlucky: { text: '太背了...', emoji: '💔' },
+  comeOn: { text: '加油！', emoji: '💪' }
+};
+
+const EMOJI_LIST = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂',
+  '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗',
+  '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝',
+  '🤗', '🤭', '🫢', '🫣', '🤫', '🤔', '🫡', '🤐',
+  '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬',
+  '🤗', '🤔', '😎', '🤓', '🥳', '😱', '😭', '😤',
+  '👍', '👎', '👌', '✌️', '🤞', '🤝', '🙏', '💪',
+  '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '❤️', '💔',
+  '💯', '🔥', '⭐', '✨', '⚡', '💰', '🍀'
+];
+
+// 初始化聊天系统
+(function initChatSystem() {
+  // 生成emoji列表
+  const emojiList = document.getElementById('emoji-list');
+  if (emojiList) {
+    emojiList.innerHTML = EMOJI_LIST.map(emoji => 
+      `<button onclick="sendEmoji('${emoji}')">${emoji}</button>`
+    ).join('');
+  }
+  
+  // 监听聊天消息
+  socket.on('chat_message', (message) => {
+    displayChatMessage(message);
+  });
+})();
+
+// 切换聊天输入面板
+function toggleChatInput() {
+  const panel = document.getElementById('chat-input-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  
+  if (panel.style.display === 'block') {
+    const input = document.getElementById('chat-input');
+    if (input) input.focus();
+  }
+}
+
+// 发送文本消息
+function sendTextMessage() {
+  const input = document.getElementById('chat-input');
+  const content = input.value.trim();
+  
+  if (!content) return;
+  if (content.length > 50) {
+    showToast('消息最多50字符', 'error');
+    return;
+  }
+  
+  socket.emit('send_chat', { type: 'text', content });
+  input.value = '';
+}
+
+// 发送快捷用语
+function sendQuick(phraseId) {
+  const phrase = QUICK_PHRASES[phraseId];
+  if (!phrase) return;
+  
+  socket.emit('send_chat', { 
+    type: 'quick', 
+    content: `${phrase.text} ${phrase.emoji}` 
+  });
+  toggleChatInput();
+}
+
+// 发送Emoji
+function sendEmoji(emoji) {
+  socket.emit('send_chat', { type: 'emoji', content: emoji });
+}
+
+// 显示聊天消息（弹幕式）
+function displayChatMessage(message) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  
+  const div = document.createElement('div');
+  div.className = 'chat-message';
+  
+  // 根据类型显示不同样式
+  let content = '';
+  if (message.type === 'text') {
+    const senderSpan = document.createElement('span');
+    senderSpan.className = 'sender';
+    senderSpan.textContent = message.playerName + ':';
+    
+    const contentText = document.createTextNode(' ' + message.content);
+    
+    div.appendChild(senderSpan);
+    div.appendChild(contentText);
+  } else if (message.type === 'emoji') {
+    const senderSpan = document.createElement('span');
+    senderSpan.className = 'sender';
+    senderSpan.textContent = message.playerName;
+    
+    const emojiText = document.createTextNode(' ' + message.content);
+    
+    div.appendChild(senderSpan);
+    div.appendChild(emojiText);
+  } else if (message.type === 'quick') {
+    const senderSpan = document.createElement('span');
+    senderSpan.className = 'sender';
+    senderSpan.textContent = message.playerName + ':';
+    
+    const contentText = document.createTextNode(' ' + message.content);
+    
+    div.appendChild(senderSpan);
+    div.appendChild(contentText);
+  }
+  
+  container.appendChild(div);
+  
+  // 5秒后自动移除
+  setTimeout(() => {
+    if (div.parentNode) {
+      div.remove();
+    }
+  }, 5000);
+  
+  // 限制最多显示10条
+  while (container.children.length > 10) {
+    container.removeChild(container.firstChild);
+  }
+}

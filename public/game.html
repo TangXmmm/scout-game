@@ -709,6 +709,242 @@
     #toast.success { border-color: rgba(63,185,80,0.4); background: rgba(63,185,80,0.15); }
     #toast.info { border-color: rgba(88,166,255,0.4); background: rgba(88,166,255,0.12); }
 
+    /* ─── 聊天系统 ───────────────────────────────────── */
+    .chat-container {
+      position: fixed;
+      right: 0;
+      top: 60px;
+      bottom: 0;
+      width: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* 弹幕消息显示区 */
+    .chat-messages {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      width: 300px;
+      max-height: 400px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    /* 单条弹幕消息 */
+    .chat-message {
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      animation: slideInRight 0.3s, fadeOut 0.5s 4.5s;
+      pointer-events: auto;
+      word-wrap: break-word;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .chat-message .sender {
+      font-weight: bold;
+      color: #fbbf24;
+      margin-right: 6px;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      to { opacity: 0; }
+    }
+
+    /* 聊天工具栏按钮 */
+    .chat-toolbar {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      pointer-events: auto;
+      z-index: 101;
+    }
+
+    .btn-toggle-chat {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s;
+      touch-action: manipulation;
+    }
+
+    .btn-toggle-chat:hover {
+      transform: scale(1.1);
+    }
+
+    .btn-toggle-chat:active {
+      transform: scale(0.95);
+    }
+
+    /* 聊天输入面板 */
+    .chat-input-panel {
+      position: fixed;
+      right: 20px;
+      bottom: 80px;
+      width: 320px;
+      background: var(--bg2);
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      padding: 12px;
+      pointer-events: auto;
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      z-index: 102;
+    }
+
+    /* 快捷用语 */
+    .quick-phrases {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .quick-phrases button {
+      padding: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text);
+      font-family: inherit;
+      touch-action: manipulation;
+    }
+
+    .quick-phrases button:hover {
+      background: rgba(255,255,255,0.1);
+      transform: translateY(-2px);
+    }
+
+    .quick-phrases button:active {
+      transform: scale(0.95);
+    }
+
+    /* Emoji选择器 */
+    .emoji-picker {
+      margin-bottom: 12px;
+    }
+
+    .emoji-list {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+      padding: 4px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+    }
+
+    .emoji-list button {
+      padding: 6px;
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.2s;
+      touch-action: manipulation;
+    }
+
+    .emoji-list button:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* 文本输入框 */
+    .chat-input-box {
+      display: flex;
+      gap: 6px;
+    }
+
+    .chat-input-box input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      outline: none;
+      font-family: inherit;
+    }
+
+    .chat-input-box input:focus {
+      border-color: var(--blue);
+      background: rgba(88,166,255,0.1);
+    }
+
+    .chat-input-box button {
+      padding: 8px 16px;
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+      font-family: inherit;
+      touch-action: manipulation;
+    }
+
+    .chat-input-box button:hover {
+      background: #4a8fe7;
+    }
+
+    .chat-input-box button:active {
+      transform: scale(0.95);
+    }
+
+    .chat-input-box button:last-child {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .chat-input-box button:last-child:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    /* 移动端适配 */
+    @media (max-width: 900px) {
+      .chat-messages {
+        width: calc(100vw - 40px);
+        right: 20px;
+      }
+      
+      .chat-input-panel {
+        width: calc(100vw - 40px);
+        right: 20px;
+        bottom: 70px;
+      }
+      
+      .chat-toolbar {
+        right: 20px;
+        bottom: 10px;
+      }
+    }
+
     /* ─── 等待提示 ───────────────────────────────────── */
     #waiting-bar {
       position: fixed;
@@ -926,6 +1162,54 @@
 
   <!-- Toast -->
   <div id="toast"></div>
+
+  <!-- ── 聊天系统 ─────────────────────────────────────────────── -->
+  <div id="chat-container" class="chat-container">
+    <!-- 弹幕消息显示区 -->
+    <div id="chat-messages" class="chat-messages"></div>
+    
+    <!-- 聊天按钮 -->
+    <div class="chat-toolbar">
+      <button class="btn-toggle-chat" onclick="toggleChatInput()">💬</button>
+    </div>
+    
+    <!-- 聊天输入面板（默认隐藏） -->
+    <div id="chat-input-panel" class="chat-input-panel" style="display:none;">
+      <!-- 快捷用语 -->
+      <div class="quick-phrases">
+        <button onclick="sendQuick('gg')">GG！🎉</button>
+        <button onclick="sendQuick('nice')">漂亮！👍</button>
+        <button onclick="sendQuick('think')">让我想想...🤔</button>
+        <button onclick="sendQuick('oops')">哎呀！😅</button>
+        <button onclick="sendQuick('wow')">哇！😲</button>
+        <button onclick="sendQuick('sorry')">抱歉~🙏</button>
+        <button onclick="sendQuick('hurry')">快点啦！⏰</button>
+        <button onclick="sendQuick('lucky')">运气真好！🍀</button>
+        <button onclick="sendQuick('unlucky')">太背了...💔</button>
+        <button onclick="sendQuick('comeOn')">加油！💪</button>
+      </div>
+      
+      <!-- Emoji选择器 -->
+      <div class="emoji-picker">
+        <div id="emoji-list" class="emoji-list">
+          <!-- 通过JS动态生成 -->
+        </div>
+      </div>
+      
+      <!-- 文本输入 -->
+      <div class="chat-input-box">
+        <input 
+          id="chat-input" 
+          type="text" 
+          placeholder="输入消息..." 
+          maxlength="50"
+          onkeypress="if(event.key==='Enter') sendTextMessage()"
+        />
+        <button onclick="sendTextMessage()">发送</button>
+        <button onclick="toggleChatInput()">关闭</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/game.js"></script>

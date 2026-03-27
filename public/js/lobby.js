@@ -48,6 +48,9 @@ function renderPlayers(players) {
         <div class="name">${p.name}${p.id === myPlayerId ? ' (我)' : ''}</div>
         ${p.isHost ? '<div class="role">👑 房主</div>' : ''}
       </div>
+      ${isHost && p.id !== myPlayerId ? 
+        `<button class="btn-kick" onclick="kickPlayer('${p.id}')">❌</button>` 
+        : ''}
     </div>
   `).join('');
 }
@@ -136,6 +139,59 @@ socket.on('game_started', () => {
 socket.on('error', ({ message }) => {
   showError('entry-error', message);
 });
+
+// ── 踢人功能 ──────────────────────────────────────────────
+function kickPlayer(targetPlayerId) {
+  if (!confirm('确定要踢出这名玩家吗？')) return;
+  socket.emit('kick_player', { targetPlayerId });
+}
+
+// 监听踢人成功
+socket.on('kick_success', ({ message }) => {
+  showToast(message, 'success');
+});
+
+// 监听踢人失败
+socket.on('kick_failed', ({ message }) => {
+  showToast(message, 'error');
+});
+
+// 监听被踢出
+socket.on('kicked_out', ({ message }) => {
+  alert(message);
+  window.location.href = '/';
+});
+
+// 监听玩家列表更新（踢人后）
+socket.on('players_updated', ({ players }) => {
+  renderPlayers(players);
+  updateStartButton(players);
+});
+
+// Toast提示
+function showToast(msg, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = msg;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+    color: white;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
 
 // Enter 键触发
 document.addEventListener('keydown', (e) => {

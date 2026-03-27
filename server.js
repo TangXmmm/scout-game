@@ -313,6 +313,69 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── 房主踢人 ──────────────────────────────────────────────
+  socket.on('kick_player', ({ targetPlayerId }) => {
+    const result = gameManager.kickPlayer(socket.id, targetPlayerId);
+    
+    if (!result.success) {
+      socket.emit('kick_failed', { message: result.message });
+      return;
+    }
+    
+    const roomCode = gameManager.getRoomCode(socket.id);
+    const room = gameManager.getRoom(socket.id);
+    
+    // 通知被踢玩家
+    if (result.kickedPlayer.socketId) {
+      io.to(result.kickedPlayer.socketId).emit('kicked_out', {
+        message: '你已被房主移出房间'
+      });
+    }
+    
+    // 广播更新后的玩家列表
+    io.to(roomCode).emit('players_updated', {
+      players: room.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        isHost: p.id === room.hostPlayerId
+      }))
+    });
+    
+    socket.emit('kick_success', { 
+      message: `已踢出 ${result.kickedPlayer.name}` 
+    });
+  });
+
+  // ── 聊天消息 ──────────────────────────────────────────────
+  socket.on('send_chat', ({ type, content }) => {
+    const room = gameManager.getRoom(socket.id);
+    if (!room) {
+      socket.emit('chat_failed', { message: '未找到房间' });
+      return;
+    }
+    
+    const playerId = gameManager.getPlayerId(socket.id);
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      socket.emit('chat_failed', { message: '玩家不存在' });
+      return;
+    }
+    
+    // 构建消息对象
+    const message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      roomCode: room.code,
+      playerId: player.id,
+      playerName: player.name,
+      type: type,  // 'text' | 'emoji' | 'quick'
+      content: content,
+      timestamp: Date.now()
+    };
+    
+    // 广播到房间所有人
+    io.to(room.code).emit('chat_message', message);
+  });
+
   // ── 断线处理 ──────────────────────────────────────────────
   socket.on('disconnect', () => {
     const result = gameManager.handleDisconnect(socket.id);

@@ -114,6 +114,52 @@ class GameManager {
     return this.socketToPlayerId[socketId];
   }
 
+  // 房主踢出玩家（仅限等待室）
+  kickPlayer(hostSocketId, targetPlayerId) {
+    const roomCode = this.socketToRoom[hostSocketId];
+    const room = this.rooms[roomCode];
+    
+    // 验证：房间存在
+    if (!room) return { success: false, message: '房间不存在' };
+    
+    // 验证：只能在等待状态踢人
+    if (room.status !== 'waiting') {
+      return { success: false, message: '游戏已开始，无法踢人' };
+    }
+    
+    // 验证：操作者是房主
+    const hostPlayerId = this.socketToPlayerId[hostSocketId];
+    if (room.hostPlayerId !== hostPlayerId) {
+      return { success: false, message: '只有房主可以踢人' };
+    }
+    
+    // 验证：不能踢自己
+    if (targetPlayerId === hostPlayerId) {
+      return { success: false, message: '无法踢出自己' };
+    }
+    
+    // 验证：目标玩家存在
+    const targetPlayer = room.players.find(p => p.id === targetPlayerId);
+    if (!targetPlayer) {
+      return { success: false, message: '玩家不存在' };
+    }
+    
+    // 移除玩家
+    room.players = room.players.filter(p => p.id !== targetPlayerId);
+    
+    // 清理映射
+    if (targetPlayer.socketId) {
+      delete this.socketToRoom[targetPlayer.socketId];
+      delete this.socketToPlayerId[targetPlayer.socketId];
+    }
+    
+    return { 
+      success: true, 
+      kickedPlayer: targetPlayer, 
+      remainingPlayers: room.players 
+    };
+  }
+
   // 断线处理（游戏中不踢出玩家，只标记离线）
   handleDisconnect(socketId) {
     const roomCode = this.socketToRoom[socketId];

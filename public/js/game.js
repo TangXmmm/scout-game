@@ -57,12 +57,13 @@ function cv(card) { return card.face === 'top' ? card.top : card.bottom; }
 function co(card) { return card.face === 'top' ? card.bottom : card.top; }
 
 function vc(val) {
-  // 颜色反转：数字越大越红，数字越小越蓝
-  if (val >= 9) return 'vc1';  // 9-10 蓝色
-  if (val >= 7) return 'vc3';  // 7-8 青色
-  if (val >= 5) return 'vc5';  // 5-6 绿色
-  if (val >= 3) return 'vc7';  // 3-4 橙色
-  return 'vc9';                 // 1-2 红色
+  // 正确的颜色映射：10最强（红色），1最弱（蓝色）
+  if (val >= 10) return 'vc10'; // 10 红色（最强）
+  if (val >= 9) return 'vc9';   // 9 橙色
+  if (val >= 7) return 'vc7';   // 7-8 黄色
+  if (val >= 5) return 'vc5';   // 5-6 绿色
+  if (val >= 3) return 'vc3';   // 3-4 青色
+  return 'vc1';                  // 1-2 蓝色（最弱）
 }
 
 function cardBg(val) {

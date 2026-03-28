@@ -285,13 +285,18 @@ function doConfirmFlip() { socket.emit('confirm_flip'); }
 function doShow() {
   if (!selectedIndices.length) return showToast('请先点击手牌（需连续位置）', 'error');
   if (pendingFinishScoutAndShow) {
-    // Bug2修复：挖角并演出第二步 —— 用已更新的手牌索引完成演出
+    // 挖角并演出第二步：用已更新的手牌索引完成演出
+    // 注意：先不重置 pendingFinishScoutAndShow，等服务端成功响应（game_state）后
+    // renderState 会正常渲染，pendingFinishScoutAndShow=false 在收到响应后重置
+    // 如果失败（action_error），保留 pending 让用户重新选牌
     socket.emit('finish_scout_and_show', { showIndices: selectedIndices });
+    // 乐观重置（如果失败，action_error 处理器会保留 pending 状态）
     pendingFinishScoutAndShow = false;
+    selectedIndices = [];
   } else {
     socket.emit('show', { cardIndices: selectedIndices });
+    selectedIndices = [];
   }
-  selectedIndices = [];
 }
 
 // ── Scout面板 ─────────────────────────────────────────────────
@@ -482,14 +487,6 @@ function confirmScout() {
   }
 }
 
-// ── scout_prepared 响应：挖角成功，提示用户选牌演出 ───────────
-socket.on('scout_prepared', ({ message }) => {
-  // 服务端已广播新游戏状态（手牌已更新），渲染由 game_state 事件驱动
-  pendingFinishScoutAndShow = true; // 标记等待演出第二步
-  showToast('✅ 挖角成功！请在手牌中选连续的牌，然后点「演出」完成操作', 'success');
-  updateActionBtns();
-});
-
 // ── 下一轮 / 返回大厅 ────────────────────────────────────────
 function nextRound() {
   document.getElementById('round-end-modal').style.display = 'none';
@@ -595,10 +592,32 @@ socket.on('action_log', ({ type, playerName, position }) => {
   document.getElementById('action-log').textContent = msgs[type] || '';
 });
 
-// scout_prepared 监听已移除，现在使用一次性完成的 scout_and_show
+// ── scout_prepared：挖角第一步成功，等待用户选牌演出 ─────────
+// 注意：服务端会同时广播 game_state（手牌已更新），
+// game_state 和 scout_prepared 到达顺序不固定，
+// 所以 pendingFinishScoutAndShow=true 必须在两个事件各自设置，
+// renderState 里读取 pendingFinishScoutAndShow 时它已是 true（幂等）
+socket.on('scout_prepared', () => {
+  pendingFinishScoutAndShow = true;
+  selectedIndices = [];
+  showToast('✅ 挖角成功！请在手牌中选连续的牌，然后点「演出」完成操作', 'success');
+  updateActionBtns();
+});
 
 socket.on('action_error', ({ message }) => {
   showToast('❌ ' + message, 'error');
+  // finish_scout_and_show 失败时（牌不够强等），服务端 pendingScoutAndShow 仍有效
+  // 恢复 pendingFinishScoutAndShow=true，让用户可以重新选牌再演出
+  // （doShow 里乐观设为 false，失败时在这里恢复）
+  if (gameState?.state === 'playing') {
+    // 检查服务端是否有 pendingScoutAndShow —— 通过判断 isMyTurn 且当前轮到我
+    // 由于 pendingScoutAndShow 时 currentPlayerId === me，isMyTurn 仍为 true
+    // 此时如果 message 包含「出牌」相关错误，说明是 finish 失败，恢复 pending
+    const isFinishError = message.includes('压') || message.includes('合法') || message.includes('索引');
+    if (isFinishError && isMyTurn) {
+      pendingFinishScoutAndShow = true;
+    }
+  }
   selectedIndices = [];
   if (gameState) renderHand(gameState.myHand);
   updateActionBtns();

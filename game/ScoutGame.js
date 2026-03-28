@@ -72,6 +72,7 @@ class ScoutGame {
 
     // 挖角并演出等待状态
     this.pendingScoutAndShow = null;
+    this.savedStageBeforeScout = null; // 修复BugC：新轮必须清除旧快照
 
     this.state = 'flip_phase';
   }

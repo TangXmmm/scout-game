@@ -159,12 +159,17 @@ test('B-02 | 翻牌操作可成功执行', () => {
   assert(r.success, '翻牌应成功');
   const newHand = game.hands['p1'];
   assertEqual(newHand.length, origHand.length, '翻牌后手牌数量不变');
-  // 翻转后：顺序倒置且每张换面
+  // 翻转后：顺序倒置且每张换面（top↔bottom，face切换）
   // 新手牌第0张 = 原手牌最后一张的翻转
-  assertEqual(newHand[0].top, origHand[origHand.length - 1].bottom,
-    '翻牌后第一张应是原最后一张的翻转（top↔bottom）');
-  assertEqual(getCardValue(newHand[0]), origHand[origHand.length - 1].bottom,
-    '翻牌后显示值为原最后一张的 bottom 值');
+  // 翻转规则：face 切换（top→bottom 或 bottom→top），top/bottom 数值不变
+  const origLast = origHand[origHand.length - 1];
+  // 翻转后新 face = 原 face 的反面
+  const expectedNewFace = origLast.face === 'top' ? 'bottom' : 'top';
+  assertEqual(newHand[0].face, expectedNewFace, '翻牌后第一张的 face 应切换');
+  // 翻转后显示值 = 原最后一张另一面的值
+  const expectedDisplayVal = origLast.face === 'top' ? origLast.bottom : origLast.top;
+  assertEqual(getCardValue(newHand[0]), expectedDisplayVal,
+    '翻牌后显示值为原最后一张切换 face 后的值');
 });
 
 test('B-03 | 所有人确认后进入playing', () => {

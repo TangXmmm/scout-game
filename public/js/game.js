@@ -14,6 +14,7 @@ let gameState = null;
 let selectedIndices = [];
 let isMyTurn = false;
 let scoutAndShowMode = false;
+let pendingFinishScoutAndShow = false; // 挖角已完成，等待演出第二步
 let selPos = null;          // 'left' | 'right'
 let selInsertIdx = 0;
 let willFlip = false;
@@ -203,7 +204,8 @@ function renderHand(hand) {
 
 // ── 切换选牌 ──────────────────────────────────────────────────
 function toggleCard(i) {
-  if (!isMyTurn) return showToast('还没轮到你', 'error');
+  // Bug2修复：pendingFinishScoutAndShow 状态下也允许选牌（挖角已完成，等待选牌演出）
+  if (!isMyTurn && !pendingFinishScoutAndShow) return showToast('还没轮到你', 'error');
   const pos = selectedIndices.indexOf(i);
   if (pos === -1) selectedIndices.push(i);
   else selectedIndices.splice(pos, 1);
@@ -218,7 +220,19 @@ function updateActionBtns() {
   const btnScout = document.getElementById('btn-scout');
   const btnSS = document.getElementById('btn-scout-show');
   const playing = isMyTurn && gameState?.state === 'playing';
-  
+
+  if (pendingFinishScoutAndShow) {
+    // 挖角已完成，等待用户选牌后点「演出」
+    btnShow.disabled = selectedIndices.length === 0;
+    btnShow.textContent = selectedIndices.length ? '⚡ 演出（完成挖角并演出）' : '▶ 演出';
+    btnScout.disabled = true;
+    btnSS.disabled = true;
+    return;
+  }
+
+  // 恢复演出按钮文字
+  btnShow.textContent = '▶ 演出';
+
   if (!playing) {
     [btnShow, btnScout, btnSS].forEach(b => b.disabled = true);
     return;
@@ -243,7 +257,8 @@ function renderState(state) {
   updateActionBtns();
 
   const waiting = document.getElementById('waiting-bar');
-  waiting.style.display = (!isMyTurn && state.state === 'playing') ? 'block' : 'none';
+  // pendingFinishScoutAndShow 时不显示「等待」条（还轮到我，需要选牌演出）
+  waiting.style.display = (!isMyTurn && !pendingFinishScoutAndShow && state.state === 'playing') ? 'block' : 'none';
 
   if (state.state === 'flip_phase') showFlipModal(state);
   else document.getElementById('flip-modal').style.display = 'none';
@@ -269,7 +284,13 @@ function doConfirmFlip() { socket.emit('confirm_flip'); }
 // ── 演出（SHOW）──────────────────────────────────────────────
 function doShow() {
   if (!selectedIndices.length) return showToast('请先点击手牌（需连续位置）', 'error');
-  socket.emit('show', { cardIndices: selectedIndices });
+  if (pendingFinishScoutAndShow) {
+    // Bug2修复：挖角并演出第二步 —— 用已更新的手牌索引完成演出
+    socket.emit('finish_scout_and_show', { showIndices: selectedIndices });
+    pendingFinishScoutAndShow = false;
+  } else {
+    socket.emit('show', { cardIndices: selectedIndices });
+  }
   selectedIndices = [];
 }
 
@@ -285,9 +306,9 @@ function openScoutModal(isAndShow = false) {
 
   if (isAndShow) {
     title.textContent = '⚡ 挖角并演出';
-    desc.textContent = '先在手牌中选择要演出的连续牌，然后选择挖角位置。每轮限用1次。';
+    desc.textContent = '选择挖角位置，确认后牌会进入手牌，再从手牌中选牌演出。每轮限用1次。';
     ssHint.style.display = 'block';
-    confirmBtn.textContent = '✅ 确认挖角并演出';
+    confirmBtn.textContent = '✅ 确认挖角（挖完再选牌演出）';
   } else {
     title.textContent = '🔍 挖角';
     desc.textContent = '从在场组两端取1张牌（每次只取1张！），插入手牌任意位置。';
@@ -317,6 +338,7 @@ function renderScoutPositions() {
   const fLeft = document.getElementById('flip-left-wrap');
   if (leftCard) {
     pLeft.innerHTML = miniCardHtml(leftCard);
+    // 只有两面值不同的牌才有翻转意义
     fLeft.style.display = (leftCard.top !== leftCard.bottom) ? 'block' : 'none';
     document.getElementById('flip-left-cb').checked = false;
   } else {
@@ -324,29 +346,40 @@ function renderScoutPositions() {
     fLeft.style.display = 'none';
   }
 
-  // 右端
+  // 右端：当在场组只有1张时，右端与左端是同一张，仍应显示该张牌（可翻转）
   const pRight = document.getElementById('preview-right');
   const fRight = document.getElementById('flip-right-wrap');
-  if (rightCard && stage.length > 1) {
+  if (stage.length === 0) {
+    pRight.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
+    fRight.style.display = 'none';
+  } else if (stage.length === 1) {
+    // 只有1张时右端就是左端那张，同样显示并允许翻转
     pRight.innerHTML = miniCardHtml(rightCard);
     fRight.style.display = (rightCard.top !== rightCard.bottom) ? 'block' : 'none';
     document.getElementById('flip-right-cb').checked = false;
   } else {
-    pRight.innerHTML = stage.length === 1
-      ? '<div style="font-size:0.65rem;color:var(--muted);">(同左端)</div>'
-      : '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
-    fRight.style.display = 'none';
+    pRight.innerHTML = miniCardHtml(rightCard);
+    fRight.style.display = (rightCard.top !== rightCard.bottom) ? 'block' : 'none';
+    document.getElementById('flip-right-cb').checked = false;
   }
 }
 
 // ── 选择左/右端 ──────────────────────────────────────────────
 function selectPos(pos) {
   selPos = pos;
-  willFlip = false;
+  // Bug3修复：切换端时不重置 willFlip，让用户保持翻转意图
+  // 仅重置两端的 checkbox 到未选中（用户需重新选择）
   document.getElementById('pos-left').classList.toggle('selected', pos === 'left');
   document.getElementById('pos-right').classList.toggle('selected', pos === 'right');
-  document.getElementById('flip-left-cb').checked = false;
-  document.getElementById('flip-right-cb').checked = false;
+  // 清除另一端的 checkbox，保留当前端（不重置willFlip，由onFlipChange驱动）
+  if (pos === 'left') {
+    document.getElementById('flip-right-cb').checked = false;
+  } else {
+    document.getElementById('flip-left-cb').checked = false;
+  }
+  // 读取当前端 checkbox 状态同步 willFlip
+  const cbId = pos === 'left' ? 'flip-left-cb' : 'flip-right-cb';
+  willFlip = document.getElementById(cbId).checked;
 
   // 显示挖到的牌预览
   const stage = gameState?.stage || [];
@@ -354,7 +387,7 @@ function selectPos(pos) {
   if (card) {
     const prev = document.getElementById('scouted-preview');
     prev.style.display = 'flex';
-    document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, false);
+    document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, willFlip);
   }
   renderInsertPreview();
 }
@@ -432,21 +465,16 @@ function confirmScout() {
   if (!selPos) return showToast('请先选择左端或右端', 'error');
 
   if (scoutAndShowMode) {
-    // 挖角并演出模式：先检查是否有选中的手牌
-    if (!selectedIndices.length) {
-      closeScoutModal();
-      showToast('⏳ 挖角完成！请选择手牌进行演出', 'info');
-      return;
-    }
-    // 一次性完成挖角并演出
-    socket.emit('scout_and_show', { 
-      scoutPosition: selPos, 
-      insertIndex: selInsertIdx, 
-      showIndices: selectedIndices,
-      flipCard: willFlip 
+    // Bug1+Bug2修复：两步流程
+    // 第一步：仅发送 prepare_scout_and_show（挖角入手），不要求事先选好手牌
+    // 第二步：等服务端返回 scout_prepared 后，用户在手牌中选牌，再点「演出」
+    socket.emit('prepare_scout_and_show', {
+      scoutPosition: selPos,
+      insertIndex: selInsertIdx,
+      flipCard: willFlip        // Bug1修复：翻转参数正确传递
     });
     closeScoutModal();
-    selectedIndices = [];
+    selectedIndices = [];       // 清空，等服务端更新手牌后重新选
   } else {
     socket.emit('scout', { position: selPos, insertIndex: selInsertIdx, flipCard: willFlip });
     closeScoutModal();
@@ -454,7 +482,13 @@ function confirmScout() {
   }
 }
 
-// doPendingScoutAndShow 和 resetShowBtn 已移除，现在使用一次性完成流程
+// ── scout_prepared 响应：挖角成功，提示用户选牌演出 ───────────
+socket.on('scout_prepared', ({ message }) => {
+  // 服务端已广播新游戏状态（手牌已更新），渲染由 game_state 事件驱动
+  pendingFinishScoutAndShow = true; // 标记等待演出第二步
+  showToast('✅ 挖角成功！请在手牌中选连续的牌，然后点「演出」完成操作', 'success');
+  updateActionBtns();
+});
 
 // ── 下一轮 / 返回大厅 ────────────────────────────────────────
 function nextRound() {

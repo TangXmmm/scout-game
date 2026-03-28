@@ -606,17 +606,12 @@ socket.on('scout_prepared', () => {
 
 socket.on('action_error', ({ message }) => {
   showToast('❌ ' + message, 'error');
-  // finish_scout_and_show 失败时（牌不够强等），服务端 pendingScoutAndShow 仍有效
-  // 恢复 pendingFinishScoutAndShow=true，让用户可以重新选牌再演出
-  // （doShow 里乐观设为 false，失败时在这里恢复）
-  if (gameState?.state === 'playing') {
-    // 检查服务端是否有 pendingScoutAndShow —— 通过判断 isMyTurn 且当前轮到我
-    // 由于 pendingScoutAndShow 时 currentPlayerId === me，isMyTurn 仍为 true
-    // 此时如果 message 包含「出牌」相关错误，说明是 finish 失败，恢复 pending
-    const isFinishError = message.includes('压') || message.includes('合法') || message.includes('索引');
-    if (isFinishError && isMyTurn) {
-      pendingFinishScoutAndShow = true;
-    }
+  // finish_scout_and_show 失败时（牌不够强、索引不合法等）：
+  //   服务端 pendingScoutAndShow 仍有效，用户可以重新选牌再演出
+  //   恢复 pendingFinishScoutAndShow=true，让用户重选手牌
+  const isFinishError = message.includes('不够强') || message.includes('合法') || message.includes('索引');
+  if (isFinishError && isMyTurn) {
+    pendingFinishScoutAndShow = true;
   }
   selectedIndices = [];
   if (gameState) renderHand(gameState.myHand);

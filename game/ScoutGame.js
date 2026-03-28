@@ -72,7 +72,6 @@ class ScoutGame {
 
     // 挖角并演出等待状态
     this.pendingScoutAndShow = null;
-    this.savedStageBeforeScout = null; // 修复BugC：新轮必须清除旧快照
 
     this.state = 'flip_phase';
   }
@@ -199,37 +198,6 @@ class ScoutGame {
     return newMin > oldMin; // 严格大于，相等不能出
   }
 
-  /**
-   * 挖角并演出时，使用挖角前保存的原始在场组进行比较
-   * 这样确保挖角后的演出仍然受到正确的大小限制
-   */
-  beatsOriginalStage(newCards, newType) {
-    if (!this.savedStageBeforeScout) {
-      // 如果没有保存的原始在场组，回退到普通比较
-      return this.beats(newCards, newType);
-    }
-
-    const { stage: originalStage, stageType: originalStageType } = this.savedStageBeforeScout;
-    
-    if (originalStage.length === 0) return true; // 无在场组，任何牌都能出
-
-    const oldCount = originalStage.length;
-    const newCount = newCards.length;
-
-    // 规则1：张数
-    if (newCount > oldCount) return true;
-    if (newCount < oldCount) return false;
-
-    // 规则2：类型（set > sequence）
-    if (newType === 'set' && originalStageType === 'sequence') return true;
-    if (newType === 'sequence' && originalStageType === 'set') return false;
-
-    // 规则3：比最小值（规则书图例确认用最小值比较）
-    const newMin = this.getCompareValue(newCards);
-    const oldMin = this.getCompareValue(originalStage);
-    return newMin > oldMin; // 严格大于，相等不能出
-  }
-
   // ─────────────────────────────────────────────────────────────
   // 行动 A：演出（SHOW）
   // ─────────────────────────────────────────────────────────────
@@ -314,6 +282,9 @@ class ScoutGame {
     if (this.stage.length === 0) {
       this.stageOwner = null;
       this.stageType = null;
+    } else if (this.stage.length === 1) {
+      // 只剩1张时类型必须修正为'set'（1张不可能是顺子）
+      this.stageType = 'set';
     }
 
     this.consecutiveScouts++;
@@ -339,10 +310,8 @@ class ScoutGame {
     if (this.pendingScoutAndShow === playerId) return { success: false, message: '挖角已完成，请先完成演出' };
     if (this.stage.length === 0) return { success: false, message: '在场组没有牌可以挖角' };
 
-    // 保存原始在场组信息（用于演出时的比较）
+    // 保存原始在场组主人（用于补偿token）
     const originalStageOwner = this.stageOwner;
-    const originalStage = [...this.stage];
-    const originalStageType = this.stageType;
 
     // 挖角
     let card;
@@ -369,16 +338,14 @@ class ScoutGame {
     if (this.stage.length === 0) {
       this.stageOwner = null;
       this.stageType = null;
+    } else if (this.stage.length === 1) {
+      // 只剩1张时类型必须是'set'（1张不可能是顺子）
+      this.stageType = 'set';
     }
 
-    // 标记进入"挖角并演出"等待状态，保存原始在场组信息
+    // 标记进入"挖角并演出"等待状态
     // 重要：不增加 consecutiveScouts，不切换玩家
     this.pendingScoutAndShow = playerId;
-    this.savedStageBeforeScout = {
-      stage: originalStage,
-      stageOwner: originalStageOwner,
-      stageType: originalStageType
-    };
 
     return { 
       success: true, 
@@ -404,10 +371,9 @@ class ScoutGame {
     const type = this.getPlayType(cards);
     if (!type) return { success: false, message: '所选牌不构成合法出牌' };
 
-    // 用挖角前保存的原始在场组进行比较（规则书：演出必须压过挖角前的在场组）
-    // beatsOriginalStage 内部使用 savedStageBeforeScout 做比较
-    if (!this.beatsOriginalStage(cards, type)) {
-      return { success: false, message: '出牌不够强，无法压制当前在场组（需压过挖角前的在场组）' };
+    // 规则书：演出必须压过挖角「之后」剩余的在场组（this.stage 已是挖角后状态）
+    if (!this.beats(cards, type)) {
+      return { success: false, message: '出牌不够强，无法压制当前在场组' };
     }
 
     // 演出成功：收集被压制的在场组（收集的是挖角后剩余的牌）
@@ -426,7 +392,6 @@ class ScoutGame {
     this.consecutiveScouts = 0;
     this.usedScoutAndShow[playerId] = true;
     this.pendingScoutAndShow = null;
-    this.savedStageBeforeScout = null; // 清除保存的信息
 
     if (this.hands[playerId].length === 0) {
       return this.endRound(playerId, 'empty_hand');

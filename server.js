@@ -297,7 +297,8 @@ io.on('connection', (socket) => {
         });
       }
     } else {
-      socket.emit('action_error', { message: result.message });
+      // 使用专用事件，让前端能精准区分「挖+演第二步失败」与「普通演出失败」
+      socket.emit('finish_scout_error', { message: result.message });
     }
   });
 

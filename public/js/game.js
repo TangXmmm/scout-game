@@ -606,13 +606,19 @@ socket.on('scout_prepared', () => {
 
 socket.on('action_error', ({ message }) => {
   showToast('❌ ' + message, 'error');
-  // finish_scout_and_show 失败时（牌不够强、索引不合法等）：
-  //   服务端 pendingScoutAndShow 仍有效，用户可以重新选牌再演出
-  //   恢复 pendingFinishScoutAndShow=true，让用户重选手牌
-  const isFinishError = message.includes('不够强') || message.includes('合法') || message.includes('索引');
-  if (isFinishError && isMyTurn) {
-    pendingFinishScoutAndShow = true;
-  }
+  selectedIndices = [];
+  if (gameState) renderHand(gameState.myHand);
+  // 注意：不在这里恢复 pendingFinishScoutAndShow，
+  // 挖+演第二步失败时由专用事件 finish_scout_error 处理，
+  // 避免普通演出失败误将 pendingFinishScoutAndShow 设为 true
+  updateActionBtns();
+});
+
+// ── finish_scout_error：挖+演第二步（演出）失败专用事件 ──────────
+// 服务端 pendingScoutAndShow 仍有效（挖角已发生），用户可重新选牌再演出
+socket.on('finish_scout_error', ({ message }) => {
+  showToast('❌ ' + message, 'error');
+  pendingFinishScoutAndShow = true;  // 恢复 pending，让用户重选手牌
   selectedIndices = [];
   if (gameState) renderHand(gameState.myHand);
   updateActionBtns();

@@ -5,85 +5,116 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>🎪 Scout！游戏中</title>
+  <title>SCOUT! 对局中</title>
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
   <style>
-    /* ─── 基础重置 ───────────────────────────────────── */
-    *, *::before, *::after {
-      margin: 0; padding: 0; box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    :root {
-      --gold: #f7971e;
-      --gold-light: #ffd200;
-      --blue: #58a6ff;
-      --green: #3fb950;
-      --red: #f85149;
-      --bg: #0d1117;
-      --bg2: #161b22;
-      --text: #e6edf3;
-      --muted: #8b949e;
-      --border: rgba(255,255,255,0.1);
-      /* 移动端卡牌尺寸 */
-      --card-w: 52px;
-      --card-h: 72px;
-      --card-font: 1.5rem;
-    }
-
-    @media (min-width: 480px) {
-      :root { --card-w: 60px; --card-h: 84px; --card-font: 1.8rem; }
-    }
-    @media (min-width: 768px) {
-      :root { --card-w: 68px; --card-h: 94px; --card-font: 2rem; }
-    }
-
-    html { font-size: 16px; }
-
+    /* ── 对局页专属布局 ──────────────────────────── */
     body {
-      background: var(--bg);
-      font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
-      color: var(--text);
-      min-height: 100vh;
-      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow-x: hidden;
     }
 
-    /* ─── PC端左右分栏布局 ──────────────────────────── */
+    /* ── 顶部状态条 ─────────────────────────────── */
+    #header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      height: 44px;
+      background: rgba(20,24,32,0.72);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .hb-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hb-left .hb-sep { color: rgba(255,255,255,0.2); }
+
+    #action-log {
+      flex: 1;
+      text-align: center;
+      font-size: clamp(0.72rem, 2.5vw, 0.8rem);
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #action-log .active-player {
+      color: var(--accent-primary);
+      font-weight: 700;
+    }
+
+    #header-right {
+      font-size: 0.7rem;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      flex-shrink: 0;
+      max-width: 30vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── PC 端主布局 ─────────────────────────────── */
+    #game-layout {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
     @media (min-width: 900px) {
       #game-layout {
         display: grid;
         grid-template-columns: 280px 1fr;
         grid-template-rows: auto 1fr auto auto;
-        height: 100vh;
+        height: calc(100vh - 44px);
+        height: calc(100dvh - 44px);
         overflow: hidden;
       }
+
       #players-sidebar {
         grid-row: 1 / -1;
         grid-column: 1;
         overflow-y: auto;
-        border-right: 1px solid var(--border);
-        background: rgba(0,0,0,0.3);
+        border-right: 1px solid rgba(255,255,255,0.06);
+        background: rgba(0,0,0,0.2);
         padding: 16px 12px;
         display: flex;
         flex-direction: column;
         gap: 8px;
       }
-      #header-bar {
-        grid-column: 2;
-        grid-row: 1;
-      }
+
+      #players-top-bar { display: none; }
+      #score-bar { display: none; }
+
       #stage-area {
         grid-column: 2;
-        grid-row: 2;
+        grid-row: 1 / 3;
         overflow-y: auto;
-        flex: 1;
       }
+
       #action-area {
         grid-column: 2;
         grid-row: 3;
       }
+
       #my-hand-area {
         grid-column: 2;
         grid-row: 4;
@@ -91,93 +122,14 @@
       }
     }
 
-    /* ─── 移动端垂直布局 ─────────────────────────────── */
     @media (max-width: 899px) {
-      #game-layout {
-        display: flex;
-        flex-direction: column;
-        min-height: 100dvh;
-      }
-      #players-sidebar { display: none; } /* 移动端隐藏，用顶部bar代替 */
+      #players-sidebar { display: none; }
     }
 
-    /* ─── 顶部玩家信息条（移动端）──────────────────── */
-    #players-top-bar {
-      display: flex;
-      gap: 6px;
-      padding: 8px 12px;
-      background: rgba(0,0,0,0.5);
-      border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
-      flex-shrink: 0;
-    }
-    #players-top-bar::-webkit-scrollbar { display: none; }
-
-    @media (min-width: 900px) { #players-top-bar { display: none; } }
-
-    .player-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      border-radius: 22px;
-      background: rgba(255,255,255,0.05);
-      border: 2px solid var(--border);
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: all 0.25s;
-      font-size: 0.85rem;
-    }
-
-    .player-chip.active {
-      border-color: var(--gold);
-      background: rgba(247,151,30,0.3);
-      box-shadow: 0 0 20px rgba(247,151,30,0.8);
-      transform: scale(1.08);
-      animation: chipPulse 2s ease-in-out infinite;
-    }
-    
-    @keyframes chipPulse {
-      0%, 100% { box-shadow: 0 0 20px rgba(247,151,30,0.8); }
-      50% { box-shadow: 0 0 28px rgba(247,151,30,1); }
-    }
-    
-    .player-chip.is-me { 
-      border-color: var(--blue); 
-      background: rgba(88,166,255,0.15);
-      border-width: 2.5px;
-    }
-    .player-chip.active.is-me { 
-      border-color: var(--green); 
-      background: rgba(63,185,80,0.25);
-      box-shadow: 0 0 24px rgba(63,185,80,0.8);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 20px rgba(63,185,80,0.7); }
-      50% { box-shadow: 0 0 30px rgba(63,185,80,0.9); }
-    }
-
-    .chip-av {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--gold), var(--gold-light));
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.8rem; color: #1a1a2e;
-      flex-shrink: 0;
-    }
-
-    .chip-name { font-weight: 700; font-size: 0.9rem; }
-    .chip-meta { color: var(--muted); font-size: 0.78rem; }
-    .chip-live { color: var(--gold); font-weight: 800; font-size: 0.9rem; }
-
-    /* ─── PC端左侧玩家栏 ─────────────────────────────── */
-    #players-sidebar .sidebar-title {
-      font-size: 0.7rem;
-      color: var(--muted);
+    /* ── PC 端玩家侧边栏 ─────────────────────────── */
+    .sidebar-title {
+      font-size: 0.65rem;
+      color: var(--text-tertiary);
       text-transform: uppercase;
       letter-spacing: 2px;
       padding: 0 4px;
@@ -185,90 +137,226 @@
     }
 
     .sidebar-player {
-      padding: 14px 16px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.04);
-      border: 2px solid var(--border);
-      transition: all 0.3s;
+      padding: 14px 14px;
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-default);
+      transition: all 0.3s var(--ease-out);
     }
 
     .sidebar-player.active {
-      border-color: var(--gold);
-      background: rgba(247,151,30,0.25);
-      box-shadow: 0 0 24px rgba(247,151,30,0.7), inset 0 0 30px rgba(247,151,30,0.15);
-      transform: translateX(6px) scale(1.02);
-      animation: playerPulse 2s ease-in-out infinite;
-    }
-    
-    @keyframes playerPulse {
-      0%, 100% { box-shadow: 0 0 24px rgba(247,151,30,0.7), inset 0 0 30px rgba(247,151,30,0.15); }
-      50% { box-shadow: 0 0 32px rgba(247,151,30,0.9), inset 0 0 40px rgba(247,151,30,0.25); }
+      border-color: var(--border-strong);
+      background: rgba(214,168,75,0.06);
+      animation: playerBreath 2.4s ease-in-out infinite;
     }
 
-    .sidebar-player .sp-name { font-weight: 700; font-size: 1.05rem; }
-    .sidebar-player.active .sp-name { 
-      color: var(--gold-light); 
-      font-size: 1.15rem;
-      text-shadow: 0 0 10px rgba(247,151,30,0.6);
-    }
-    .sidebar-player .sp-score { font-size: 0.88rem; color: var(--muted); margin-top: 6px; }
-    .sidebar-player .sp-live { color: var(--gold); font-weight: 800; font-size: 1rem; }
-    .sidebar-player .sp-turn { 
-      font-size: 0.88rem; 
-      color: var(--gold-light); 
-      margin-top: 6px;
-      font-weight: 800;
-      animation: blink 1.2s ease-in-out infinite;
-      text-shadow: 0 0 8px rgba(247,151,30,0.8);
+    @keyframes playerBreath {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(214,168,75,0); }
+      50%       { box-shadow: 0 0 14px 0 rgba(214,168,75,0.2); }
     }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
-
-    /* ─── 头部信息条 ─────────────────────────────────── */
-    #header-bar {
+    .sp-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 6px 14px;
-      background: rgba(0,0,0,0.3);
-      border-bottom: 1px solid var(--border);
-      font-size: 0.78rem;
-      color: var(--muted);
-      flex-shrink: 0;
       gap: 8px;
+      margin-bottom: 10px;
     }
 
-    #action-log {
+    .sp-name {
+      font-weight: 700;
+      font-size: 0.92rem;
       flex: 1;
-      text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    /* ─── 在场组区域 ─────────────────────────────────── */
+    .sidebar-player.active .sp-name { color: var(--accent-primary); }
+
+    .sp-stats {
+      display: flex;
+      gap: 14px;
+      font-size: 0.78rem;
+    }
+
+    .sp-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sp-stat-label {
+      font-size: 0.62rem;
+      color: var(--text-tertiary);
+      letter-spacing: 0.3px;
+    }
+
+    .sp-stat-val {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .sp-stat-val.tok { color: var(--accent-primary); }
+    .sp-stat-val.hand { color: var(--state-info); }
+
+    .sp-status {
+      font-size: 0.72rem;
+      margin-top: 8px;
+      padding: 2px 0;
+    }
+
+    /* ── 移动端顶部玩家条 ────────────────────────── */
+    #players-top-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      flex-shrink: 0;
+    }
+
+    #players-top-bar::-webkit-scrollbar { display: none; }
+
+    .player-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-default);
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.25s;
+      font-size: 0.8rem;
+    }
+
+    .player-chip.active {
+      border-color: var(--border-strong);
+      background: rgba(214,168,75,0.1);
+      animation: chipBreath 2.4s ease-in-out infinite;
+    }
+
+    @keyframes chipBreath {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(214,168,75,0); }
+      50%       { box-shadow: 0 0 10px 0 rgba(214,168,75,0.3); }
+    }
+
+    .player-chip.is-me { border-color: rgba(110,168,255,0.4); }
+    .player-chip.active.is-me {
+      border-color: var(--border-strong);
+      background: rgba(214,168,75,0.12);
+    }
+
+    .chip-av {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.72rem; color: #1A1D24;
+      flex-shrink: 0;
+    }
+
+    .chip-name { font-weight: 700; font-size: 0.82rem; }
+    .chip-meta { color: var(--text-tertiary); font-size: 0.72rem; }
+    .chip-live { color: var(--accent-primary); font-weight: 800; font-size: 0.82rem; }
+
+    /* ── 移动端分数条 ────────────────────────────── */
+    #score-bar {
+      display: flex;
+      gap: 5px;
+      padding: 5px 12px;
+      background: rgba(0,0,0,0.15);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      overflow-x: auto;
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+
+    #score-bar::-webkit-scrollbar { display: none; }
+
+    .sc-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: var(--radius-pill);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-default);
+      font-size: 0.65rem;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .sc-name { font-weight: 600; color: var(--text-secondary); }
+    .sc-tok { color: var(--accent-primary); }
+    .sc-hand { color: var(--state-info); }
+    .sc-total { font-weight: 700; color: var(--state-success); }
+    .sc-total.neg { color: var(--state-danger); }
+
+    /* ── 中央视觉舞台 ────────────────────────────── */
     #stage-area {
-      padding: 12px 14px;
+      padding: 12px 14px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 140px;
-      background: rgba(0,0,0,0.15);
       flex-shrink: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.03), rgba(255,255,255,0));
+      min-height: 180px;
+    }
+
+    @media (min-width: 900px) {
+      #stage-area {
+        min-height: 220px;
+        padding: 20px 28px;
+      }
+    }
+
+    .stage-shell {
+      width: 100%;
+      max-width: 560px;
+      min-height: 140px;
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius-xl);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      box-shadow: var(--shadow-card);
+    }
+
+    @media (min-width: 900px) {
+      .stage-shell {
+        min-height: 200px;
+        padding: 20px 28px;
+      }
+    }
+
+    .stage-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
     }
 
     .stage-label {
-      font-size: 0.68rem;
-      color: var(--muted);
+      font-size: 0.62rem;
+      color: var(--text-tertiary);
       text-transform: uppercase;
       letter-spacing: 2px;
-      margin-bottom: 8px;
+    }
+
+    #stage-meta {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
     }
 
     #stage-cards {
@@ -277,9 +365,10 @@
       flex-wrap: wrap;
       justify-content: center;
       align-items: center;
-      min-height: 80px;
+      min-height: 72px;
     }
 
+    /* 在场组末端 badge */
     .stage-card-wrap {
       display: flex;
       flex-direction: column;
@@ -288,245 +377,257 @@
     }
 
     .stage-end-badge {
-      font-size: 0.56rem;
+      font-size: 0.52rem;
       font-weight: 700;
       padding: 1px 5px;
-      border-radius: 8px;
+      border-radius: 6px;
     }
 
-    .end-left { background: rgba(247,151,30,0.2); color: var(--gold); }
-    .end-right { background: rgba(88,166,255,0.2); color: var(--blue); }
+    .end-left {
+      background: rgba(214,168,75,0.15);
+      color: var(--accent-primary);
+    }
 
+    .end-right {
+      background: rgba(110,168,255,0.15);
+      color: var(--state-info);
+    }
+
+    /* 空场组时 */
     .stage-empty {
-      color: #30363d;
-      font-size: 0.85rem;
-      border: 2px dashed #30363d;
-      border-radius: 12px;
-      padding: 16px 32px;
-      text-align: center;
-    }
-
-    #stage-meta {
-      margin-top: 8px;
-      font-size: 0.95rem;
-      color: var(--gold-light);
-      text-align: center;
-      font-weight: 700;
-      text-shadow: 0 0 10px rgba(247,151,30,0.6);
-      padding: 6px 12px;
-      background: rgba(247,151,30,0.15);
-      border-radius: 10px;
-      border: 1px solid rgba(247,151,30,0.3);
-    }
-
-    .type-badge {
-      font-size: 0.65rem;
-      padding: 2px 8px;
-      border-radius: 12px;
-      margin-left: 5px;
-    }
-    .badge-set { background: rgba(88,166,255,0.2); color: var(--blue); }
-    .badge-seq { background: rgba(63,185,80,0.2); color: var(--green); }
-
-    /* ─── 卡牌样式 ───────────────────────────────────── */
-    .game-card {
-      width: var(--card-w);
-      height: var(--card-h);
-      border-radius: 9px;
-      background: #fff;
-      color: #1a1a2e;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      user-select: none;
-      border: 2px solid transparent;
-      flex-shrink: 0;
-      touch-action: manipulation;
-      -webkit-user-select: none;
+      gap: 8px;
+      padding: 12px 0;
+      width: 100%;
     }
 
-    .game-card:hover { transform: translateY(-4px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
-    .game-card:active { transform: scale(0.95); }
-
-    .game-card.selected {
-      transform: translateY(-14px);
-      border-color: var(--gold);
-      box-shadow: 0 10px 24px rgba(247,151,30,0.6);
+    .stage-empty-slot {
+      width: 64px;
+      height: 88px;
+      border: 1.5px dashed rgba(255,255,255,0.12);
+      border-radius: var(--radius-card);
+      opacity: 0.5;
     }
 
-    .game-card.stage-card { cursor: default; }
-    .game-card.stage-card:hover, .game-card.stage-card:active { transform: none; }
-
-    .card-main-val { 
-      font-size: calc(var(--card-font) * 1.4); 
-      font-weight: 900; 
-      line-height: 1; 
+    .stage-empty-main {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-secondary);
     }
-    .card-corner {
-      position: absolute;
-      font-size: calc(0.55rem * 1.2);
-      font-weight: 600;
-      color: #aaa;
+
+    .stage-empty-sub {
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
     }
-    .card-tl { top: 3px; left: 4px; }
-    .card-br { bottom: 3px; right: 4px; }
 
-    /* 数字颜色 - 反转：数字越大越红，越小越蓝 */
-    .vc1,.vc2 { color: #2980b9; }  /* 9-10 蓝色 */
-    .vc3,.vc4 { color: #27ae60; }  /* 7-8 绿色 */
-    .vc5,.vc6 { color: #c0a010; }  /* 5-6 黄色 */
-    .vc7,.vc8 { color: #e67e22; }  /* 3-4 橙色 */
-    .vc9,.vc10 { color: #e74c3c; } /* 1-2 红色 */
+    /* 在场组底部行为提示 */
+    #stage-hint {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      text-align: center;
+      padding: 4px 8px;
+      border-radius: 8px;
+      line-height: 1.5;
+    }
 
-    /* ─── 操作按钮区 ─────────────────────────────────── */
+    #stage-hint.hint-emphasis {
+      background: rgba(214,168,75,0.08);
+      color: var(--text-secondary);
+      border: 1px solid rgba(214,168,75,0.12);
+    }
+
+    /* ── 操作按钮区 ──────────────────────────────── */
     #action-area {
       padding: 8px 12px;
       display: flex;
-      gap: 8px;
+      gap: 10px;
       justify-content: center;
       flex-wrap: wrap;
-      background: rgba(0,0,0,0.2);
-      border-top: 1px solid rgba(255,255,255,0.05);
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      background: rgba(0,0,0,0.12);
+      border-top: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
       flex-shrink: 0;
     }
 
-    .act-btn {
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: clamp(0.75rem, 2.5vw, 0.88rem);
-      font-weight: 700;
-      cursor: pointer;
-      border: 2px solid;
-      transition: all 0.18s;
-      font-family: inherit;
-      min-height: 44px;
-      touch-action: manipulation;
-      white-space: nowrap;
-    }
-
-    .act-btn.show { background: rgba(63,185,80,0.1); border-color: var(--green); color: var(--green); }
-    .act-btn.show:hover:not(:disabled) { background: rgba(63,185,80,0.2); }
-    .act-btn.scout { background: rgba(247,151,30,0.1); border-color: var(--gold); color: var(--gold); }
-    .act-btn.scout:hover:not(:disabled) { background: rgba(247,151,30,0.2); }
-    .act-btn.scout-show { background: rgba(88,166,255,0.1); border-color: var(--blue); color: var(--blue); }
-    .act-btn.scout-show:hover:not(:disabled) { background: rgba(88,166,255,0.2); }
-    .act-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-    /* ─── 手牌区 ─────────────────────────────────────── */
+    /* ── 手牌区 ──────────────────────────────────── */
     #my-hand-area {
       padding: 10px 12px;
       padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
-      background: rgba(0,0,0,0.25);
+      background: rgba(0,0,0,0.2);
       flex-shrink: 0;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .hand-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
     }
 
     .hand-label {
       font-size: 0.68rem;
-      color: var(--muted);
+      color: var(--text-tertiary);
       text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      letter-spacing: 1.5px;
+    }
+
+    #hand-count-badge {
+      padding: 1px 8px;
+      border-radius: var(--radius-pill);
+      background: rgba(110,168,255,0.12);
+      border: 1px solid rgba(110,168,255,0.2);
+      color: var(--state-info);
+      font-size: 0.65rem;
+      font-weight: 600;
     }
 
     #my-hand-cards {
       display: flex;
       gap: 5px;
       overflow-x: auto;
-      padding-bottom: 8px;
+      padding-bottom: 10px;
       align-items: flex-end;
-      min-height: calc(var(--card-h) + 20px);
+      min-height: calc(var(--card-h) + 24px);
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.1) transparent;
+      scrollbar-color: rgba(255,255,255,0.08) transparent;
       -webkit-overflow-scrolling: touch;
     }
 
     #my-hand-cards::-webkit-scrollbar { height: 3px; }
     #my-hand-cards::-webkit-scrollbar-track { background: transparent; }
-    #my-hand-cards::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-
-    /* ─── 弹窗公共 ───────────────────────────────────── */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.78);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
+    #my-hand-cards::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
     }
 
-    .modal-box {
-      background: var(--bg2);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 18px;
-      padding: clamp(18px, 5vw, 28px);
-      width: 100%;
-      max-width: 480px;
-      max-height: 90vh;
-      max-height: 90dvh;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .modal-title {
-      font-size: clamp(1rem, 4vw, 1.2rem);
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-
-    /* ─── 翻牌阶段弹窗 ───────────────────────────────── */
+    /* ── 翻牌弹窗专属 ────────────────────────────── */
     #flip-modal { z-index: 150; }
+
+    .flip-modal-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .flip-desc {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .flip-desc em {
+      color: var(--text-primary);
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    .flip-preview-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+    }
+
+    .flip-preview-label {
+      font-size: 0.68rem;
+      color: var(--text-tertiary);
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
 
     .flip-hand-preview {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 4px;
       justify-content: center;
-      margin-bottom: 16px;
+    }
+
+    .flip-decision-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .flip-decision-btn {
+      height: 52px;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all var(--dur-normal) var(--ease-out);
+      touch-action: manipulation;
+    }
+
+    .flip-btn-confirm {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+      color: #1A1D24;
+      box-shadow: var(--shadow-button);
+    }
+
+    .flip-btn-confirm:hover {
+      box-shadow: 0 8px 24px rgba(214,168,75,0.3);
+      transform: translateY(-1px);
+    }
+
+    .flip-btn-keep {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+    }
+
+    .flip-btn-keep:hover {
+      background: rgba(255,255,255,0.08);
     }
 
     .flip-status-row {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      margin-top: 12px;
-      justify-content: center;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-default);
     }
 
     .flip-stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       font-size: 0.72rem;
       padding: 3px 10px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.05);
-      color: var(--muted);
+      border-radius: var(--radius-pill);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border-default);
     }
 
-    .flip-stat-chip.done { background: rgba(63,185,80,0.12); color: var(--green); }
+    .flip-stat-chip.done {
+      background: rgba(81,179,127,0.12);
+      color: var(--state-success);
+      border-color: rgba(81,179,127,0.25);
+    }
 
-    /* ─── Scout面板 ──────────────────────────────────── */
+    /* ── Scout 挖角弹窗 ──────────────────────────── */
     #scout-modal { z-index: 220; }
 
-    .scout-title { color: var(--gold); }
+    .scout-desc { font-size: 0.84rem; color: var(--text-secondary); line-height: 1.6; }
 
-    /* 左右端选择按钮 */
-    .pos-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .pos-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
 
     .pos-btn {
       padding: 12px 8px;
-      border-radius: 12px;
-      border: 2px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: var(--text);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-primary);
       cursor: pointer;
       font-family: inherit;
       font-size: 0.78rem;
@@ -536,41 +637,44 @@
       touch-action: manipulation;
     }
 
-    .pos-btn.selected { border-color: var(--gold); background: rgba(247,151,30,0.15); color: var(--gold); }
+    .pos-btn.selected {
+      border-color: var(--border-strong);
+      background: rgba(214,168,75,0.1);
+      color: var(--accent-primary);
+    }
 
-    /* 挖到的牌大预览 */
     .scouted-preview {
       display: none;
-      justify-content: center;
       flex-direction: column;
       align-items: center;
       margin-bottom: 14px;
     }
 
-    .scouted-preview-label { font-size: 0.78rem; color: var(--gold); margin-bottom: 6px; }
+    .scouted-preview-label {
+      font-size: 0.78rem;
+      color: var(--accent-primary);
+      margin-bottom: 6px;
+    }
 
-    /* 翻转复选框 */
     .flip-toggle {
       display: inline-flex;
       align-items: center;
       gap: 5px;
       font-size: 0.78rem;
-      color: var(--muted);
+      color: var(--text-tertiary);
       cursor: pointer;
       margin-top: 6px;
       padding: 4px 10px;
       border-radius: 8px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-default);
+      background: rgba(255,255,255,0.02);
       touch-action: manipulation;
     }
 
-    .flip-toggle input { accent-color: var(--gold); width: 14px; height: 14px; cursor: pointer; }
-    .flip-toggle label { cursor: pointer; }
+    .flip-toggle input { accent-color: var(--accent-primary); width: 14px; height: 14px; cursor: pointer; }
 
-    /* 插入位置预览 */
     .insert-section { margin-bottom: 14px; }
-    .insert-section-title { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+    .insert-section-title { font-size: 0.78rem; color: var(--text-tertiary); margin-bottom: 8px; }
 
     #insert-preview-row {
       display: flex;
@@ -578,13 +682,14 @@
       align-items: center;
       overflow-x: auto;
       padding: 8px;
-      background: rgba(255,255,255,0.03);
+      background: rgba(255,255,255,0.02);
       border-radius: 10px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-default);
       min-height: 56px;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
     }
+
     #insert-preview-row::-webkit-scrollbar { display: none; }
 
     .mini-card {
@@ -592,516 +697,519 @@
       border-radius: 4px;
       background: #fff;
       color: #1a1a2e;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 900;
       flex-shrink: 0;
       cursor: pointer;
       border: 1.5px solid transparent;
       transition: all 0.12s;
     }
 
-    .mini-card:hover { border-color: rgba(247,151,30,0.5); transform: translateY(-2px); }
+    .mini-card:hover { border-color: rgba(214,168,75,0.5); transform: translateY(-2px); }
 
     .mini-insert-line {
       width: 2.5px; height: 36px;
-      background: var(--gold);
+      background: var(--accent-primary);
       border-radius: 2px;
       flex-shrink: 0;
-      box-shadow: 0 0 6px rgba(247,151,30,0.7);
+      box-shadow: 0 0 6px rgba(214,168,75,0.6);
     }
 
     .mini-slot {
       width: 10px; height: 36px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
+
     .mini-slot::after {
       content: '';
       display: block;
       width: 2px;
       height: 24px;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.07);
       border-radius: 2px;
     }
-    .mini-slot:hover::after { background: rgba(247,151,30,0.4); }
+
+    .mini-slot:hover::after { background: rgba(214,168,75,0.4); }
 
     .mini-scouted {
       width: 26px; height: 36px;
       border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 900;
       flex-shrink: 0;
-      border: 1.5px solid var(--gold);
-      box-shadow: 0 0 8px rgba(247,151,30,0.5);
-      animation: pop-in 0.25s ease;
+      border: 1.5px solid var(--accent-primary);
+      box-shadow: 0 0 8px rgba(214,168,75,0.4);
+      animation: popIn 0.25s var(--ease-spring);
     }
 
-    @keyframes pop-in {
+    @keyframes popIn {
       from { transform: scale(0.4) translateY(-8px); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+      to   { transform: scale(1); opacity: 1; }
     }
 
-    .insert-hint-text { font-size: 0.7rem; color: var(--gold); text-align: center; margin-top: 6px; }
+    .insert-hint-text { font-size: 0.7rem; color: var(--accent-primary); text-align: center; margin-top: 6px; }
 
-    /* 弹窗底部按钮行 */
-    .modal-footer { display: flex; gap: 10px; margin-top: 14px; }
-
-    .mbtn {
-      flex: 1;
-      padding: 11px;
-      border: none;
-      border-radius: 10px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      touch-action: manipulation;
-      min-height: 44px;
-      transition: all 0.15s;
+    #scout-and-show-hint {
+      display: none;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: rgba(110,168,255,0.08);
+      border: 1px solid rgba(110,168,255,0.15);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--state-info);
     }
 
-    .mbtn-gold { background: linear-gradient(90deg, var(--gold), var(--gold-light)); color: #1a1a2e; }
-    .mbtn-gold:hover { box-shadow: 0 4px 16px rgba(247,151,30,0.4); }
-    .mbtn-ghost { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border); }
-    .mbtn-ghost:hover { background: rgba(255,255,255,0.12); }
-    .mbtn:active { transform: scale(0.97); }
-
-    /* ─── 回合结束弹窗 ───────────────────────────────── */
+    /* ── 回合结束/游戏结束弹窗 ───────────────────── */
     #round-end-modal { z-index: 300; }
+    #game-end-modal  { z-index: 320; }
 
-    .winner-line { font-size: clamp(0.9rem, 3vw, 1.1rem); color: var(--gold-light); font-weight: 700; margin-bottom: 16px; }
+    .winner-line {
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      color: var(--accent-primary);
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
 
     .scores-table {
       width: 100%;
       border-collapse: collapse;
       margin-bottom: 14px;
-      font-size: clamp(0.72rem, 2.5vw, 0.85rem);
+      font-size: clamp(0.72rem, 2.5vw, 0.84rem);
     }
 
     .scores-table th {
-      color: var(--muted);
-      font-size: 0.68rem;
+      color: var(--text-tertiary);
+      font-size: 0.66rem;
       padding: 4px 6px;
       text-align: left;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--border-default);
     }
 
     .scores-table td { padding: 7px 6px; border-top: 1px solid rgba(255,255,255,0.04); }
-    .scores-table tr.winner td { color: var(--gold-light); font-weight: 700; }
+    .scores-table tr.winner td { color: var(--accent-primary); font-weight: 700; }
 
     .score-rule-hint {
       font-size: 0.7rem;
-      color: var(--muted);
-      background: rgba(255,255,255,0.03);
+      color: var(--text-tertiary);
+      background: rgba(255,255,255,0.02);
       border-radius: 8px;
       padding: 8px 10px;
       margin-bottom: 12px;
       line-height: 1.6;
     }
 
-    /* ─── 游戏结束弹窗 ───────────────────────────────── */
-    #game-end-modal { z-index: 320; }
     .game-end-emoji { font-size: 2.5rem; margin-bottom: 8px; }
-    .game-winner-name { font-size: clamp(1.1rem, 4vw, 1.5rem); font-weight: 900; color: var(--gold-light); }
-    .game-winner-sub { color: var(--muted); margin-bottom: 16px; font-size: 0.85rem; }
+    .game-winner-name { font-size: clamp(1.1rem, 4vw, 1.5rem); font-weight: 900; color: var(--accent-primary); }
+    .game-winner-sub { color: var(--text-tertiary); margin-bottom: 16px; font-size: 0.85rem; }
 
-    /* ─── Toast 提示 ─────────────────────────────────── */
-    #toast {
+    /* ── 聊天浮层系统 ─────────────────────────────── */
+    .chat-bubble-container {
       position: fixed;
-      bottom: max(70px, calc(60px + env(safe-area-inset-bottom, 0px)));
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.9);
-      color: #fff;
-      padding: 8px 18px;
-      border-radius: 24px;
-      font-size: 0.82rem;
-      z-index: 500;
-      display: none;
-      white-space: nowrap;
-      max-width: 90vw;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      border: 1px solid rgba(255,255,255,0.12);
-      backdrop-filter: blur(8px);
-    }
-    #toast.error { border-color: rgba(248,81,73,0.4); background: rgba(248,81,73,0.18); }
-    #toast.success { border-color: rgba(63,185,80,0.4); background: rgba(63,185,80,0.15); }
-    #toast.info { border-color: rgba(88,166,255,0.4); background: rgba(88,166,255,0.12); }
-
-    /* ─── 聊天系统 ───────────────────────────────────── */
-    .chat-container {
-      position: fixed;
-      right: 0;
+      right: 20px;
       top: 60px;
       bottom: 0;
-      width: 100%;
+      width: 260px;
       pointer-events: none;
-      z-index: 100;
+      z-index: 50;
     }
 
-    /* 弹幕消息显示区 */
     .chat-messages {
       position: absolute;
-      right: 20px;
-      top: 20px;
-      width: 300px;
-      max-height: 400px;
+      right: 0;
+      top: 10px;
+      width: 100%;
+      max-height: 300px;
       overflow: hidden;
       pointer-events: none;
     }
 
-    /* 单条弹幕消息 */
     .chat-message {
-      background: rgba(0, 0, 0, 0.75);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 20px;
-      margin-bottom: 8px;
-      font-size: 14px;
-      animation: slideInRight 0.3s, fadeOut 0.5s 4.5s;
+      background: rgba(15,19,27,0.88);
+      color: var(--text-primary);
+      padding: 7px 12px;
+      border-radius: 18px;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+      animation: msgSlideIn 0.3s var(--ease-out), msgFadeOut 0.5s 4.5s forwards;
       pointer-events: auto;
       word-wrap: break-word;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
     }
 
     .chat-message .sender {
-      font-weight: bold;
-      color: #fbbf24;
-      margin-right: 6px;
+      font-weight: 700;
+      color: var(--accent-primary);
+      margin-right: 5px;
     }
 
-    @keyframes slideInRight {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
+    @keyframes msgSlideIn {
+      from { transform: translateX(60px); opacity: 0; }
+      to   { transform: none; opacity: 1; }
     }
 
-    @keyframes fadeOut {
-      to { opacity: 0; }
+    @keyframes msgFadeOut { to { opacity: 0; } }
+
+    /* 玩家头像旁的气泡 */
+    .player-bubble {
+      position: absolute;
+      background: rgba(32,39,53,0.96);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      box-shadow: var(--shadow-card);
+      animation: bubbleIn 0.15s var(--ease-spring);
+      z-index: 60;
+      pointer-events: none;
     }
 
-    /* 聊天工具栏按钮 */
+    @keyframes bubbleIn {
+      from { opacity: 0; transform: scale(0.7); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* 聊天悬浮按钮 */
     .chat-toolbar {
       position: fixed;
-      right: 20px;
-      bottom: 20px;
+      right: 18px;
+      bottom: max(18px, env(safe-area-inset-bottom, 18px));
       pointer-events: auto;
       z-index: 101;
     }
 
     .btn-toggle-chat {
-      width: 50px;
-      height: 50px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-      transition: transform 0.2s;
-      touch-action: manipulation;
-    }
-
-    .btn-toggle-chat:hover {
-      transform: scale(1.1);
-    }
-
-    .btn-toggle-chat:active {
-      transform: scale(0.95);
-    }
-
-    /* 聊天输入面板 */
-    .chat-input-panel {
-      position: fixed;
-      right: 20px;
-      bottom: 80px;
-      width: 320px;
-      background: var(--bg2);
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-      padding: 12px;
-      pointer-events: auto;
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      z-index: 102;
-    }
-
-    /* 快捷用语 */
-    .quick-phrases {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-
-    .quick-phrases button {
-      padding: 8px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: var(--text);
-      font-family: inherit;
-      touch-action: manipulation;
-    }
-
-    .quick-phrases button:hover {
-      background: rgba(255,255,255,0.1);
-      transform: translateY(-2px);
-    }
-
-    .quick-phrases button:active {
-      transform: scale(0.95);
-    }
-
-    /* Emoji选择器 */
-    .emoji-picker {
-      margin-bottom: 12px;
-    }
-
-    .emoji-list {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 4px;
-      max-height: 120px;
-      overflow-y: auto;
-      padding: 4px;
-      background: rgba(255,255,255,0.02);
-      border-radius: 6px;
-    }
-
-    .emoji-list button {
-      padding: 6px;
-      background: transparent;
-      border: none;
+      background: rgba(32,39,53,0.9);
+      border: 1px solid var(--border-default);
       font-size: 20px;
       cursor: pointer;
-      border-radius: 4px;
-      transition: background 0.2s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
       touch-action: manipulation;
-    }
-
-    .emoji-list button:hover {
-      background: rgba(255,255,255,0.1);
-    }
-
-    /* 文本输入框 */
-    .chat-input-box {
       display: flex;
-      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
     }
 
-    .chat-input-box input {
-      flex: 1;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
-      background: rgba(255,255,255,0.05);
-      color: var(--text);
-      outline: none;
+    .btn-toggle-chat:hover { transform: scale(1.08); }
+    .btn-toggle-chat.has-new { animation: chatPulse 2s ease-in-out 3; }
+
+    @keyframes chatPulse {
+      0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+      50%       { box-shadow: 0 4px 16px rgba(214,168,75,0.4); }
+    }
+
+    /* 聊天展开面板 */
+    .chat-input-panel {
+      position: fixed;
+      right: 18px;
+      bottom: max(72px, calc(62px + env(safe-area-inset-bottom, 0px)));
+      width: 360px;
+      max-width: calc(100vw - 36px);
+      background: var(--bg-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-popup);
+      padding: 14px;
+      pointer-events: auto;
+      max-height: 460px;
+      overflow-y: auto;
+      z-index: 102;
+      animation: panelUp 0.18s var(--ease-out);
+    }
+
+    @keyframes panelUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* 快捷语区 */
+    .quick-phrases-section { margin-bottom: 12px; }
+
+    .quick-phrases-label {
+      font-size: 0.65rem;
+      color: var(--text-tertiary);
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .quick-phrases-main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .qp-btn {
+      height: 44px;
+      padding: 0 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-pill);
+      color: var(--text-secondary);
       font-family: inherit;
-    }
-
-    .chat-input-box input:focus {
-      border-color: var(--blue);
-      background: rgba(88,166,255,0.1);
-    }
-
-    .chat-input-box button {
-      padding: 8px 16px;
-      background: var(--blue);
-      color: white;
-      border: none;
-      border-radius: 6px;
+      font-size: 0.82rem;
       cursor: pointer;
-      font-size: 14px;
-      transition: background 0.2s;
-      font-family: inherit;
+      transition: all var(--dur-fast) var(--ease-out);
       touch-action: manipulation;
     }
 
-    .chat-input-box button:hover {
-      background: #4a8fe7;
+    .qp-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-primary);
     }
 
-    .chat-input-box button:active {
-      transform: scale(0.95);
+    .qp-btn:active { transform: scale(0.92); }
+
+    /* 更多快捷语折叠区 */
+    .quick-more {
+      display: none;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 7px;
     }
 
-    .chat-input-box button:last-child {
-      background: rgba(255,255,255,0.1);
+    .quick-more.expanded { display: flex; }
+
+    .qp-more-toggle {
+      height: 36px;
+      padding: 0 12px;
+      background: transparent;
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: var(--radius-pill);
+      color: var(--text-tertiary);
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all var(--dur-fast);
+      margin-top: 4px;
     }
 
-    .chat-input-box button:last-child:hover {
-      background: rgba(255,255,255,0.15);
+    .qp-more-toggle:hover { border-color: rgba(255,255,255,0.2); color: var(--text-secondary); }
+
+    /* emoji 区 */
+    .emoji-section { margin-bottom: 12px; }
+
+    .emoji-label {
+      font-size: 0.65rem;
+      color: var(--text-tertiary);
+      letter-spacing: 1px;
+      margin-bottom: 8px;
     }
+
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+      max-height: 90px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .emoji-btn {
+      padding: 7px;
+      background: transparent;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.15s;
+      touch-action: manipulation;
+    }
+
+    .emoji-btn:hover { background: rgba(255,255,255,0.1); }
+    .emoji-btn:active { transform: scale(1.2); }
+
+    /* 输入区 */
+    .chat-input-row {
+      display: flex;
+      gap: 7px;
+      align-items: stretch;
+    }
+
+    .chat-text-input {
+      flex: 1;
+      height: 48px;
+      padding: 0 14px;
+      background: #2B3345;
+      border: 1px solid #3A4358;
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: max(16px, 0.9rem);
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+    }
+
+    .chat-text-input::placeholder { color: #7E879B; }
+    .chat-text-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px rgba(214,168,75,0.1);
+    }
+
+    .chat-send-btn {
+      height: 48px;
+      padding: 0 14px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover));
+      border: none;
+      border-radius: 12px;
+      color: #1A1D24;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--dur-normal);
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    .chat-send-btn:hover {
+      box-shadow: 0 4px 12px rgba(214,168,75,0.3);
+      transform: translateY(-1px);
+    }
+
+    .chat-collapse-btn {
+      height: 48px;
+      padding: 0 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      color: var(--text-tertiary);
+      font-family: inherit;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: all var(--dur-normal);
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    .chat-collapse-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
 
     /* 移动端适配 */
     @media (max-width: 900px) {
-      .chat-messages {
-        width: calc(100vw - 40px);
-        right: 20px;
-      }
-      
-      .chat-input-panel {
-        width: calc(100vw - 40px);
-        right: 20px;
-        bottom: 70px;
-      }
-      
-      .chat-toolbar {
-        right: 20px;
-        bottom: 10px;
-      }
-    }
-
-    /* ─── 等待提示 ───────────────────────────────────── */
-    #waiting-bar {
-      position: fixed;
-      bottom: max(12px, env(safe-area-inset-bottom, 12px));
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(247,151,30,0.12);
-      border: 1px solid rgba(247,151,30,0.3);
-      border-radius: 24px;
-      padding: 6px 16px;
-      font-size: 0.78rem;
-      color: var(--gold);
-      z-index: 30;
-      display: none;
-    }
-
-    /* ─── 实时分数条 ─────────────────────────────────── */
-    #score-bar {
-      display: flex;
-      gap: 6px;
-      padding: 5px 12px;
-      background: rgba(0,0,0,0.2);
-      border-bottom: 1px solid rgba(255,255,255,0.04);
-      overflow-x: auto;
-      flex-shrink: 0;
-      scrollbar-width: none;
-    }
-    #score-bar::-webkit-scrollbar { display: none; }
-
-    .sc-chip {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 9px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border);
-      font-size: 0.68rem;
-      color: var(--muted);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .sc-name { font-weight: 600; color: var(--text); }
-    .sc-tok { color: var(--gold); }
-    .sc-hand { color: var(--red); }
-    .sc-total { font-weight: 700; color: var(--green); }
-    .sc-total.neg { color: var(--red); }
-
-    /* ─── 描述文字 ───────────────────────────────────── */
-    .desc-text {
-      color: var(--muted);
-      font-size: 0.78rem;
-      line-height: 1.5;
-      margin-bottom: 12px;
+      .chat-bubble-container { width: calc(100vw - 40px); }
+      .chat-messages { width: 100%; }
+      .chat-input-panel { right: 18px; width: calc(100vw - 36px); }
     }
   </style>
 </head>
 <body>
+
+  <!-- ── 顶部状态条 ─────────────────────────────────────────────── -->
+  <div id="header-bar">
+    <div class="hb-left">
+      <span>第 <span id="round-num">1</span> 局</span>
+      <span class="hb-sep">·</span>
+      <span>第 <span id="turn-num">1</span> 轮</span>
+    </div>
+    <span id="action-log">游戏加载中…</span>
+    <span id="header-right"></span>
+  </div>
+
+  <!-- ── 对局主布局 ─────────────────────────────────────────────── -->
   <div id="game-layout">
 
-    <!-- PC端左侧玩家栏 -->
+    <!-- PC 端左侧玩家栏 -->
     <div id="players-sidebar">
       <div class="sidebar-title">玩家</div>
-      <!-- 由 JS 填充 -->
+      <!-- JS 填充 -->
     </div>
 
     <!-- 移动端顶部玩家条 -->
-    <div id="players-top-bar"><!-- 由 JS 填充 --></div>
+    <div id="players-top-bar"><!-- JS 填充 --></div>
 
-    <!-- 实时分数条 -->
-    <div id="score-bar"><!-- 由 JS 填充 --></div>
+    <!-- 移动端分数条 -->
+    <div id="score-bar"><!-- JS 填充 --></div>
 
-    <!-- 头部信息 -->
-    <div id="header-bar">
-      <span style="color:var(--muted);font-size:0.75rem;">第 <span id="round-num">1</span> 局</span>
-      <span id="action-log">游戏加载中...</span>
-      <span id="header-right" style="font-size:0.72rem;color:var(--muted);white-space:nowrap;"></span>
-    </div>
-
-    <!-- 在场组 -->
+    <!-- 中央视觉舞台 -->
     <div id="stage-area">
-      <div class="stage-label">🎭 在场组</div>
-      <div id="stage-cards">
-        <div class="stage-empty">在场组为空 — 第一个出牌吧！</div>
+      <div class="stage-shell">
+        <div class="stage-header">
+          <span class="stage-label">当前场组</span>
+          <span id="stage-meta"></span>
+        </div>
+        <div id="stage-cards">
+          <div class="stage-empty" id="stage-empty-view">
+            <div style="display:flex;gap:6px;">
+              <div class="stage-empty-slot"></div>
+              <div class="stage-empty-slot" style="opacity:0.3;"></div>
+            </div>
+            <div class="stage-empty-main" id="stage-empty-who">本轮先手出牌</div>
+            <div class="stage-empty-sub">请选择连续牌进行演出</div>
+          </div>
+        </div>
+        <div id="stage-hint"></div>
       </div>
-      <div id="stage-meta"></div>
     </div>
 
-    <!-- 操作按钮 -->
+    <!-- 操作按钮区 -->
     <div id="action-area">
-      <button class="act-btn show" id="btn-show" onclick="doShow()" disabled>🎭 演出</button>
-      <button class="act-btn scout" id="btn-scout" onclick="openScoutModal(false)" disabled>🔍 挖角</button>
-      <button class="act-btn scout-show" id="btn-scout-show" onclick="openScoutModal(true)" disabled>⚡ 挖+演</button>
+      <button class="act-btn" id="btn-show" onclick="doShow()" disabled>演出</button>
+      <button class="act-btn" id="btn-scout" onclick="openScoutModal(false)" disabled>挖角</button>
+      <button class="act-btn" id="btn-scout-show" onclick="openScoutModal(true)" disabled>挖角并演出</button>
     </div>
 
     <!-- 我的手牌 -->
     <div id="my-hand-area">
-      <div class="hand-label">
-        🃏 我的手牌
-        <span id="hand-count-badge" style="color:var(--blue);"></span>
+      <div class="hand-header">
+        <span class="hand-label">我的手牌</span>
+        <span id="hand-count-badge"></span>
       </div>
       <div id="my-hand-cards"></div>
     </div>
-  </div>
 
-  <!-- ── 翻牌弹窗 ─────────────────────────────────────────────── -->
+  </div><!-- /#game-layout -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       翻牌弹窗（Task 5）
+  ═══════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" id="flip-modal">
-    <div class="modal-box">
-      <div class="modal-title">🔄 是否翻转手牌？</div>
-      <p class="desc-text">游戏开始时，你可以翻转整手牌（正反面互换，顺序倒置）。</p>
-      <div class="flip-hand-preview" id="flip-preview"></div>
-      <div style="display:flex;gap:10px;">
-        <button class="mbtn mbtn-gold" onclick="doFlip()">🔄 翻转</button>
-        <button class="mbtn mbtn-ghost" onclick="doConfirmFlip()">✅ 不翻了</button>
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-title">是否翻转手牌</div>
+
+      <div class="flip-modal-sections">
+        <!-- 说明区 -->
+        <div class="flip-desc">
+          翻转后，手牌将<em>上下互换并倒序排列</em>，该顺序将在本局内保持不变。<br/>
+          <span style="color:var(--text-tertiary);font-size:0.8rem;">建议选择更容易组成连续组的一面。</span>
+        </div>
+
+        <!-- 预览区 -->
+        <div class="flip-preview-box">
+          <div class="flip-preview-label">当前显示：翻转后预览</div>
+          <div class="flip-hand-preview" id="flip-preview"></div>
+        </div>
+
+        <!-- 决策区 -->
+        <div class="flip-decision-row">
+          <button class="flip-decision-btn flip-btn-confirm" onclick="doFlip()">确认翻转</button>
+          <button class="flip-decision-btn flip-btn-keep" onclick="doConfirmFlip()">保持当前顺序</button>
+        </div>
+
+        <!-- 玩家确认状态 -->
+        <div class="flip-status-row" id="flip-status-row"></div>
       </div>
-      <div class="flip-status-row" id="flip-status-row"></div>
     </div>
   </div>
 
-  <!-- ── Scout挖角弹窗 ─────────────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════════════
+       Scout 挖角弹窗
+  ═══════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" id="scout-modal">
     <div class="modal-box">
-      <div class="modal-title scout-title" id="scout-modal-title">🔍 挖角</div>
-      <p class="desc-text" id="scout-modal-desc">从在场组两端取1张牌，插入手牌任意位置。</p>
+      <div class="modal-title" id="scout-modal-title">挖角</div>
+      <p class="scout-desc" id="scout-modal-desc">从在场组两端取1张牌，插入手牌任意位置。</p>
 
-      <!-- 步骤1 -->
-      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;">① 选择取哪一端（只取1张）：</div>
+      <!-- ① 选端 -->
+      <div style="font-size:0.75rem;color:var(--text-tertiary);margin-bottom:8px;">① 选择取哪一端（只取1张）：</div>
       <div class="pos-btns">
         <button class="pos-btn" id="pos-left" onclick="selectPos('left')">
           <div style="font-size:0.65rem;opacity:0.7;margin-bottom:4px;">← 左端</div>
@@ -1109,7 +1217,7 @@
           <div id="flip-left-wrap" style="display:none;margin-top:4px;">
             <label class="flip-toggle" onclick="event.stopPropagation()">
               <input type="checkbox" id="flip-left-cb" onchange="onFlipChange()" />
-              <label for="flip-left-cb" style="font-size:0.72rem;color:var(--muted);">翻转此牌</label>
+              <label for="flip-left-cb" style="font-size:0.72rem;color:var(--text-tertiary);">翻转此牌</label>
             </label>
           </div>
         </button>
@@ -1119,7 +1227,7 @@
           <div id="flip-right-wrap" style="display:none;margin-top:4px;">
             <label class="flip-toggle" onclick="event.stopPropagation()">
               <input type="checkbox" id="flip-right-cb" onchange="onFlipChange()" />
-              <label for="flip-right-cb" style="font-size:0.72rem;color:var(--muted);">翻转此牌</label>
+              <label for="flip-right-cb" style="font-size:0.72rem;color:var(--text-tertiary);">翻转此牌</label>
             </label>
           </div>
         </button>
@@ -1127,29 +1235,31 @@
 
       <!-- 挖到的牌预览 -->
       <div class="scouted-preview" id="scouted-preview">
-        <div class="scouted-preview-label">✅ 你将挖到这张牌：</div>
+        <div class="scouted-preview-label">你将挖到这张牌：</div>
         <div id="scouted-card-show"></div>
       </div>
 
-      <!-- 步骤2：插入位置 -->
+      <!-- ② 插入位置 -->
       <div class="insert-section">
         <div class="insert-section-title">② 点击位置线选择插入位置：</div>
         <div id="insert-preview-row"></div>
         <div class="insert-hint-text" id="insert-hint"></div>
       </div>
 
-      <div id="scout-and-show-hint" style="display:none;margin-bottom:10px;padding:8px 10px;background:rgba(88,166,255,0.08);border-radius:8px;font-size:0.75rem;color:var(--blue);">
-        ✅ 挖角后，请在手牌中选择要演出的连续牌
+      <div id="scout-and-show-hint">
+        挖角后，请在手牌中选择要演出的连续牌
       </div>
 
       <div class="modal-footer">
-        <button class="mbtn mbtn-gold" id="scout-confirm-btn" onclick="confirmScout()">确认挖角</button>
-        <button class="mbtn mbtn-ghost" onclick="closeScoutModal()">取消</button>
+        <button class="btn btn-primary btn-sm" id="scout-confirm-btn" onclick="confirmScout()">确认挖角</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeScoutModal()">取消</button>
       </div>
     </div>
   </div>
 
-  <!-- ── 回合结束弹窗 ─────────────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════════════
+       回合结束弹窗
+  ═══════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" id="round-end-modal">
     <div class="modal-box" style="text-align:center;">
       <div style="font-size:1.4rem;margin-bottom:6px;">🎉 回合结束！</div>
@@ -1166,77 +1276,82 @@
         <tbody id="round-scores-body"></tbody>
       </table>
       <div class="score-rule-hint">
-        📌 赢家：Token分（不扣手牌）；其他：Token − 剩余手牌数
+        赢家：Token 分（不扣手牌）；其他：Token − 剩余手牌数
       </div>
-      <button class="mbtn mbtn-gold" id="btn-next-round" onclick="nextRound()" style="max-width:200px;margin:0 auto;">▶️ 下一轮</button>
+      <button class="btn btn-primary btn-sm" id="btn-next-round" onclick="nextRound()" style="margin:0 auto;">下一轮</button>
     </div>
   </div>
 
-  <!-- ── 游戏结束弹窗 ─────────────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════════════
+       游戏结束弹窗
+  ═══════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" id="game-end-modal">
     <div class="modal-box" style="text-align:center;">
-      <div class="game-end-emoji">🏆🎪🎉</div>
+      <div class="game-end-emoji">🏆</div>
       <div class="game-winner-name" id="game-winner-name"></div>
-      <div class="game-winner-sub">赢得了游戏！</div>
+      <div class="game-winner-sub">赢得了本局游戏！</div>
       <table class="scores-table" style="margin-bottom:16px;">
         <thead><tr><th>名次</th><th>玩家</th><th>总分</th></tr></thead>
         <tbody id="game-scores-body"></tbody>
       </table>
-      <button class="mbtn mbtn-ghost" onclick="backToLobby()" style="max-width:200px;margin:0 auto;">🏠 返回大厅</button>
+      <button class="btn btn-secondary btn-sm" onclick="backToLobby()" style="margin:0 auto;">返回大厅</button>
     </div>
   </div>
-
-  <!-- 等待提示 -->
-  <div id="waiting-bar">⏳ 等待其他玩家行动...</div>
 
   <!-- Toast -->
   <div id="toast"></div>
 
-  <!-- ── 聊天系统 ─────────────────────────────────────────────── -->
-  <div id="chat-container" class="chat-container">
-    <!-- 弹幕消息显示区 -->
+  <!-- ══════════════════════════════════════════════════════════
+       聊天浮层系统（Task 6）
+  ═══════════════════════════════════════════════════════════ -->
+  <!-- 气泡弹幕区 -->
+  <div class="chat-bubble-container">
     <div id="chat-messages" class="chat-messages"></div>
-    
-    <!-- 聊天按钮 -->
-    <div class="chat-toolbar">
-      <button class="btn-toggle-chat" onclick="toggleChatInput()">💬</button>
+  </div>
+
+  <!-- 悬浮聊天按钮 -->
+  <div class="chat-toolbar">
+    <button class="btn-toggle-chat" id="chat-toggle-btn" onclick="toggleChatInput()">💬</button>
+  </div>
+
+  <!-- 展开的聊天面板 -->
+  <div id="chat-input-panel" class="chat-input-panel" style="display:none;">
+    <!-- 快捷语区 -->
+    <div class="quick-phrases-section">
+      <div class="quick-phrases-label">快捷语</div>
+      <div class="quick-phrases-main">
+        <button class="qp-btn" onclick="sendQuick('gg')">GG</button>
+        <button class="qp-btn" onclick="sendQuick('nice')">漂亮</button>
+        <button class="qp-btn" onclick="sendQuick('oops')">哎呀</button>
+        <button class="qp-btn" onclick="sendQuick('hurry')">快点啦</button>
+        <button class="qp-btn" onclick="sendQuick('sorry')">抱歉</button>
+        <button class="qp-btn" onclick="sendQuick('comeOn')">加油</button>
+      </div>
+      <!-- 更多快捷语 -->
+      <div class="quick-more" id="quick-more">
+        <button class="qp-btn" onclick="sendQuick('think')">让我想想</button>
+        <button class="qp-btn" onclick="sendQuick('wow')">哇</button>
+        <button class="qp-btn" onclick="sendQuick('lucky')">运气真好</button>
+        <button class="qp-btn" onclick="sendQuick('unlucky')">太背了</button>
+      </div>
+      <button class="qp-more-toggle" id="qp-more-btn" onclick="toggleMorePhrases()">+ 更多</button>
     </div>
-    
-    <!-- 聊天输入面板（默认隐藏） -->
-    <div id="chat-input-panel" class="chat-input-panel" style="display:none;">
-      <!-- 快捷用语 -->
-      <div class="quick-phrases">
-        <button onclick="sendQuick('gg')">GG！🎉</button>
-        <button onclick="sendQuick('nice')">漂亮！👍</button>
-        <button onclick="sendQuick('think')">让我想想...🤔</button>
-        <button onclick="sendQuick('oops')">哎呀！😅</button>
-        <button onclick="sendQuick('wow')">哇！😲</button>
-        <button onclick="sendQuick('sorry')">抱歉~🙏</button>
-        <button onclick="sendQuick('hurry')">快点啦！⏰</button>
-        <button onclick="sendQuick('lucky')">运气真好！🍀</button>
-        <button onclick="sendQuick('unlucky')">太背了...💔</button>
-        <button onclick="sendQuick('comeOn')">加油！💪</button>
+
+    <!-- Emoji 区（6×2，滚动） -->
+    <div class="emoji-section">
+      <div class="emoji-label">表情</div>
+      <div class="emoji-grid" id="emoji-list">
+        <!-- JS 生成 -->
       </div>
-      
-      <!-- Emoji选择器 -->
-      <div class="emoji-picker">
-        <div id="emoji-list" class="emoji-list">
-          <!-- 通过JS动态生成 -->
-        </div>
-      </div>
-      
-      <!-- 文本输入 -->
-      <div class="chat-input-box">
-        <input 
-          id="chat-input" 
-          type="text" 
-          placeholder="输入消息..." 
-          maxlength="50"
-          onkeypress="if(event.key==='Enter') sendTextMessage()"
-        />
-        <button onclick="sendTextMessage()">发送</button>
-        <button onclick="toggleChatInput()">关闭</button>
-      </div>
+    </div>
+
+    <!-- 输入区 -->
+    <div class="chat-input-row">
+      <input class="chat-text-input" id="chat-input"
+             type="text" placeholder="输入消息…" maxlength="50"
+             onkeypress="if(event.key==='Enter') sendTextMessage()" />
+      <button class="chat-send-btn" onclick="sendTextMessage()">发送</button>
+      <button class="chat-collapse-btn" onclick="toggleChatInput()">收起</button>
     </div>
   </div>
 

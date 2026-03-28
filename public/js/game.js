@@ -94,21 +94,20 @@ function miniCardHtml(card) {
   return `<div class="mini-card ${vc(val)}" style="background:${cardBg(val)};">${val}</div>`;
 }
 
-// ── 更新实时分数条 ────────────────────────────────────────────
+// ── 更新实时分数条（移动端）────────────────────────────────────
 function renderScoreBar(state) {
   const bar = document.getElementById('score-bar');
-  if (!state?.players) { bar.innerHTML = ''; return; }
+  if (!bar || !state?.players) { if (bar) bar.innerHTML = ''; return; }
   bar.innerHTML = state.players.map(p => {
-    const cards = p.scoreCards || 0;  // 演出获得的分数卡
-    const tok = p.scoutTokens || 0;   // 被挖角获得的补偿
-    const hc = p.handCount || 0;      // 剩余手牌
-    const live = cards + tok - hc;    // 实时分数 = 分数卡 + 补偿 - 手牌
+    const cards = p.scoreCards || 0;
+    const tok = p.scoutTokens || 0;
+    const hc = p.handCount || 0;
+    const live = cards + tok - hc;
     return `<div class="sc-chip">
       <span class="sc-name">${p.name}</span>
-      <span class="sc-tok">🎴${cards}</span>
-      <span class="sc-hand">🎫${tok}</span>
-      <span class="sc-total ${live < 0 ? 'neg' : ''}">${live >= 0 ? '+' : ''}${live}</span>
-      <span class="sc-hand" style="opacity:0.6">(🃏${hc})</span>
+      <span class="sc-tok"> · T${tok}</span>
+      <span class="sc-hand"> · 🃏${hc}</span>
+      <span class="sc-total ${live < 0 ? 'neg' : ''}">=<strong>${live >= 0 ? '+' : ''}${live}</strong></span>
     </div>`;
   }).join('');
 }
@@ -116,24 +115,22 @@ function renderScoreBar(state) {
 // ── 渲染玩家条（移动端 top bar）──────────────────────────────
 function renderPlayersTop(state) {
   const bar = document.getElementById('players-top-bar');
+  if (!bar) return;
   bar.innerHTML = state.players.map(p => {
     const isMe = p.id === myPlayerId;
     const active = p.id === state.currentPlayerId;
     let cls = 'player-chip';
     if (isMe) cls += ' is-me';
     if (active) cls += ' active';
-    const cards = p.scoreCards || 0;  // 演出获得的分数卡
-    const tok = p.scoutTokens || 0;   // 被挖角获得的补偿
-    const hc = p.handCount || 0;      // 剩余手牌
-    const live = cards + tok - hc;    // 实时分数 = 分数卡 + 补偿 - 手牌
+    const tok = p.scoutTokens || 0;
+    const hc = p.handCount || 0;
+    const live = (p.scoreCards || 0) + tok - hc;
     return `<div class="${cls}">
       <div class="chip-av">${p.name[0]}</div>
       <div>
-        <div class="chip-name">${p.name}${isMe ? ' 👤' : ''}</div>
-        <div class="chip-meta">
-          总${p.totalScore} · <span class="chip-live">${live >= 0 ? '+' : ''}${live}</span>
-        </div>
-        ${active ? '<div style="font-size:0.6rem;color:var(--gold);">▶ 行动中</div>' : ''}
+        <div class="chip-name">${p.name}${isMe ? ' 我' : ''}</div>
+        <div class="chip-meta">总${p.totalScore} · <span class="chip-live">${live >= 0 ? '+' : ''}${live}</span></div>
+        ${active ? '<div style="font-size:0.58rem;color:var(--accent-primary);">▶ 行动中</div>' : ''}
       </div>
     </div>`;
   }).join('');
@@ -151,14 +148,20 @@ function renderPlayersSidebar(state) {
     const tok = p.scoutTokens || 0;
     const hc = p.handCount || 0;
     const live = cards + tok - hc;
+    const statusText = active ? '<span style="color:var(--accent-primary);font-weight:700;">▶ 行动中</span>' : '<span style="color:var(--text-tertiary);">等待中</span>';
     return `<div class="sidebar-player ${active ? 'active' : ''}">
-      <div class="sp-name">${p.name}${isMe ? ' 👤' : ''}</div>
-      <div class="sp-score">
-        总分 ${p.totalScore} · 🎴${cards} · 🎫${tok} · 🃏${hc}
+      ${active ? '<div style="font-size:0.6rem;color:var(--accent-primary);letter-spacing:1px;margin-bottom:6px;">当前行动</div>' : ''}
+      <div class="sp-head">
+        <div class="player-avatar" style="width:28px;height:28px;font-size:0.75rem;flex-shrink:0;">${p.name[0]}</div>
+        <div class="sp-name">${p.name}${isMe ? ' (我)' : ''}</div>
       </div>
-      <div class="sp-live">${live >= 0 ? '+' : ''}${live} 实时</div>
-      ${active ? '<div class="sp-turn">▶ 行动中</div>' : ''}
-      ${p.usedScoutAndShow ? '<div style="font-size:0.62rem;color:var(--muted);margin-top:2px;">已用挖+演</div>' : ''}
+      <div class="sp-stats">
+        <div class="sp-stat"><div class="sp-stat-label">总分</div><div class="sp-stat-val">${p.totalScore}</div></div>
+        <div class="sp-stat"><div class="sp-stat-label">Token</div><div class="sp-stat-val tok">${tok}</div></div>
+        <div class="sp-stat"><div class="sp-stat-label">手牌</div><div class="sp-stat-val hand">${hc}</div></div>
+        <div class="sp-stat"><div class="sp-stat-label">实时</div><div class="sp-stat-val" style="color:${live>=0?'var(--state-success)':'var(--state-danger)'}">${live >= 0 ? '+' : ''}${live}</div></div>
+      </div>
+      <div class="sp-status">${statusText}${p.usedScoutAndShow ? ' · <span style="font-size:0.65rem;color:var(--text-tertiary);">已用挖+演</span>' : ''}</div>
     </div>`;
   }).join('');
   sidebar.innerHTML = roundInfo + players;
@@ -168,35 +171,52 @@ function renderPlayersSidebar(state) {
 function renderStage(state) {
   const el = document.getElementById('stage-cards');
   const meta = document.getElementById('stage-meta');
+  const hint = document.getElementById('stage-hint');
+  const emptyView = document.getElementById('stage-empty-view');
+  const emptyWho = document.getElementById('stage-empty-who');
 
   if (!state.stage?.length) {
-    el.innerHTML = '<div class="stage-empty">在场组为空 — 第一个出牌吧！</div>';
-    meta.innerHTML = '';
+    el.innerHTML = '';
+    if (emptyView) {
+      el.appendChild(emptyView);
+      emptyView.style.display = 'flex';
+      const starter = state.players.find(p => p.id === state.currentPlayerId)?.name || '？';
+      if (emptyWho) emptyWho.textContent = `本轮由 ${starter} 先出牌`;
+    } else {
+      el.innerHTML = '<div class="stage-empty"><div class="stage-empty-slot"></div><div class="stage-empty-main">在场组为空</div><div class="stage-empty-sub">请选择连续牌进行演出</div></div>';
+    }
+    if (meta) meta.textContent = '';
+    if (hint) hint.textContent = '';
     return;
   }
+
+  if (emptyView) emptyView.style.display = 'none';
 
   const n = state.stage.length;
   el.innerHTML = state.stage.map((card, i) => {
     let endBadge = '';
     if (n > 1) {
-      if (i === 0) endBadge = '<div class="stage-end-badge end-left">←左</div>';
-      if (i === n - 1) endBadge = '<div class="stage-end-badge end-right">右→</div>';
+      if (i === 0) endBadge = '<div class="stage-end-badge end-left">←左端</div>';
+      if (i === n - 1) endBadge = '<div class="stage-end-badge end-right">右端→</div>';
     }
     return `<div class="stage-card-wrap">${endBadge}${cardHtml(card, { stage: true })}</div>`;
   }).join('');
 
   const ownerName = state.players.find(p => p.id === state.stageOwner)?.name || '?';
-  const typeBadge = state.stageType === 'set'
-    ? '<span class="type-badge badge-set">同号组</span>'
-    : '<span class="type-badge badge-seq">顺子</span>';
-  meta.innerHTML = `<strong style="font-size:1.1rem;color:var(--gold-light);text-shadow:0 0 12px rgba(247,151,30,0.8);">${ownerName}</strong> 出了 ${n} 张${typeBadge}`;
+  const typeStr = state.stageType === 'set' ? '同号组' : '顺子';
+  const minVal = Math.min(...state.stage.map(c => cv(c)));
+  if (meta) meta.innerHTML = `<span style="color:var(--accent-primary);font-weight:700;">${ownerName}</span> 的 ${n}张${typeStr} · 最小值 ${minVal}`;
+  if (hint) {
+    hint.className = 'hint-emphasis';
+    hint.textContent = isMyTurn ? `需压过：${n}张${typeStr}（最小值>${minVal}）或更多张数` : `等待当前玩家出牌`;
+  }
 }
 
 // ── 渲染手牌 ──────────────────────────────────────────────────
 function renderHand(hand) {
   const el = document.getElementById('my-hand-cards');
   const badge = document.getElementById('hand-count-badge');
-  badge.textContent = `(${hand.length}张)`;
+  if (badge) badge.textContent = `${hand.length}张`;
   el.innerHTML = hand.map((card, i) =>
     cardHtml(card, { index: i, selected: selectedIndices.includes(i), onClick: `toggleCard(${i})` })
   ).join('');
@@ -214,33 +234,64 @@ function toggleCard(i) {
   updateActionBtns();
 }
 
-// ── 按钮状态 ──────────────────────────────────────────────────
+// ── 按钮状态（动态优先级）────────────────────────────────────
 function updateActionBtns() {
   const btnShow = document.getElementById('btn-show');
   const btnScout = document.getElementById('btn-scout');
   const btnSS = document.getElementById('btn-scout-show');
+  if (!btnShow || !btnScout || !btnSS) return;
   const playing = isMyTurn && gameState?.state === 'playing';
 
+  // ── pendingFinishScoutAndShow：挖角已完成，等待选牌演出 ──
   if (pendingFinishScoutAndShow) {
-    // 挖角已完成，等待用户选牌后点「演出」
-    btnShow.disabled = selectedIndices.length === 0;
-    btnShow.textContent = selectedIndices.length ? '⚡ 演出（完成挖角并演出）' : '▶ 演出';
+    const hasSelected = selectedIndices.length > 0;
+    btnShow.disabled = !hasSelected;
+    btnShow.textContent = hasSelected ? '⚡ 演出（完成挖角并演出）' : '演出';
+    btnShow.classList.toggle('act-primary', hasSelected);
     btnScout.disabled = true;
+    btnScout.classList.remove('act-primary');
     btnSS.disabled = true;
+    btnSS.classList.remove('act-primary');
     return;
   }
 
   // 恢复演出按钮文字
-  btnShow.textContent = '▶ 演出';
+  btnShow.textContent = '演出';
 
   if (!playing) {
-    [btnShow, btnScout, btnSS].forEach(b => b.disabled = true);
+    [btnShow, btnScout, btnSS].forEach(b => {
+      b.disabled = true;
+      b.classList.remove('act-primary');
+    });
     return;
   }
+
   const hasStage = !!gameState.stage?.length;
-  btnShow.disabled = selectedIndices.length === 0;
-  btnScout.disabled = !hasStage;
-  btnSS.disabled = !hasStage || gameState.usedScoutAndShow;
+  const hasSelected = selectedIndices.length > 0;
+
+  // 重置所有按钮为次按钮
+  [btnShow, btnScout, btnSS].forEach(b => b.classList.remove('act-primary'));
+
+  if (!hasStage) {
+    // 桌面为空：只能演出（先手），挖角/挖+演禁用
+    btnShow.disabled = !hasSelected;
+    if (!hasSelected) btnShow.classList.add('act-primary'); // 提示用户选牌
+    else btnShow.classList.add('act-primary');
+    btnScout.disabled = true;
+    btnSS.disabled = true;
+  } else if (hasSelected) {
+    // 选了牌：演出为主按钮
+    btnShow.disabled = false;
+    btnShow.classList.add('act-primary');
+    btnScout.disabled = false;
+    btnSS.disabled = gameState.usedScoutAndShow;
+  } else {
+    // 有场组但没选牌：挖角为主按钮
+    btnShow.disabled = true;
+    btnScout.disabled = false;
+    btnScout.classList.add('act-primary');
+    btnSS.disabled = gameState.usedScoutAndShow;
+  }
 }
 
 // ── 渲染完整游戏状态 ──────────────────────────────────────────
@@ -248,17 +299,35 @@ function renderState(state) {
   gameState = state;
   isMyTurn = state.currentPlayerId === myPlayerId && state.state === 'playing';
 
-  document.getElementById('round-num').textContent = state.roundNumber;
+  // 更新轮次
+  const roundEl = document.getElementById('round-num');
+  const turnEl = document.getElementById('turn-num');
+  if (roundEl) roundEl.textContent = state.roundNumber;
+  if (turnEl && state.turnNumber) turnEl.textContent = state.turnNumber;
+
+  // 更新顶部状态条
+  const actionLog = document.getElementById('action-log');
+  const headerRight = document.getElementById('header-right');
+  if (actionLog) {
+    const activeName = state.players.find(p => p.id === state.currentPlayerId)?.name || '...';
+    if (state.state === 'playing') {
+      actionLog.innerHTML = `当前行动：<span class="active-player">${activeName}</span>`;
+    } else if (state.state === 'flip_phase') {
+      actionLog.textContent = '请决定是否翻转手牌';
+    }
+  }
+  if (headerRight) {
+    if (isMyTurn) headerRight.textContent = '请选择手牌';
+    else if (!pendingFinishScoutAndShow && state.state === 'playing') headerRight.textContent = '等待其他玩家';
+    else headerRight.textContent = '';
+  }
+
   renderPlayersTop(state);
   renderPlayersSidebar(state);
   renderScoreBar(state);
   renderStage(state);
   renderHand(state.myHand || []);
   updateActionBtns();
-
-  const waiting = document.getElementById('waiting-bar');
-  // pendingFinishScoutAndShow 时不显示「等待」条（还轮到我，需要选牌演出）
-  waiting.style.display = (!isMyTurn && !pendingFinishScoutAndShow && state.state === 'playing') ? 'block' : 'none';
 
   if (state.state === 'flip_phase') showFlipModal(state);
   else document.getElementById('flip-modal').style.display = 'none';
@@ -548,7 +617,8 @@ function showGameEnd(data) {
 socket.on('connect', () => {
   if (myRoomCode && myPlayerId) {
     socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
-    document.getElementById('action-log').textContent = '🔄 连接中...';
+    const logEl = document.getElementById('action-log');
+    if (logEl) logEl.textContent = '连接中…';
   }
 });
 
@@ -585,11 +655,12 @@ socket.on('phase_changed', ({ phase }) => {
 
 socket.on('action_log', ({ type, playerName, position }) => {
   const msgs = {
-    show: `${playerName} 出牌`,
+    show: `${playerName} 出牌成功`,
     scout: `${playerName} 从${position === 'left' ? '左' : '右'}端挖了1张`,
     scout_and_show: `${playerName} 挖角并演出！`,
   };
-  document.getElementById('action-log').textContent = msgs[type] || '';
+  const logEl = document.getElementById('action-log');
+  if (logEl) logEl.innerHTML = `<span class="active-player">${playerName}</span> · ${msgs[type]?.split(' · ')?.[1] || (msgs[type] || '').replace(playerName + ' ', '')}`;
 });
 
 // ── scout_prepared：挖角第一步成功，等待用户选牌演出 ─────────
@@ -632,8 +703,10 @@ socket.on('game_over', (data) => {
 });
 
 socket.on('round_started', ({ roundNumber }) => {
-  document.getElementById('round-num').textContent = roundNumber;
-  document.getElementById('action-log').textContent = `第 ${roundNumber} 轮开始！`;
+  const roundEl = document.getElementById('round-num');
+  if (roundEl) roundEl.textContent = roundNumber;
+  const logEl = document.getElementById('action-log');
+  if (logEl) logEl.textContent = `第 ${roundNumber} 局开始！`;
   selectedIndices = [];
 });
 
@@ -673,28 +746,41 @@ const EMOJI_LIST = [
 
 // 初始化聊天系统
 (function initChatSystem() {
-  // 生成emoji列表
+  // 生成常用 emoji（12个，6x2）
+  const COMMON_EMOJI = EMOJI_LIST.slice(0, 12);
   const emojiList = document.getElementById('emoji-list');
   if (emojiList) {
-    emojiList.innerHTML = EMOJI_LIST.map(emoji => 
-      `<button onclick="sendEmoji('${emoji}')">${emoji}</button>`
+    emojiList.innerHTML = EMOJI_LIST.map(emoji =>
+      `<button class="emoji-btn" onclick="sendEmoji('${emoji}')">${emoji}</button>`
     ).join('');
   }
-  
+
   // 监听聊天消息
   socket.on('chat_message', (message) => {
     displayChatMessage(message);
   });
 })();
 
+// ── 展开/收起更多快捷语 ───────────────────────────────────────
+function toggleMorePhrases() {
+  const more = document.getElementById('quick-more');
+  const btn = document.getElementById('qp-more-btn');
+  if (!more) return;
+  const open = more.classList.toggle('expanded');
+  if (btn) btn.textContent = open ? '收起' : '+ 更多';
+}
+
 // 切换聊天输入面板
 function toggleChatInput() {
   const panel = document.getElementById('chat-input-panel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  
-  if (panel.style.display === 'block') {
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none' || !panel.style.display;
+  panel.style.display = isHidden ? 'block' : 'none';
+  const toggleBtn = document.getElementById('chat-toggle-btn');
+  if (toggleBtn) toggleBtn.classList.toggle('has-new', false);
+  if (isHidden) {
     const input = document.getElementById('chat-input');
-    if (input) input.focus();
+    if (input) setTimeout(() => input.focus(), 100);
   }
 }
 
@@ -717,12 +803,13 @@ function sendTextMessage() {
 function sendQuick(phraseId) {
   const phrase = QUICK_PHRASES[phraseId];
   if (!phrase) return;
-  
-  socket.emit('send_chat', { 
-    type: 'quick', 
-    content: `${phrase.text} ${phrase.emoji}` 
+  socket.emit('send_chat', {
+    type: 'quick',
+    content: `${phrase.text} ${phrase.emoji}`
   });
-  toggleChatInput();
+  // 收起面板
+  const panel = document.getElementById('chat-input-panel');
+  if (panel) panel.style.display = 'none';
 }
 
 // 发送Emoji
@@ -732,60 +819,32 @@ function sendEmoji(emoji) {
 
 // 显示聊天消息（弹幕式）
 function displayChatMessage(message) {
-  console.log('[聊天] 收到消息:', message);
   const container = document.getElementById('chat-messages');
-  if (!container) {
-    console.error('[聊天] 找不到chat-messages容器');
-    return;
-  }
-  
+  if (!container) return;
+
   const div = document.createElement('div');
   div.className = 'chat-message';
-  
-  // 根据类型显示不同样式
-  let content = '';
-  if (message.type === 'text') {
-    const senderSpan = document.createElement('span');
-    senderSpan.className = 'sender';
-    senderSpan.textContent = message.playerName + ':';
-    
-    const contentText = document.createTextNode(' ' + message.content);
-    
-    div.appendChild(senderSpan);
-    div.appendChild(contentText);
-  } else if (message.type === 'emoji') {
-    const senderSpan = document.createElement('span');
-    senderSpan.className = 'sender';
-    senderSpan.textContent = message.playerName;
-    
-    const emojiText = document.createTextNode(' ' + message.content);
-    
-    div.appendChild(senderSpan);
-    div.appendChild(emojiText);
-  } else if (message.type === 'quick') {
-    const senderSpan = document.createElement('span');
-    senderSpan.className = 'sender';
-    senderSpan.textContent = message.playerName + ':';
-    
-    const contentText = document.createTextNode(' ' + message.content);
-    
-    div.appendChild(senderSpan);
-    div.appendChild(contentText);
-  }
-  
+
+  const senderSpan = document.createElement('span');
+  senderSpan.className = 'sender';
+  senderSpan.textContent = message.playerName + (message.type === 'text' || message.type === 'quick' ? ':' : '');
+  div.appendChild(senderSpan);
+  div.appendChild(document.createTextNode(' ' + message.content));
+
   container.appendChild(div);
-  console.log('[聊天] 消息已添加到DOM，当前消息数:', container.children.length);
-  
-  // 5秒后自动移除
-  setTimeout(() => {
-    if (div.parentNode) {
-      div.remove();
-      console.log('[聊天] 消息已淡出移除');
-    }
-  }, 5000);
-  
-  // 限制最多显示10条
-  while (container.children.length > 10) {
-    container.removeChild(container.firstChild);
+
+  // 面板未打开时，给聊天按钮加脉冲提示
+  const panel = document.getElementById('chat-input-panel');
+  const toggleBtn = document.getElementById('chat-toggle-btn');
+  if (panel && panel.style.display === 'none' && toggleBtn) {
+    toggleBtn.classList.add('has-new');
   }
+
+  // 停留时间：文本1.4s后淡出，emoji 1.2s后淡出；DOM 5s后移除
+  const stayMs = message.type === 'emoji' ? 1200 : 1400;
+  setTimeout(() => { div.style.opacity = '0'; div.style.transition = 'opacity 0.5s'; }, stayMs);
+  setTimeout(() => { if (div.parentNode) div.remove(); }, 5000);
+
+  // 限制最多显示8条
+  while (container.children.length > 8) container.removeChild(container.firstChild);
 }

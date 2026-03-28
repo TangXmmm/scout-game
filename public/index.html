@@ -5,75 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>🎪 Scout！马戏星探 - 在线多人桌游</title>
+  <title>SCOUT! 马戏星探 — 在线多人桌游</title>
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-    :root {
-      --gold: #f7971e;
-      --gold-light: #ffd200;
-      --blue: #58a6ff;
-      --green: #3fb950;
-      --red: #f85149;
-      --bg: #1a1a2e;
-      --bg2: #16213e;
-      --bg3: #0f3460;
-      --text: #e2e8f0;
-      --text-muted: #a0aec0;
-      --border: rgba(255,255,255,0.1);
-      --card-bg: rgba(255,255,255,0.05);
-    }
-
-    html { font-size: 16px; }
-
+    /* ── 布局 ────────────────────────────────────── */
     body {
-      min-height: 100vh;
-      min-height: 100dvh;
-      background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 50%, var(--bg3) 100%);
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--text);
       padding: 0 0 env(safe-area-inset-bottom, 16px) 0;
     }
 
-    /* ── 整体布局容器 ─────────────────────────────── */
     .lobby-wrap {
       width: 100%;
-      max-width: 1100px;
-      padding: 24px 16px;
+      max-width: 1120px;
+      padding: 32px 16px 48px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 40px;
     }
 
-    /* ── Logo 区 ─────────────────────────────────── */
-    .logo {
+    /* ── 品牌区 ───────────────────────────────────── */
+    .brand-zone {
       text-align: center;
-      padding: 8px 0;
+      padding: 4px 0;
     }
 
-    .logo h1 {
-      font-size: clamp(2rem, 8vw, 3.5rem);
+    .brand-logo {
+      font-size: clamp(2.6rem, 9vw, 4rem);
       font-weight: 900;
-      letter-spacing: 4px;
-      background: linear-gradient(90deg, var(--gold), var(--gold-light));
+      letter-spacing: 8px;
+      background: linear-gradient(135deg, #D6A84B 0%, #E2B85A 45%, #F5D68A 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      filter: drop-shadow(0 0 20px rgba(255,210,0,0.4));
-      line-height: 1.1;
+      line-height: 1.05;
+      display: block;
     }
 
-    .logo p {
-      color: var(--text-muted);
-      margin-top: 6px;
-      font-size: clamp(0.75rem, 3vw, 1rem);
-      letter-spacing: 2px;
+    .brand-sub {
+      color: var(--text-tertiary);
+      margin-top: 8px;
+      font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+      letter-spacing: 4px;
     }
 
-    /* ── 主内容区（PC双栏，手机单栏）──────────────── */
+    /* ── 主体双栏 ─────────────────────────────────── */
     .main-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -82,122 +60,76 @@
 
     @media (min-width: 768px) {
       .main-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 400px 1fr;
+        gap: 32px;
         align-items: start;
       }
-      .logo { margin-bottom: 8px; }
-      .lobby-wrap { padding: 32px 24px; }
+      .lobby-wrap { padding: 36px 28px 48px; gap: 40px; }
     }
 
     @media (min-width: 1024px) {
       .main-grid {
-        grid-template-columns: 420px 1fr;
-        gap: 24px;
+        grid-template-columns: 440px 1fr;
+        gap: 48px;
       }
     }
 
-    /* ── 卡片 ─────────────────────────────────────── */
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: clamp(20px, 5vw, 32px);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+    /* ── 操作卡片（左栏）──────────────────────────── */
+    .entry-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: clamp(24px, 6vw, 36px);
     }
 
-    .card h2 {
-      font-size: clamp(1rem, 3.5vw, 1.2rem);
-      color: var(--text);
-      margin-bottom: 18px;
+    .entry-card-title {
+      font-size: clamp(1rem, 3.5vw, 1.15rem);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 24px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    /* ── 输入框 ───────────────────────────────────── */
-    .input-group { margin-bottom: 14px; }
-
-    .input-group label {
-      display: block;
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      margin-bottom: 6px;
+    .entry-card-title-dot {
+      width: 4px;
+      height: 20px;
+      background: var(--accent-primary);
+      border-radius: 2px;
+      flex-shrink: 0;
     }
 
-    .input-group input {
-      width: 100%;
-      padding: 13px 16px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      font-size: 1rem;
-      outline: none;
-      transition: all 0.2s;
-      font-family: inherit;
-      /* 防止 iOS 自动缩放 */
-      font-size: max(16px, 1rem);
+    .form-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
-    .input-group input:focus {
-      border-color: var(--gold);
-      background: rgba(247,151,30,0.1);
-      box-shadow: 0 0 0 3px rgba(247,151,30,0.2);
+    /* 横排按钮组 */
+    .btn-group-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
-    .input-group input::placeholder { color: #4a5568; }
-
-    /* ── 按钮 ─────────────────────────────────────── */
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
-      font-size: clamp(0.9rem, 3vw, 1rem);
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      letter-spacing: 1px;
-      /* 移动端最小可点击高度 */
-      min-height: 48px;
-      touch-action: manipulation;
-    }
-
-    .btn-primary {
-      background: linear-gradient(90deg, var(--gold), var(--gold-light));
-      color: #1a1a2e;
-    }
-
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(247,151,30,0.4); }
-    .btn-primary:active { transform: scale(0.98); }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.1);
-      color: var(--text);
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    .btn-secondary:hover { background: rgba(255,255,255,0.15); }
-    .btn-secondary:active { transform: scale(0.98); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-
-    .divider {
+    .entry-hint {
       text-align: center;
-      color: #4a5568;
-      margin: 10px 0;
-      font-size: 0.85rem;
+      color: var(--text-tertiary);
+      font-size: 0.78rem;
+      margin-top: 12px;
+      line-height: 1.6;
     }
 
-    /* ── 错误信息 ─────────────────────────────────── */
-    .error-message {
-      background: rgba(220,38,38,0.15);
-      border: 1px solid rgba(220,38,38,0.3);
+    /* 错误提示 */
+    .error-msg {
+      background: rgba(197,106,91,0.1);
+      border: 1px solid rgba(197,106,91,0.25);
       border-radius: 10px;
       padding: 10px 14px;
-      color: #fc8181;
-      font-size: 0.88rem;
+      color: #e07a6a;
+      font-size: 0.84rem;
       margin-top: 10px;
       display: none;
     }
@@ -205,63 +137,60 @@
     /* ── 等待室 ───────────────────────────────────── */
     #lobby-waiting { display: none; }
 
-    .room-code-display {
-      background: rgba(247,151,30,0.1);
-      border: 2px dashed rgba(247,151,30,0.4);
-      border-radius: 16px;
-      padding: 18px;
+    .room-code-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 20px;
       text-align: center;
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
 
-    .room-code-display .label {
-      color: var(--text-muted);
-      font-size: 0.82rem;
+    .room-code-label {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      letter-spacing: 1px;
       margin-bottom: 6px;
     }
 
-    .room-code-display .code {
+    .room-code-val {
       font-size: clamp(1.8rem, 8vw, 2.5rem);
       font-weight: 900;
-      letter-spacing: 8px;
-      color: var(--gold-light);
-      font-family: monospace;
+      letter-spacing: 10px;
+      color: var(--accent-primary);
+      font-family: 'SF Mono', 'Consolas', monospace;
+      line-height: 1.2;
     }
 
-    .room-code-display .hint {
-      color: #718096;
-      font-size: 0.78rem;
-      margin-top: 6px;
-    }
+    .room-code-hint { color: var(--text-tertiary); font-size: 0.75rem; margin-top: 4px; }
 
-    /* 复制按钮 */
-    .copy-code-btn {
+    .copy-btn {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      margin-top: 8px;
-      padding: 5px 14px;
-      background: rgba(247,151,30,0.15);
-      border: 1px solid rgba(247,151,30,0.3);
-      border-radius: 20px;
-      color: var(--gold);
+      gap: 5px;
+      margin-top: 10px;
+      padding: 5px 16px;
+      background: rgba(214,168,75,0.12);
+      border: 1px solid rgba(214,168,75,0.25);
+      border-radius: var(--radius-pill);
+      color: var(--accent-primary);
       font-size: 0.78rem;
-      cursor: pointer;
       font-family: inherit;
-      transition: all 0.2s;
+      cursor: pointer;
+      transition: background var(--dur-normal);
       touch-action: manipulation;
     }
+    .copy-btn:hover { background: rgba(214,168,75,0.2); }
+    .copy-btn.copied { color: var(--state-success); border-color: rgba(81,179,127,0.3); background: rgba(81,179,127,0.1); }
 
-    .copy-code-btn:hover { background: rgba(247,151,30,0.25); }
-    .copy-code-btn.copied { color: var(--green); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.1); }
+    /* 玩家列表 */
+    .player-list-section { margin-bottom: 16px; }
 
-    /* ── 玩家列表 ─────────────────────────────────── */
-    .player-list { margin-bottom: 16px; }
-
-    .player-list h3 {
-      color: var(--text-muted);
-      font-size: 0.82rem;
+    .player-list-title {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
       margin-bottom: 10px;
+      letter-spacing: 0.5px;
     }
 
     .player-item {
@@ -269,331 +198,352 @@
       align-items: center;
       gap: 10px;
       padding: 10px 14px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      border-radius: var(--radius-sm);
+      margin-bottom: 7px;
+      border: 1px solid var(--border-default);
+      animation: itemIn 0.25s var(--ease-out);
+    }
+
+    @keyframes itemIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .player-item-name { font-weight: 600; font-size: 0.9rem; flex: 1; }
+    .player-item-role { font-size: 0.7rem; color: var(--accent-primary); }
+
+    .btn-kick {
+      padding: 3px 10px;
+      background: rgba(197,106,91,0.12);
+      border: 1px solid rgba(197,106,91,0.25);
+      border-radius: 6px;
+      color: var(--state-danger);
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background var(--dur-normal);
+      touch-action: manipulation;
+    }
+    .btn-kick:hover { background: rgba(197,106,91,0.22); }
+
+    .waiting-hint {
+      text-align: center;
+      color: var(--text-tertiary);
+      font-size: 0.82rem;
+      margin-bottom: 14px;
+      padding: 0 8px;
+    }
+
+    /* ── 右侧规则卡片 ─────────────────────────────── */
+    .rules-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: clamp(20px, 5vw, 32px);
+    }
+
+    .rules-title {
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rules-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-default);
+    }
+
+    /* 规则网格：2列（PC） */
+    .rules-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    @media (min-width: 600px) {
+      .rules-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .rule-block {
+      padding: 18px 20px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      transition: background var(--dur-normal);
+    }
+
+    .rule-block:hover { background: rgba(255,255,255,0.04); }
+
+    .rule-block-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 8px;
-      animation: slideIn 0.3s ease;
     }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-16px); }
-      to { opacity: 1; transform: translateX(0); }
+    .rule-icon-wrap {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+      background: rgba(214,168,75,0.12);
     }
 
-    @keyframes slideDown {
-      from { opacity: 0; transform: translate(-50%, -20px); }
-      to { opacity: 1; transform: translate(-50%, 0); }
+    .rule-block-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary);
     }
 
-    @keyframes fadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; }
+    .rule-block-body {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
     }
 
-    /* ── 继续游戏提示框 ───────────────────────────────── */
+    /* 辅助信息 */
+    .rules-footer {
+      padding-top: 16px;
+      border-top: 1px solid var(--border-default);
+    }
+
+    .rules-footer-title {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      margin-bottom: 10px;
+    }
+
+    .pcount-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .pcount-chip {
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 0.72rem;
+      font-weight: 500;
+      background: rgba(110,168,255,0.08);
+      border: 1px solid rgba(110,168,255,0.15);
+      color: var(--state-info);
+    }
+
+    /* ── 继续游戏弹窗 ─────────────────────────────── */
     #continue-game-modal {
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.8);
+      inset: 0;
+      background: rgba(0,0,0,0.65);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 10000;
-      animation: fadeIn 0.3s;
+      animation: fadeIn 0.25s var(--ease-out);
     }
 
     @keyframes fadeIn {
       from { opacity: 0; }
-      to { opacity: 1; }
+      to   { opacity: 1; }
     }
 
-    .continue-modal-content {
-      background: linear-gradient(135deg, var(--bg2), var(--bg3));
-      border: 2px solid rgba(247,151,30,0.3);
-      border-radius: 20px;
-      padding: 28px 32px;
+    .continue-modal-box {
+      background: var(--bg-overlay);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: 32px;
       max-width: 400px;
       width: 90%;
       text-align: center;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-      animation: slideDown 0.4s ease-out;
+      box-shadow: var(--shadow-popup);
+      animation: modalIn var(--dur-enter) var(--ease-spring);
     }
 
-    .continue-modal-content h3 {
-      font-size: 1.5rem;
-      color: var(--gold-light);
-      margin-bottom: 16px;
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .continue-modal-box h3 {
+      font-size: 1.3rem;
+      color: var(--accent-primary);
+      margin-bottom: 12px;
       font-weight: 700;
     }
 
-    .continue-modal-content p {
-      color: var(--text);
-      font-size: 1rem;
-      margin-bottom: 12px;
+    .continue-modal-box p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      line-height: 1.6;
     }
 
-    .continue-modal-content p strong {
-      color: var(--gold);
-      font-size: 1.2rem;
+    .continue-modal-box p strong {
+      color: var(--accent-primary);
+      font-size: 1.15rem;
       font-family: monospace;
       letter-spacing: 2px;
     }
 
     .continue-modal-btns {
       display: flex;
-      gap: 12px;
-      margin-top: 24px;
-      justify-content: center;
-    }
-
-    .continue-modal-btns button {
-      flex: 1;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-    }
-
-    .continue-modal-btns .btn-primary {
-      background: linear-gradient(135deg, var(--gold), var(--gold-light));
-      color: #1a1a2e;
-    }
-
-    .continue-modal-btns .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(247,151,30,0.4);
-    }
-
-    .continue-modal-btns .btn-secondary {
-      background: rgba(255,255,255,0.1);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .continue-modal-btns .btn-secondary:hover {
-      background: rgba(255,255,255,0.15);
-    }
-
-    .player-avatar {
-      width: 34px; height: 34px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--gold), var(--gold-light));
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.95rem;
-      color: #1a1a2e; flex-shrink: 0;
-    }
-
-    .player-info { flex: 1; }
-    .player-info .name { font-weight: 600; font-size: 0.92rem; }
-    .player-info .role { font-size: 0.72rem; color: var(--gold); }
-
-    /* 踢人按钮 */
-    .btn-kick {
-      padding: 4px 10px;
-      background: #ef4444;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.2s;
-      min-width: 32px;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      touch-action: manipulation;
-    }
-    .btn-kick:hover {
-      background: #dc2626;
-      transform: scale(1.05);
-    }
-    .btn-kick:active {
-      transform: scale(0.95);
-    }
-
-    .waiting-hint {
-      text-align: center;
-      color: #718096;
-      font-size: 0.85rem;
-      margin-bottom: 14px;
-      padding: 0 8px;
-    }
-
-    /* ── 规则卡片（右侧或下方）─────────────────────── */
-    .rules-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: clamp(18px, 4vw, 28px);
-    }
-
-    .rules-card h3 {
-      color: var(--gold-light);
-      font-size: clamp(0.88rem, 3vw, 1rem);
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .rule-item {
-      display: flex;
       gap: 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: rgba(255,255,255,0.02);
-      margin-bottom: 8px;
-      border: 1px solid rgba(255,255,255,0.05);
-      transition: background 0.2s;
+      margin-top: 24px;
     }
 
-    .rule-item:hover { background: rgba(255,255,255,0.04); }
-
-    .rule-icon {
-      font-size: 1.2rem;
-      flex-shrink: 0;
-      line-height: 1.4;
-    }
-
-    .rule-content { font-size: 0.82rem; line-height: 1.6; color: var(--text-muted); }
-    .rule-content strong { color: var(--text); font-size: 0.88rem; display: block; margin-bottom: 2px; }
-
-    /* 人数说明 */
-    .player-count-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-
-    .pcount-chip {
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      background: rgba(88,166,255,0.1);
-      border: 1px solid rgba(88,166,255,0.2);
-      color: var(--blue);
-    }
-
-    /* ── 移动端 safe area ─────────────────────────── */
-    @supports (padding-bottom: env(safe-area-inset-bottom)) {
-      body { padding-bottom: env(safe-area-inset-bottom); }
-    }
+    .continue-modal-btns .btn { flex: 1; }
   </style>
 </head>
 <body>
   <div class="lobby-wrap">
 
-    <!-- Logo -->
-    <div class="logo">
-      <h1>🎪 SCOUT!</h1>
-      <p>马 戏 星 探 · 在 线 多 人</p>
+    <!-- ── 品牌区 ───────────────────────────────────── -->
+    <div class="brand-zone">
+      <span class="brand-logo">SCOUT!</span>
+      <p class="brand-sub">马 戏 星 探 · 在 线 多 人</p>
     </div>
 
-    <!-- 主内容双栏 -->
+    <!-- ── 主体双栏 ──────────────────────────────────── -->
     <div class="main-grid">
 
-      <!-- 左栏：加入/等待 -->
+      <!-- 左栏：入口/等待室 -->
       <div>
-        <!-- 登录区 -->
+
+        <!-- 登录入口区 -->
         <div id="lobby-entry">
-          <div class="card" style="margin-bottom:14px;">
-            <h2>🎭 开始游戏</h2>
-            <div class="input-group">
-              <label>你的昵称</label>
-              <input type="text" id="player-name" placeholder="输入昵称（最多8字）" maxlength="8"
-                     autocomplete="off" autocorrect="off" spellcheck="false" />
+          <div class="entry-card">
+            <div class="entry-card-title">
+              <span class="entry-card-title-dot"></span>
+              开始游戏
             </div>
-            <div class="input-group">
-              <label>房间码 <span style="color:#4a5568;font-weight:400;">（加入已有房间时填写）</span></label>
-              <input type="text" id="room-code-input" placeholder="4位房间码" maxlength="4"
-                     style="text-transform:uppercase;letter-spacing:4px;font-family:monospace;"
-                     autocomplete="off" autocorrect="off" />
+
+            <div class="form-stack">
+              <div class="input-wrap">
+                <label class="input-label" for="player-name">你的昵称</label>
+                <input class="input-field" type="text" id="player-name"
+                       placeholder="输入昵称（最多8字）" maxlength="8"
+                       autocomplete="off" autocorrect="off" spellcheck="false" autofocus />
+              </div>
+
+              <div class="input-wrap">
+                <label class="input-label" for="room-code-input">房间码 <span style="color:var(--text-tertiary);font-weight:400;">（加入房间时填写）</span></label>
+                <input class="input-field input-is-mono" type="text" id="room-code-input"
+                       placeholder="输入 4 位房间码" maxlength="4"
+                       autocomplete="off" autocorrect="off" />
+              </div>
             </div>
-            <button class="btn btn-primary" id="btn-create" onclick="createRoom()">🎪 创建新房间</button>
-            <div class="divider">— 或 —</div>
-            <button class="btn btn-secondary" id="btn-join" onclick="joinRoom()">🚪 加入已有房间</button>
-            <div class="error-message" id="entry-error"></div>
+
+            <!-- 横排按钮组 -->
+            <div class="btn-group-row">
+              <button class="btn btn-primary btn-sm" id="btn-create" onclick="createRoom()" disabled>创建房间</button>
+              <button class="btn btn-secondary btn-sm" id="btn-join" onclick="joinRoom()" disabled>加入房间</button>
+            </div>
+
+            <p class="entry-hint">填写昵称后即可创建房间，填写房间码可加入已有房间</p>
+            <div class="error-msg" id="entry-error"></div>
           </div>
         </div>
 
         <!-- 等待室 -->
         <div id="lobby-waiting">
-          <div class="room-code-display">
-            <div class="label">房间码（分享给朋友）</div>
-            <div class="code" id="display-room-code">----</div>
-            <button class="copy-code-btn" id="copy-btn" onclick="copyRoomCode()">
-              📋 复制房间码
-            </button>
-          </div>
+          <div class="entry-card">
 
-          <div class="card">
-            <div class="player-list">
-              <h3>已加入的玩家（<span id="player-count">0</span>/6）</h3>
+            <!-- 房间码展示 -->
+            <div class="room-code-box">
+              <div class="room-code-label">房间码（分享给朋友）</div>
+              <div class="room-code-val" id="display-room-code">----</div>
+              <div class="room-code-hint">告诉朋友输入此码加入房间</div>
+              <button class="copy-btn" id="copy-btn" onclick="copyRoomCode()">
+                复制房间码
+              </button>
+            </div>
+
+            <!-- 玩家列表 -->
+            <div class="player-list-section">
+              <div class="player-list-title">已加入的玩家（<span id="player-count">0</span>/6）</div>
               <div id="player-list-container"></div>
             </div>
-            <div class="waiting-hint" id="waiting-hint">等待更多玩家加入...</div>
-            <button class="btn btn-primary" id="btn-start" onclick="startGame()" style="display:none;">🚀 开始游戏！</button>
-            <div class="error-message" id="waiting-error"></div>
+
+            <div class="waiting-hint" id="waiting-hint">等待更多玩家加入…</div>
+            <button class="btn btn-primary" id="btn-start" onclick="startGame()" style="display:none;">开始游戏</button>
+            <div class="error-msg" id="waiting-error"></div>
           </div>
         </div>
+
       </div>
 
-      <!-- 右栏：规则说明 -->
-      <div class="rules-card">
-        <h3>📖 游戏规则速览</h3>
+      <!-- 右栏：规则速览 -->
+      <div class="rules-panel">
+        <div class="rules-title">游戏规则速览</div>
 
-        <div class="rule-item">
-          <div class="rule-icon">🎭</div>
-          <div class="rule-content">
-            <strong>演出（SHOW）</strong>
-            出一组手牌中连续位置的同值牌或顺子，压过当前在场组。张数多直接赢；同张数时，同值组强于顺子；同类型则比最小数字。
+        <!-- 4 大核心规则 -->
+        <div class="rules-grid">
+          <div class="rule-block">
+            <div class="rule-block-head">
+              <div class="rule-icon-wrap">🎭</div>
+              <div class="rule-block-title">演出</div>
+            </div>
+            <div class="rule-block-body">
+              出手牌中连续位置的同值组或顺子，压过当前在场组。张数多者直接胜；同张数时同值组强于顺子；同类型则比最小数字。
+            </div>
+          </div>
+
+          <div class="rule-block">
+            <div class="rule-block-head">
+              <div class="rule-icon-wrap">🔍</div>
+              <div class="rule-block-title">挖角</div>
+            </div>
+            <div class="rule-block-body">
+              从在场组左端或右端取 1 张牌，插入自己手牌任意位置。在场组主人获得 1 个挖角 Token（+1 分）。
+            </div>
+          </div>
+
+          <div class="rule-block">
+            <div class="rule-block-head">
+              <div class="rule-icon-wrap">⚡</div>
+              <div class="rule-block-title">挖角并演出</div>
+            </div>
+            <div class="rule-block-body">
+              先挖角再立即演出，每局每人只能使用 1 次。挖角后演出需压过挖角后的在场组。
+            </div>
+          </div>
+
+          <div class="rule-block">
+            <div class="rule-block-head">
+              <div class="rule-icon-wrap">🏆</div>
+              <div class="rule-block-title">计分规则</div>
+            </div>
+            <div class="rule-block-body">
+              赢家（先出完手牌）仅得 Token 分；其他人：Token 数 − 剩余手牌数。共进行「玩家人数」轮，总分最高者胜。
+            </div>
           </div>
         </div>
 
-        <div class="rule-item">
-          <div class="rule-icon">🔍</div>
-          <div class="rule-content">
-            <strong>挖角（SCOUT）</strong>
-            从在场组左端或右端取1张牌，插入自己手牌任意位置。在场组主人获得1个挖角Token（+1分）。
+        <!-- 辅助信息 -->
+        <div class="rules-footer">
+          <div class="rules-footer-title">翻牌阶段</div>
+          <p style="font-size:0.8rem;color:var(--text-secondary);line-height:1.65;margin-bottom:16px;">
+            每局开始时，你可以选择将整手牌上下翻转（正反面互换且顺序倒置）。顺序固定后本局内不可再变动。
+          </p>
+          <div class="rules-footer-title">牌数配置</div>
+          <div class="pcount-row">
+            <span class="pcount-chip">2人：44张 / 各11张</span>
+            <span class="pcount-chip">3人：36张 / 各12张</span>
+            <span class="pcount-chip">4人：44张 / 各11张</span>
+            <span class="pcount-chip">5人：45张 / 各9张</span>
           </div>
-        </div>
-
-        <div class="rule-item">
-          <div class="rule-icon">⚡</div>
-          <div class="rule-content">
-            <strong>挖角+演出（SCOUT & SHOW）</strong>
-            先挖角再出牌，每局每人只能用1次。
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <div class="rule-icon">🏆</div>
-          <div class="rule-content">
-            <strong>计分规则</strong>
-            赢家（先出完手牌者）：只得挖角Token分；其他人：Token数 − 剩余手牌数。游戏共进行「人数」轮，总分最高者胜。
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <div class="rule-icon">🔄</div>
-          <div class="rule-content">
-            <strong>翻牌阶段</strong>
-            每局开始时，你可以选择将整手牌上下翻转（正反面互换且顺序倒置），顺序固定后不可再变动。
-          </div>
-        </div>
-
-        <div class="player-count-row">
-          <div class="pcount-chip">2人: 44张/各11张</div>
-          <div class="pcount-chip">3人: 36张/各12张</div>
-          <div class="pcount-chip">4人: 44张/各11张</div>
-          <div class="pcount-chip">5人: 45张/各9张</div>
         </div>
       </div>
 
@@ -602,5 +552,43 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/lobby.js"></script>
+  <script>
+    /* ── 入口页表单校验 ──────────────────────────── */
+    const nameInput  = document.getElementById('player-name');
+    const codeInput  = document.getElementById('room-code-input');
+    const btnCreate  = document.getElementById('btn-create');
+    const btnJoin    = document.getElementById('btn-join');
+
+    function updateBtns() {
+      const hasName = nameInput.value.trim().length > 0;
+      const hasCode = codeInput.value.trim().length === 4;
+      btnCreate.disabled = !hasName;
+      btnJoin.disabled   = !hasName || !hasCode;
+    }
+
+    nameInput.addEventListener('input', updateBtns);
+    codeInput.addEventListener('input', updateBtns);
+
+    /* Enter 键：有码加入，无码创建 */
+    nameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        if (codeInput.value.trim().length === 4) joinRoom();
+        else { codeInput.focus(); }
+      }
+    });
+
+    codeInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        if (codeInput.value.trim().length === 4) joinRoom();
+      }
+    });
+
+    /* 房间码自动大写 */
+    codeInput.addEventListener('input', () => {
+      const pos = codeInput.selectionStart;
+      codeInput.value = codeInput.value.toUpperCase();
+      codeInput.setSelectionRange(pos, pos);
+    });
+  </script>
 </body>
 </html>

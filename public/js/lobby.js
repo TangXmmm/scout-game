@@ -54,14 +54,14 @@ function showHostRoomModal(roomCode, playerId, playerName) {
   const modal = document.createElement('div');
   modal.id = 'host-room-modal';
   modal.innerHTML = `
-    <div class="continue-modal-content">
-      <h3>👑 检测到您的房间</h3>
+    <div class="continue-modal-box">
+      <h3>检测到您的房间</h3>
       <p>房间码: <strong>${roomCode}</strong></p>
       <p>玩家: <strong>${playerName}</strong></p>
       <p>是否返回等待室?</p>
       <div class="continue-modal-btns">
-        <button class="btn-primary" onclick="rejoinHostRoom('${roomCode}', '${playerId}')">返回等待室</button>
-        <button class="btn-secondary" onclick="dismissHostRoomModal()">创建新房间</button>
+        <button class="btn btn-primary btn-sm" onclick="rejoinHostRoom('${roomCode}', '${playerId}')">返回等待室</button>
+        <button class="btn btn-secondary btn-sm" onclick="dismissHostRoomModal()">创建新房间</button>
       </div>
     </div>
   `;
@@ -126,13 +126,13 @@ function showContinueGameModal(roomCode, playerId) {
   const modal = document.createElement('div');
   modal.id = 'continue-game-modal';
   modal.innerHTML = `
-    <div class="continue-modal-content">
-      <h3>🎮 检测到未完成的游戏</h3>
+    <div class="continue-modal-box">
+      <h3>检测到未完成的游戏</h3>
       <p>房间码: <strong>${roomCode}</strong></p>
       <p>是否继续之前的游戏?</p>
       <div class="continue-modal-btns">
-        <button class="btn-primary" onclick="continueGame('${roomCode}', '${playerId}')">继续游戏</button>
-        <button class="btn-secondary" onclick="dismissContinueModal()">开始新游戏</button>
+        <button class="btn btn-primary btn-sm" onclick="continueGame('${roomCode}', '${playerId}')">继续游戏</button>
+        <button class="btn btn-secondary btn-sm" onclick="dismissContinueModal()">开始新游戏</button>
       </div>
     </div>
   `;
@@ -231,12 +231,12 @@ function renderPlayers(players) {
   container.innerHTML = players.map(p => `
     <div class="player-item">
       <div class="player-avatar">${p.name.charAt(0).toUpperCase()}</div>
-      <div class="player-info">
-        <div class="name">${p.name}${p.id === myPlayerId ? ' (我)' : ''}</div>
-        ${p.isHost ? '<div class="role">👑 房主</div>' : ''}
+      <div style="flex:1;">
+        <div class="player-item-name">${p.name}${p.id === myPlayerId ? ' (我)' : ''}</div>
+        ${p.isHost ? '<div class="player-item-role">房主</div>' : ''}
       </div>
       ${isHost && p.id !== myPlayerId ? 
-        `<button class="btn-kick" onclick="kickPlayer('${p.id}')">❌</button>` 
+        `<button class="btn-kick" onclick="kickPlayer('${p.id}')">移除</button>` 
         : ''}
     </div>
   `).join('');
@@ -253,35 +253,25 @@ function showWaitingRoom(roomCode, players) {
 function copyRoomCode() {
   const code = myRoomCode || document.getElementById('display-room-code').textContent;
   const btn = document.getElementById('copy-btn');
-  
-  // 生成带房间码的链接
   const link = `${window.location.origin}/?room=${code}`;
-  
+  const reset = () => { btn.textContent = '复制房间码'; btn.classList.remove('copied'); };
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(link).then(() => {
-      btn.textContent = '✅ 已复制链接！';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = '📋 复制房间链接'; btn.classList.remove('copied'); }, 2500);
-    }).catch(() => {
-      fallbackCopy(link, btn);
-    });
+      btn.textContent = '已复制链接！'; btn.classList.add('copied');
+      setTimeout(reset, 2500);
+    }).catch(() => fallbackCopy(link, btn, reset));
   } else {
-    fallbackCopy(link, btn);
+    fallbackCopy(link, btn, reset);
   }
 }
 
-function fallbackCopy(text, btn) {
+function fallbackCopy(text, btn, resetFn) {
   const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy');
   document.body.removeChild(ta);
-  btn.textContent = '✅ 已复制链接！';
-  btn.classList.add('copied');
-  setTimeout(() => { btn.textContent = '📋 复制房间链接'; btn.classList.remove('copied'); }, 2500);
+  btn.textContent = '已复制链接！'; btn.classList.add('copied');
+  setTimeout(resetFn || (() => {}), 2500);
 }
 
 function updateStartButton(players) {

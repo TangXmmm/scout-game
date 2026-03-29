@@ -1001,16 +1001,20 @@
     }
 
     /* 手牌区（上层，flex:1 撑满剩余空间） */
+    /* 3.1 卡带底座：深色磨砂底座，让手牌「落得住」 */
     #my-hand-area {
       flex: 1;
       min-height: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 0;
-      background: none;
-      border: none;
+      padding: 6px 14px 8px;
+      background: rgba(0, 0, 0, 0.42);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      box-shadow: inset 0 2px 14px rgba(0,0,0,0.3);
       overflow: hidden;
+      backdrop-filter: blur(4px);
     }
     .hand-label {
       font-size: var(--fs-tag); color: var(--muted); /* tag: 12-13px */
@@ -1021,11 +1025,12 @@
     }
     #my-hand-cards {
       display: flex;
-      gap: 3px;
+      gap: 2px;                  /* 3.2 卡间距略缩小 */
       overflow-x: auto;
-      padding-bottom: 3px;
+      padding-bottom: 14px;      /* 为选中上浮留空间 */
+      padding-top: 4px;
       align-items: flex-end;
-      justify-content: center; /* 手牌居中对齐 */
+      justify-content: center;
       min-height: 0;
       flex: 1;
       scrollbar-width: thin;
@@ -1064,6 +1069,23 @@
       box-shadow: 0 0 8px rgba(247,201,72,0.7);
     }
 
+    /* 3.4 实时判定提示条 */
+    #play-hint {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--fs-tag);
+      font-weight: 700;
+      padding: 3px 12px;
+      border-radius: 10px;
+      gap: 4px;
+      transition: opacity 0.2s;
+    }
+    #play-hint.valid-beats   { color: var(--green); background: rgba(63,185,80,0.1);  border: 1px solid rgba(63,185,80,0.25); }
+    #play-hint.valid-no-beat { color: #ff9f43;       background: rgba(255,159,67,0.1); border: 1px solid rgba(255,159,67,0.3); }
+    #play-hint.invalid       { color: var(--red);   background: rgba(248,81,73,0.1);  border: 1px solid rgba(248,81,73,0.25); }
+
     /* ── 操作按钮区：底部合并区下层，横向居中排列 ── */
     #action-area {
       flex-shrink: 0;
@@ -1092,20 +1114,56 @@
       justify-content: center;
       position: relative;
       cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-      box-shadow: 0 2px 7px rgba(0,0,0,0.35);
+      transition: transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s, border-color 0.15s, outline 0.12s;
+      /* 3.3 默认阴影：更干净轻薄 */
+      box-shadow: 0 1px 3px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.14);
       user-select: none;
       border: 2px solid transparent;
       flex-shrink: 0;
       touch-action: manipulation;
       -webkit-user-select: none;
     }
-    .game-card:hover  { transform: translateY(-4px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
+    /* 3.3 hover：上浮5px，阴影拉长 */
+    .game-card:not(.stage-card):hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.32), 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
     .game-card:active { transform: scale(0.95); }
+    /* 3.2/3.3 整段选中：牌本身上浮10px + 去掉单卡金边（整段由外层包裹容器发光） */
+    .game-card.in-selection {
+      transform: translateY(-10px);
+      border-color: transparent;
+      box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+    }
+    /* 兼容旧的 .selected（挖角插槽模式下仍在用）*/
     .game-card.selected {
-      transform: translateY(-14px);
-      border-color: var(--gold);
-      box-shadow: 0 10px 24px rgba(247,201,72,0.5);
+      transform: translateY(-10px);
+      border-color: rgba(247,201,72,0.4);
+      box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+    }
+    /* 3.2 hover 时邻牌弱高亮（由 JS 添加类） */
+    .game-card.neighbor-hl {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      border-color: rgba(255,255,255,0.18);
+      z-index: 5;
+    }
+    /* 3.3 整段发光包裹容器 */
+    .selection-band {
+      display: contents; /* 不影响 flex 布局，视觉由 JS 注入 outline 的父包裹实现 */
+    }
+    /* 3.2/3.3 整段外轮廓 wrapper（由 JS 动态插入） */
+    .hand-sel-wrap {
+      display: flex;
+      gap: 2px;
+      align-items: flex-end;
+      border-radius: 10px;
+      padding: 0 3px;
+      outline: 2px solid rgba(247,201,72,0.55);
+      box-shadow: 0 0 0 4px rgba(247,201,72,0.12), 0 6px 24px rgba(247,201,72,0.2);
+      position: relative;
+      flex-shrink: 0;
     }
     .game-card.stage-card { cursor: default; }
     .game-card.stage-card:hover, .game-card.stage-card:active { transform: none; }
@@ -2161,6 +2219,9 @@
           </div>
           <div id="my-hand-cards"></div>
         </div>
+
+        <!-- 实时判定提示条（选牌后实时显示合法性） -->
+          <div id="play-hint" style="display:none;"></div>
 
         <!-- 操作按钮（下层，横向居中排列） -->
         <div id="action-area">

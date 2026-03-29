@@ -128,13 +128,13 @@ function cardBg(val) {
 // ── 渲染卡牌 HTML ──────────────────────────────────────────────
 function cardHtml(card, opts = {}) {
   const val = cv(card), other = co(card);
-  const selClass   = opts.selected ? 'selected' : '';
+  // 3.2/3.3：选中时用 in-selection（整段外轮廓由父容器发光，单卡不散亮）
+  const selClass   = opts.selected ? 'in-selection' : '';
   const stageClass = opts.stage ? 'stage-card' : '';
   const newClass   = opts.isNew ? 'new-card' : '';
   const edgeClass  = opts.edgeClass || '';
   const onclick    = opts.onClick ? `onclick="${opts.onClick}"` : '';
   const idx        = opts.index !== undefined ? `data-index="${opts.index}"` : '';
-  // draggable 已移除：改为纯点击选牌，draggable 在移动端会拦截 touch 导致 onclick 失效
   return `
     <div class="game-card ${selClass} ${stageClass} ${newClass} ${edgeClass}"
          ${onclick} ${idx}
@@ -679,14 +679,47 @@ function renderHand(hand, newCardIndex = -1) {
     return;
   }
 
-  el.innerHTML = hand.map((card, i) =>
-    cardHtml(card, {
-      index: i,
-      selected: selectedIndices.includes(i),
-      onClick: `toggleCard(${i})`,
-      isNew: i === newCardIndex,
-      })
-  ).join('');
+  // 3.2/3.3：整段选中用 hand-sel-wrap 容器包裹，共享外轮廓发光
+  if (selectedIndices.length > 0) {
+    const lo = selectedIndices[0];
+    const hi = selectedIndices[selectedIndices.length - 1];
+    let html = '';
+    // 选中段之前
+    for (let i = 0; i < lo; i++) {
+      html += cardHtml(hand[i], { index: i, onClick: `toggleCard(${i})`, isNew: i === newCardIndex });
+    }
+    // 整段选中区：用 hand-sel-wrap 容器包裹
+    html += '<div class="hand-sel-wrap">';
+    for (let i = lo; i <= hi; i++) {
+      html += cardHtml(hand[i], { index: i, selected: true, onClick: `toggleCard(${i})`, isNew: i === newCardIndex });
+    }
+    html += '</div>';
+    // 选中段之后
+    for (let i = hi + 1; i < hand.length; i++) {
+      html += cardHtml(hand[i], { index: i, onClick: `toggleCard(${i})`, isNew: i === newCardIndex });
+    }
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = hand.map((card, i) =>
+      cardHtml(card, { index: i, onClick: `toggleCard(${i})`, isNew: i === newCardIndex })
+    ).join('');
+  }
+
+  // 3.2 hover 邻牌弱高亮：鼠标移入卡片时，前后各1张加 neighbor-hl 类
+  el.querySelectorAll('.game-card:not(.stage-card)').forEach(cardEl => {
+    cardEl.addEventListener('mouseenter', () => {
+      const idx = parseInt(cardEl.dataset.index);
+      if (isNaN(idx)) return;
+      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
+      const prev = el.querySelector(`.game-card[data-index="${idx - 1}"]`);
+      const next = el.querySelector(`.game-card[data-index="${idx + 1}"]`);
+      if (prev && !prev.classList.contains('in-selection')) prev.classList.add('neighbor-hl');
+      if (next && !next.classList.contains('in-selection')) next.classList.add('neighbor-hl');
+    });
+    cardEl.addEventListener('mouseleave', () => {
+      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
+    });
+  });
 
   bindHandDragSelect(); // 已置空，无副作用
 }
@@ -697,7 +730,7 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
   // ── 修复：插槽用 position:absolute 悬浮，不参与 flex 布局 ──
   // 先只渲染卡片（维持原有间距），插槽层叠加在卡片之间
   const CARD_W  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 52;
-  const CARD_GAP = 3; // 与 CSS gap:3px 保持一致
+  const CARD_GAP = 2; // 与 CSS gap:2px 保持一致
 
   // 1. 渲染卡片（不含插槽，flex 布局不变）
   let cardHtmlStr = '';
@@ -822,6 +855,88 @@ function toggleCard(i) {
   updateActionBtns();
 }
 
+// ── 3.4 前端实时合法性判定（复刻服务端逻辑）────────────────────
+function clientGetCardValue(card) {
+  return card.face === 'top' ? card.top : card.bottom;
+}
+function clientIsValidSet(cards) {
+  if (cards.length < 2) return false;
+  const vals = cards.map(clientGetCardValue);
+  return vals.every(v => v === vals[0]);
+}
+function clientIsValidSequence(cards) {
+  if (cards.length < 2) return false;
+  const vals = cards.map(clientGetCardValue).sort((a, b) => a - b);
+  for (let i = 1; i < vals.length; i++) {
+    if (vals[i] !== vals[i - 1] + 1) return false;
+  }
+  return true;
+}
+function clientGetPlayType(cards) {
+  if (!cards || cards.length === 0) return null;
+  if (cards.length === 1) return 'set';
+  if (clientIsValidSet(cards)) return 'set';
+  if (clientIsValidSequence(cards)) return 'sequence';
+  return null;
+}
+function clientBeats(myCards, myType, stage, stageType) {
+  if (!stage || stage.length === 0) return true; // 无在场组，任何合法牌都能出
+  const oldCount = stage.length;
+  const newCount = myCards.length;
+  if (newCount > oldCount) return true;
+  if (newCount < oldCount) return false;
+  // 张数相同比类型：set > sequence
+  if (myType === 'set' && stageType === 'sequence') return true;
+  if (myType === 'sequence' && stageType === 'set') return false;
+  // 比最小值
+  const newMin = Math.min(...myCards.map(clientGetCardValue));
+  const oldMin = Math.min(...stage.map(clientGetCardValue));
+  return newMin > oldMin;
+}
+
+/**
+ * 更新 #play-hint 实时提示条
+ * @returns {'valid-beats'|'valid-no-beat'|'invalid'|'empty'}
+ */
+function updatePlayHint() {
+  const hint = document.getElementById('play-hint');
+  if (!hint) return 'empty';
+
+  const isActive = isMyTurn || pendingFinishScoutAndShow;
+  if (!isActive || selectedIndices.length === 0) {
+    hint.style.display = 'none';
+    return 'empty';
+  }
+
+  const hand  = gameState?.myHand || [];
+  const cards = selectedIndices.map(i => hand[i]).filter(Boolean);
+  const type  = clientGetPlayType(cards);
+
+  if (!type) {
+    hint.className = 'play-hint invalid';
+    hint.textContent = '❌ 未形成合法出牌组合';
+    hint.style.display = 'flex';
+    return 'invalid';
+  }
+
+  const stage     = gameState?.stage || [];
+  const stageType = gameState?.stageType || null;
+  const canBeat   = clientBeats(cards, type, stage, stageType);
+  const typeLabel = type === 'set' ? '同号组' : '顺子';
+
+  if (canBeat) {
+    hint.className = 'play-hint valid-beats';
+    hint.textContent = `✅ 可演出 · ${cards.length}张${typeLabel}`;
+    hint.style.display = 'flex';
+    return 'valid-beats';
+  } else {
+    hint.className = 'play-hint valid-no-beat';
+    hint.textContent = `⚠️ 合法但压不过 · ${cards.length}张${typeLabel}`;
+    hint.style.display = 'flex';
+    return 'valid-no-beat';
+  }
+}
+
 // ── 按钮状态 ──────────────────────────────────────────────────
 function updateActionBtns() {
   const btnShow  = document.getElementById('btn-show');
@@ -833,6 +948,9 @@ function updateActionBtns() {
   if (btnManaged) {
     btnManaged.style.display = playing ? 'inline-flex' : 'none';
   }
+
+  // 3.4：每次按钮状态变化时同步更新实时提示
+  const hintStatus = updatePlayHint();
 
   if (pendingFinishScoutAndShow) {
     btnShow.disabled  = selectedIndices.length === 0;
@@ -851,7 +969,8 @@ function updateActionBtns() {
     return;
   }
   const hasStage = !!gameState.stage?.length;
-  btnShow.disabled  = selectedIndices.length === 0;
+  // 合法且能压才允许演出；合法但压不过显示 disabled（提示条已说明原因）
+  btnShow.disabled  = selectedIndices.length === 0 || hintStatus === 'invalid' || hintStatus === 'valid-no-beat';
   btnScout.disabled = !hasStage;
   btnSS.disabled    = !hasStage || gameState.usedScoutAndShow;
 }

@@ -203,6 +203,73 @@ function renderLogBar() {
   ).join('');
 }
 
+// ── 实时排行榜（左侧边栏）──────────────────────────────────────
+/**
+ * 渲染左侧实时排行榜
+ * 信息分两层：
+ *   核心：排名 | 头像 | 名字 | 总分 | 本局实时得分
+ *   辅助：手牌数 | 挖角Token数 | 挖+演是否已用
+ */
+function renderLeaderboard(state) {
+  const body = document.getElementById('lb-body');
+  if (!body || !state?.players) return;
+
+  // 按总分降序排列（同分保留游戏顺序）
+  const sorted = [...state.players].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+  const rankEmoji = ['🥇', '🥈', '🥉'];
+
+  body.innerHTML = sorted.map((p, idx) => {
+    const isMe   = p.id === myPlayerId;
+    const active = p.id === state.currentPlayerId;
+    const hc     = p.handCount   || 0;
+    const tok    = p.scoutTokens || 0;
+    const cards  = p.scoreCards  || 0;
+    const live   = cards + tok - hc;   // 本局实时得分（正负）
+    const total  = p.totalScore  || 0;
+
+    // 排名标志：前三名用奖牌 emoji，之后用数字
+    const rankLabel = idx < 3 ? rankEmoji[idx] : `${idx + 1}`;
+    const rankCls   = idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : '';
+
+    // 头像
+    const avatarInner = p.avatar
+      ? `<img src="/avatars/${p.avatar}" alt="" />`
+      : `<span>${(p.name || '?').charAt(0).toUpperCase()}</span>`;
+
+    // 本局实时得分（颜色）
+    const liveCls  = live > 0 ? 'pos' : live < 0 ? 'neg' : '';
+    const liveStr  = `${live >= 0 ? '+' : ''}${live}`;
+
+    // 总分颜色
+    const totalCls = total < 0 ? 'neg' : '';
+
+    // 辅助标签：手牌数 / token / 挖+演
+    const auxChips = [
+      `<span class="lb-chip">🃏${hc}张</span>`,
+      tok > 0 ? `<span class="lb-chip">🎫×${tok}</span>` : '',
+      p.usedScoutAndShow ? `<span class="lb-chip used">⚡已用</span>` : '',
+      hc <= 3 && hc > 0 && state.state === 'playing' ? `<span class="lb-chip danger">⚠危险</span>` : '',
+      p.managed ? `<span class="lb-chip">🤖托管</span>` : '',
+    ].filter(Boolean).join('');
+
+    const rowCls = ['lb-row', isMe ? 'lb-me' : '', active ? 'lb-active' : ''].filter(Boolean).join(' ');
+
+    return `
+      <div class="${rowCls}" onclick="showPlayerInfo('${p.id}')">
+        <div class="lb-rank ${rankCls}">${rankLabel}</div>
+        <div class="lb-avatar">${avatarInner}</div>
+        <div class="lb-info">
+          <div class="lb-name ${isMe ? 'lb-name-me' : ''}">${p.name}${isMe ? ' 👤' : ''}</div>
+          <div class="lb-scores">
+            <span class="lb-total ${totalCls}">${total >= 0 ? '+' : ''}${total}分</span>
+            <span class="lb-live ${liveCls}">${liveStr}</span>
+          </div>
+          <div class="lb-aux">${auxChips}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 // ── 实时分数条 ────────────────────────────────────────────────
 function renderScoreBar(state) {
   const bar = document.getElementById('score-bar');
@@ -633,6 +700,7 @@ function renderState(state) {
   renderTable(state);        // 圆桌席位（主玩家视图）
   renderPlayersTop(state);   // 移动端顶部（已隐藏，保留兼容）
   renderPlayersSidebar(state); // PC侧栏（已隐藏，保留兼容）
+  renderLeaderboard(state);  // 左侧实时排行榜
   renderScoreBar(state);
   renderStage(state);
   renderHand(state.myHand || []);

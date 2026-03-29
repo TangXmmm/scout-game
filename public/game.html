@@ -134,6 +134,140 @@
       overflow: visible;             /* 席位头像可溢出桌面边缘 */
     }
 
+    /* ══════════════════════════════════════════
+       实时排行榜侧边栏（左侧，与聊天侧边栏宽高对称）
+    ══════════════════════════════════════════ */
+    #leaderboard-sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: rgba(10, 16, 28, 0.30);    /* 深蓝半透明，与聊天侧边栏区分 */
+      border-right: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      overflow: hidden;
+      backdrop-filter: blur(6px);
+      margin: 4px 0;
+    }
+    #lb-header {
+      padding: 6px 10px;
+      font-size: var(--fs-tag);
+      color: rgba(247,201,72,0.55);          /* 金色，呼应排行榜主题 */
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+    #lb-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      scrollbar-width: none;
+    }
+    #lb-body::-webkit-scrollbar { display: none; }
+
+    /* 单行玩家条 */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      margin: 0 4px;
+      transition: background 0.15s;
+      cursor: pointer;
+    }
+    .lb-row:hover { background: rgba(255,255,255,0.05); }
+    .lb-row.lb-me { background: rgba(88,166,255,0.07); border: 1px solid rgba(88,166,255,0.15); }
+    .lb-row.lb-active { box-shadow: 0 0 0 1px rgba(247,201,72,0.25) inset; }
+
+    /* 排名徽章 */
+    .lb-rank {
+      font-size: 0.72rem;
+      font-weight: 800;
+      width: 18px;
+      flex-shrink: 0;
+      text-align: center;
+      color: var(--muted);
+    }
+    .lb-rank.r1 { color: #ffd700; }
+    .lb-rank.r2 { color: #c0c0c0; }
+    .lb-rank.r3 { color: #cd7f32; }
+
+    /* 头像（小圆形） */
+    .lb-avatar {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .lb-avatar img { width: 100%; height: 100%; object-fit: contain; }
+
+    /* 主信息列 */
+    .lb-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .lb-name {
+      font-size: var(--fs-tag);
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-name.lb-name-me { color: var(--blue); }
+    .lb-scores {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    /* 总分 */
+    .lb-total {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: var(--gold);
+    }
+    .lb-total.neg { color: var(--red); }
+    /* 本局实时得分 */
+    .lb-live {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.4);
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+    }
+    .lb-live.pos { color: rgba(63,185,80,0.85); }
+    .lb-live.neg { color: rgba(248,81,73,0.85); }
+
+    /* 辅助信息条 */
+    .lb-aux {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .lb-chip {
+      font-size: 0.58rem;
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.45);
+      white-space: nowrap;
+    }
+    .lb-chip.used { color: rgba(88,166,255,0.6); background: rgba(88,166,255,0.08); }
+    .lb-chip.danger { color: rgba(255,120,50,0.8); background: rgba(255,120,50,0.08); }
+
     /* ── 聊天侧边栏：常显在桌面右侧，半透明悬浮（约 10%，缩为 200px） ── */
     #chat-sidebar {
       width: 200px;  /* 从 260px 缩减，侧边栏约占 10%，让桌面更宽 */
@@ -1804,8 +1938,17 @@
         </span>
       </div>
 
-      <!-- ══ 牌桌区（flex:8）：左侧桌面居中 + 右侧聊天侧边栏 ══ -->
+      <!-- ══ 牌桌区（flex:8）：排行榜 + 桌面 + 聊天三栏水平布局 ══ -->
       <div id="table-wrapper">
+
+        <!-- 实时排行榜（左侧，与聊天侧边栏宽高对称） -->
+        <div id="leaderboard-sidebar">
+          <div id="lb-header">🏆 实时排行榜</div>
+          <div id="lb-body">
+            <!-- 由 JS renderLeaderboard() 动态填充 -->
+          </div>
+        </div><!-- /leaderboard-sidebar -->
+
         <!-- 桌面外层：flex:1，保证桌面居中 -->
         <div id="table-center">
           <!-- 牌桌本体：席位绝对定位在此内 -->

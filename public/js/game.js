@@ -78,16 +78,22 @@ const CONTEXT_PHRASES = {
   // socket = io() 在第14行即创建，本地连接极快（<1ms），
   // 若在文件末尾注册 on('connect')，事件可能已经触发过而错过。
   // 放在 IIFE 内、myRoomCode/myPlayerId 赋值之后，保证监听器先于事件触发注册好。
+  // ★ bugfix(not-in-game): 仅在此处注册唯一的 connect 监听器（原第1875行全局重复注册已删除）。
+  // 重复注册会导致每次连接 rejoin_game 发送两次，第二次抵达时服务端映射出现短暂空白窗口，
+  // 若用户恰好在此窗口内操作就会命中「未在游戏中」错误。
   socket.on('connect', () => {
     const dot = document.getElementById('conn-dot');
     if (dot) dot.className = '';
     if (myRoomCode && myPlayerId) {
+      // 禁用操作按钮，等待 rejoin_result 确认映射建立后再启用（防御性措施）
+      setActionBtnsDisabled(true);
       socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
     }
   });
 
   // 若 socket 已经是 connected 状态（极罕见，防御性兜底）
   if (socket.connected && myRoomCode && myPlayerId) {
+    setActionBtnsDisabled(true);
     socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
   }
 })();
@@ -939,6 +945,21 @@ function updatePlayHint() {
 }
 
 // ── 按钮状态 ──────────────────────────────────────────────────
+
+/**
+ * bugfix(not-in-game): 临时禁用/恢复所有操作按钮。
+ * 在 connect 触发（rejoin_game 发出）时调用 disabled=true，
+ * 在 rejoin_result 成功回调中调用 disabled=false，
+ * 确保服务端 socketId 映射完全建立后才允许玩家操作，
+ * 消除「操作在映射空白窗口内到达服务端」这一竞态场景。
+ */
+function setActionBtnsDisabled(disabled) {
+  ['btn-show', 'btn-scout', 'btn-scout-show', 'btn-managed'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = disabled;
+  });
+}
+
 function updateActionBtns() {
   const btnShow  = document.getElementById('btn-show');
   const btnScout = document.getElementById('btn-scout');
@@ -1771,15 +1792,8 @@ function quickAtPlayer() {
 
 // ── Socket 事件处理 ────────────────────────────────────────────
 
-socket.on('connect', () => {
-  const dot = document.getElementById('conn-dot');
-  if (dot) dot.className = '';
-  // ★ 首次连接 + 断线重连都统一在这里发 rejoin_game
-  // Socket.io 的 connect 事件在连接建立后必然触发（含首次），所以这是最可靠的位置
-  if (myRoomCode && myPlayerId) {
-    socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
-  }
-});
+// ★ bugfix(not-in-game): 原 socket.on('connect', ...) 已移入 init() IIFE（见文件顶部第81行）。
+// 此处不再重复注册，避免 rejoin_game 被发送两次导致服务端 socketId 映射短暂空白。
 
 socket.on('disconnect', () => {
   const dot = document.getElementById('conn-dot');
@@ -1791,11 +1805,15 @@ socket.on('disconnect', () => {
 socket.on('rejoin_result', ({ success, state, message }) => {
   if (success && state) {
     renderState(state);
+    // ★ bugfix(not-in-game): rejoin 确认成功后才恢复操作按钮，防止服务端映射建立前触发操作
+    setActionBtnsDisabled(false);
     document.getElementById('header-mid').textContent = '已重新连接';
     if (isManaged) {
       showManagedOverlay('已恢复连接', '当前处于托管状态，是否立即接管？', true);
     }
   } else {
+    // rejoin 失败时也恢复按钮（会跳转回首页，但避免卡死）
+    setActionBtnsDisabled(false);
     showToast('⚠️ ' + (message || '连接失败'), 'error');
     clearGameSession();
     setTimeout(() => { window.location.href = '/'; }, 2500);

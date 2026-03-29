@@ -576,6 +576,41 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── CANCEL SCOUT & SHOW（玩家主动放弃演出步骤）─────────
+  // 挖角不可逆：挖到的牌保留在手牌，本回合视为「仅挖角」结束
+  socket.on('cancel_scout_and_show', () => {
+    const room = gameManager.getRoom(socket.id);
+    const playerId = gameManager.getPlayerId(socket.id);
+    if (!room?.game) return socket.emit('error', { message: '未在游戏中' });
+
+    const game = room.game;
+    if (game.pendingScoutAndShow !== playerId) {
+      return socket.emit('action_error', { message: '当前没有待完成的挖+演步骤' });
+    }
+
+    clearRoomTimer(room.code);
+    game.cancelPendingScoutAndShow(playerId);
+
+    // 检查 all_scout 结束条件，然后切换到下一玩家
+    // 注意：cancelPendingScoutAndShow 不增加 consecutiveScouts，
+    // 这里手动补充（挖+演的挖角步骤等效于一次普通挖角）
+    game.consecutiveScouts = (game.consecutiveScouts || 0) + 1;
+    const lastOwner = game.lastStageOwner;
+    if (game.consecutiveScouts >= game.playerCount - 1 && lastOwner) {
+      const result = game.endRound(lastOwner, 'all_scout');
+      broadcastAfterAction(room, result, playerId, 'scout');
+    } else {
+      game.nextPlayer();
+      broadcastGameState(room);
+      startTurnTimer(room);
+    }
+
+    // 通知该玩家：放弃成功
+    socket.emit('scout_and_show_cancelled', {
+      message: '已放弃演出，挖到的牌保留在手牌中，回合结束',
+    });
+  });
+
   // ── FINISH SCOUT & SHOW（第二步）────────────────────────
   socket.on('finish_scout_and_show', ({ showIndices }) => {
     const room = gameManager.getRoom(socket.id);

@@ -1296,13 +1296,10 @@ function hideScoutPendingBanner() {
 }
 
 function dismissScoutBanner() {
-  // 放弃本次挖+演（仅重置客户端状态，服务端将在超时时自动清理）
-  pendingFinishScoutAndShow = false;
-  scoutAndShowMode = false;
-  selectedIndices = [];
-  hideScoutPendingBanner();
-  updateActionBtns();
-  showToast('已放弃挖+演', 'error');
+  // 放弃演出步骤：向服务端发送取消指令，服务端会结束本回合
+  // 挖角不可逆，挖到的牌保留在手牌中
+  socket.emit('cancel_scout_and_show');
+  // 客户端状态在 scout_and_show_cancelled 事件回调中重置
 }
 
 function setScoutStep(step) {

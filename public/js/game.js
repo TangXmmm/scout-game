@@ -1297,10 +1297,40 @@ function hideScoutPendingBanner() {
   if (el) el.classList.remove('show');
 }
 
+// ── 通用自定义 Confirm 弹窗 ───────────────────────────────────
+let _confirmCallback = null;
+
+/**
+ * showConfirm({ title, message, confirmText, danger, onConfirm })
+ * 替代原生 window.confirm()
+ */
+function showConfirm({ title = '请确认', message = '', confirmText = '确定', danger = false, icon = '⚠️', onConfirm }) {
+  _confirmCallback = onConfirm || null;
+  document.getElementById('confirm-title').textContent   = title;
+  document.getElementById('confirm-message').textContent = message;
+  document.getElementById('confirm-icon').textContent    = icon;
+  document.getElementById('confirm-ok-btn').textContent  = confirmText;
+  document.getElementById('confirm-ok-btn').className    = 'mbtn' + (danger ? ' danger' : ' mbtn-gold');
+  document.getElementById('custom-confirm-modal').style.display = 'flex';
+}
+
+function closeCustomConfirm(confirmed) {
+  document.getElementById('custom-confirm-modal').style.display = 'none';
+  if (confirmed && typeof _confirmCallback === 'function') {
+    _confirmCallback();
+  }
+  _confirmCallback = null;
+}
+
 function confirmDismissScoutBanner() {
-  // 二次确认：告知用户挖角不可逆
-  if (!confirm('放弃演出后，挖到的牌保留在手牌中，本回合将结束。\n\n确定放弃演出吗？')) return;
-  dismissScoutBanner();
+  showConfirm({
+    title:       '放弃演出？',
+    message:     '放弃后本回合结束，挖到的牌保留在手牌中。',
+    confirmText: '确定放弃',
+    danger:      true,
+    icon:        '⚠️',
+    onConfirm:   dismissScoutBanner,
+  });
 }
 
 function dismissScoutBanner() {

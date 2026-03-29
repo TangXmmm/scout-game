@@ -1269,6 +1269,20 @@
     .mbtn:active { transform: scale(0.97); }
     .mbtn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+    /* 自定义 Confirm 弹窗 */
+    #custom-confirm-modal .modal-box {
+      animation: confirmPop 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes confirmPop {
+      from { opacity:0; transform: scale(0.88) translateY(10px); }
+      to   { opacity:1; transform: scale(1) translateY(0); }
+    }
+    #confirm-ok-btn.danger {
+      background: linear-gradient(90deg, #e05050, #ff7070);
+      color: #fff;
+    }
+    #confirm-ok-btn.danger:hover { box-shadow: 0 4px 16px rgba(224,80,80,0.45); }
+
     /* ══════════════════════════════════════════
        翻牌决策弹窗（Page 04 Flip Phase）
     ══════════════════════════════════════════ */
@@ -2612,6 +2626,21 @@
   <div id="waiting-bar">⏳ 等待其他玩家行动...</div>
   <!-- Toast -->
   <div id="toast"></div>
+
+  <!-- ─────────────────────────────────────────────────────
+       通用自定义 Confirm 弹窗
+  ──────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="custom-confirm-modal" style="z-index:500;">
+    <div class="modal-box" style="max-width:340px;text-align:center;">
+      <div id="confirm-icon" style="font-size:2rem;margin-bottom:8px;">⚠️</div>
+      <div class="modal-title" id="confirm-title" style="margin-bottom:8px;"></div>
+      <p class="desc-text" id="confirm-message" style="margin-bottom:0;"></p>
+      <div class="modal-footer" style="margin-top:18px;">
+        <button class="mbtn mbtn-ghost" id="confirm-cancel-btn" onclick="closeCustomConfirm(false)">取消</button>
+        <button class="mbtn" id="confirm-ok-btn" onclick="closeCustomConfirm(true)">确定</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ─── 方向2：高光时刻动效 DOM ─── -->
   <!-- 烟花 Canvas（清手/赢局） -->

@@ -902,9 +902,13 @@ function updatePlayHint() {
   const hint = document.getElementById('play-hint');
   if (!hint) return 'empty';
 
+  // 修复：用 visible class 控制显隐（absolute 定位，不占高度，不推挤手牌）
+  // display 始终保持 flex，只通过 opacity/transform transition 淡入淡出
+  hint.style.display = 'flex';
+
   const isActive = isMyTurn || pendingFinishScoutAndShow;
   if (!isActive || selectedIndices.length === 0) {
-    hint.style.display = 'none';
+    hint.className = 'play-hint';   // 移除状态类 → opacity:0 淡出
     return 'empty';
   }
 
@@ -913,9 +917,8 @@ function updatePlayHint() {
   const type  = clientGetPlayType(cards);
 
   if (!type) {
-    hint.className = 'play-hint invalid';
-    hint.textContent = '❌ 未形成合法出牌组合';
-    hint.style.display = 'flex';
+    hint.className = 'play-hint invalid visible';
+    hint.textContent = '❌ 未形成合法组合';
     return 'invalid';
   }
 
@@ -925,14 +928,12 @@ function updatePlayHint() {
   const typeLabel = type === 'set' ? '同号组' : '顺子';
 
   if (canBeat) {
-    hint.className = 'play-hint valid-beats';
+    hint.className = 'play-hint valid-beats visible';
     hint.textContent = `✅ 可演出 · ${cards.length}张${typeLabel}`;
-    hint.style.display = 'flex';
     return 'valid-beats';
   } else {
-    hint.className = 'play-hint valid-no-beat';
-    hint.textContent = `⚠️ 合法但压不过 · ${cards.length}张${typeLabel}`;
-    hint.style.display = 'flex';
+    hint.className = 'play-hint valid-no-beat visible';
+    hint.textContent = `⚠️ 压不过 · ${cards.length}张${typeLabel}`;
     return 'valid-no-beat';
   }
 }

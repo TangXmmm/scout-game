@@ -1314,6 +1314,77 @@
     ══════════════════════════════════════════ */
     #scout-modal { z-index: 220; }
     .scout-title { color: var(--gold); }
+
+    /* 2.3 模式标签 */
+    .mode-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: var(--fs-tag); font-weight: 700;
+      padding: 2px 10px; border-radius: 20px;
+      margin-left: 8px; vertical-align: middle;
+    }
+    .mode-scout-show {
+      background: rgba(88,166,255,0.18);
+      color: #82c4ff;
+      border: 1px solid rgba(88,166,255,0.45);
+    }
+
+    /* 2.1 分步进度条 */
+    .scout-steps {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .scout-step {
+      display: flex; align-items: center; gap: 5px;
+      font-size: var(--fs-tag); font-weight: 700;
+      color: var(--muted); transition: color 0.2s;
+    }
+    .scout-step .step-num {
+      width: 20px; height: 20px;
+      border-radius: 50%; border: 1.5px solid var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; transition: all 0.2s;
+    }
+    .scout-step.active { color: var(--gold); }
+    .scout-step.active .step-num {
+      border-color: var(--gold); background: var(--gold-dim); color: var(--gold);
+    }
+    .scout-step.done { color: var(--green); }
+    .scout-step.done .step-num {
+      border-color: var(--green); background: rgba(63,185,80,0.18); color: var(--green);
+    }
+    .scout-step-arrow { color: var(--muted); font-size: 0.7rem; }
+
+    /* insert-section 过渡 */
+    #insert-section-wrap { transition: opacity 0.2s; }
+
+    /* 2.4 挖+演持久 Banner */
+    #scout-pending-banner {
+      display: none;
+      align-items: center; gap: 10px;
+      padding: 9px 14px;
+      background: linear-gradient(90deg, rgba(247,151,30,0.22), rgba(247,201,72,0.15));
+      border: 1px solid rgba(247,151,30,0.4);
+      border-radius: 12px;
+      margin: 0 0 4px;
+      font-size: var(--fs-meta);
+      color: var(--gold-light);
+      position: relative;
+      animation: bannerSlideIn 0.35s ease;
+    }
+    @keyframes bannerSlideIn {
+      from { opacity:0; transform: translateY(8px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    #scout-pending-banner.show { display: flex; }
+    .banner-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .banner-text { flex: 1; line-height: 1.4; }
+    .banner-cancel {
+      background: none; border: 1px solid rgba(247,151,30,0.4);
+      color: var(--gold); border-radius: 8px; padding: 3px 10px;
+      font-size: var(--fs-tag); font-weight: 700; cursor: pointer;
+      font-family: inherit; touch-action: manipulation; flex-shrink: 0;
+    }
+    .banner-cancel:hover { background: rgba(247,151,30,0.15); }
     .pos-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .pos-btn {
       padding: 12px 8px; border-radius: 12px;
@@ -2243,6 +2314,13 @@
           <div id="my-hand-cards"></div>
         </div>
 
+        <!-- 2.4 挖+演进行中持久 Banner -->
+        <div id="scout-pending-banner">
+          <span class="banner-icon">⚡</span>
+          <div class="banner-text">挖+演进行中 · 现在请在手牌中选连续的牌，然后点「演出」完成绝招！</div>
+          <button class="banner-cancel" onclick="dismissScoutBanner()">放弃</button>
+        </div>
+
         <!-- 操作按钮区：实时判定提示条 + 按钮行，二者整体高度固定，避免手牌跳动 -->
         <div id="action-area-wrap">
           <!-- 3.4 实时判定提示条（绝对定位在 action-area-wrap 内，不占流式高度） -->
@@ -2335,10 +2413,29 @@
   ──────────────────────────────────────────────────────── -->
   <div class="modal-overlay" id="scout-modal">
     <div class="modal-box">
-      <div class="modal-title scout-title" id="scout-modal-title">🔍 挖角</div>
-      <p class="desc-text" id="scout-modal-desc">从在场组两端取1张牌，插入手牌任意位置。</p>
 
-      <div style="font-size:var(--fs-tag);color:var(--muted);margin-bottom:8px;">① 选择取哪一端（每次只取 1 张）：</div>
+      <!-- 标题行 + 2.3 模式标签 -->
+      <div style="display:flex;align-items:center;margin-bottom:12px;">
+        <div class="modal-title scout-title" id="scout-modal-title" style="margin-bottom:0;">🔍 挖角</div>
+        <span class="mode-tag mode-scout-show" id="scout-mode-tag" style="display:none;">⚡ 挖+演 · 限1次</span>
+      </div>
+
+      <p class="desc-text" id="scout-modal-desc" style="margin-bottom:10px;">从在场组两端取1张牌，插入手牌任意位置。</p>
+
+      <!-- 2.1 分步进度条 -->
+      <div class="scout-steps">
+        <div class="scout-step active" id="scout-step-1">
+          <div class="step-num">1</div>
+          <span>选牌端</span>
+        </div>
+        <div class="scout-step-arrow">›</div>
+        <div class="scout-step" id="scout-step-2">
+          <div class="step-num">2</div>
+          <span>选插入位置</span>
+        </div>
+      </div>
+
+      <!-- Step 1：选端 -->
       <div class="pos-btns">
         <button class="pos-btn" id="pos-left" onclick="selectPos('left')">
           <div style="font-size:var(--fs-tag);opacity:0.7;margin-bottom:4px;">← 左端</div>
@@ -2362,19 +2459,23 @@
         </button>
       </div>
 
+      <!-- 已挖到预览 -->
       <div class="scouted-preview" id="scouted-preview">
         <div class="scouted-preview-label">✅ 你将挖到这张牌：</div>
         <div id="scouted-card-show"></div>
       </div>
 
-      <div class="insert-section">
-        <div class="insert-section-title">② 点击位置线选择插入位置：</div>
-        <div id="insert-preview-row"></div>
-        <div class="insert-hint-text" id="insert-hint"></div>
+      <!-- Step 2：选插入位置（2.1 分步弱化效果通过 insert-section-wrap 控制） -->
+      <div id="insert-section-wrap">
+        <div class="insert-section">
+          <div class="insert-section-title">② 点击位置线选择插入位置：</div>
+          <div id="insert-preview-row"></div>
+          <div class="insert-hint-text" id="insert-hint"></div>
+        </div>
       </div>
 
       <div id="scout-and-show-hint" style="display:none;margin-bottom:10px;padding:8px 10px;background:var(--blue-dim);border-radius:8px;font-size:var(--fs-tag);color:var(--blue);">
-        ✅ 挖角后，请在手牌中选择要演出的连续牌
+        ⚡ 挖角后，请在手牌中选择要演出的连续牌完成绝招！
       </div>
 
       <div class="modal-footer">

@@ -1083,6 +1083,7 @@ function doShow() {
     socket.emit('finish_scout_and_show', { showIndices: selectedIndices });
     pendingFinishScoutAndShow = false;
     selectedIndices = [];
+    hideScoutPendingBanner(); // 2.4 演出完成，隐藏 Banner
   } else {
     socket.emit('show', { cardIndices: selectedIndices });
     selectedIndices = [];
@@ -1110,6 +1111,18 @@ function openScoutModal(isAndShow = false) {
     ssHint.style.display = 'none';
     confirmBtn.textContent = '确认挖角';
   }
+
+  // ── 2.5 disable 确认按钮，直到用户选端 ──
+  confirmBtn.disabled = true;
+
+  // ── 2.3 模式标签 ──
+  const modeTag = document.getElementById('scout-mode-tag');
+  if (modeTag) {
+    modeTag.style.display = isAndShow ? 'inline-flex' : 'none';
+  }
+
+  // ── 2.1 重置分步进度条到 Step 1 ──
+  setScoutStep(1);
 
   renderScoutPositions();
   renderInsertPreview();
@@ -1173,6 +1186,14 @@ function selectPos(pos) {
     prev.style.display = 'flex';
     document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, willFlip);
   }
+
+  // ── 2.5 解锁确认按钮 ──
+  const confirmBtn = document.getElementById('scout-confirm-btn');
+  if (confirmBtn) confirmBtn.disabled = false;
+
+  // ── 2.1 进入 Step 2 ──
+  setScoutStep(2);
+
   renderInsertPreview();
 }
 
@@ -1242,6 +1263,43 @@ function renderInsertPreview() {
 function setInsert(idx) {
   selInsertIdx = idx;
   renderInsertPreview();
+}
+
+// ── 2.1 分步进度指示器控制 ──
+// ── 2.4 挖+演持久 Banner ───────────────────────────────────
+function showScoutPendingBanner() {
+  const el = document.getElementById('scout-pending-banner');
+  if (el) el.classList.add('show');
+}
+
+function hideScoutPendingBanner() {
+  const el = document.getElementById('scout-pending-banner');
+  if (el) el.classList.remove('show');
+}
+
+function dismissScoutBanner() {
+  // 放弃本次挖+演（仅重置客户端状态，服务端将在超时时自动清理）
+  pendingFinishScoutAndShow = false;
+  scoutAndShowMode = false;
+  selectedIndices = [];
+  hideScoutPendingBanner();
+  updateActionBtns();
+  showToast('已放弃挖+演', 'error');
+}
+
+function setScoutStep(step) {
+  const s1 = document.getElementById('scout-step-1');
+  const s2 = document.getElementById('scout-step-2');
+  const insertSection = document.getElementById('insert-section-wrap');
+  if (!s1 || !s2) return;
+  s1.classList.toggle('active',  step === 1);
+  s1.classList.toggle('done',    step > 1);
+  s2.classList.toggle('active',  step === 2);
+  // 选端前弱化插入区
+  if (insertSection) {
+    insertSection.style.opacity = step === 1 ? '0.35' : '1';
+    insertSection.style.pointerEvents = step === 1 ? 'none' : 'auto';
+  }
 }
 
 function confirmScout() {
@@ -1868,7 +1926,8 @@ socket.on('action_log', ({ type, playerName, position }) => {
 socket.on('scout_prepared', () => {
   pendingFinishScoutAndShow = true;
   selectedIndices = [];
-  showToast('✅ 挖角成功！请在手牌中选连续的牌，然后点「演出」', 'success');
+  showToast('✅ 挖角成功！', 'success');
+  showScoutPendingBanner(); // 2.4 持久 Banner
   updateActionBtns();
 });
 
@@ -1878,6 +1937,7 @@ socket.on('scout_and_show_cancelled', ({ message }) => {
   scoutAndShowMode = false;
   selPos = null;
   selectedIndices = [];
+  hideScoutPendingBanner(); // 2.4 隐藏 Banner
   showToast('⏰ ' + (message || '挖角并演出已超时取消'), 'error');
   updateActionBtns();
 });

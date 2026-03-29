@@ -1468,6 +1468,145 @@
       font-size: var(--fs-meta); font-family: inherit; touch-action: manipulation;
     }
 
+    /* ═══════════════════════════════════════════════════════════════
+       功能A：席位气泡（发消息时在对应席位旁浮现气泡）
+    ═══════════════════════════════════════════════════════════════ */
+    .seat-speech-bubble {
+      position: absolute;
+      bottom: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      /* 金色高亮气泡，更醒目 */
+      background: linear-gradient(135deg, rgba(30, 40, 20, 0.97), rgba(20, 30, 15, 0.97));
+      color: #fff;
+      border: 1.5px solid rgba(247, 201, 72, 0.75);
+      border-radius: 12px;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      z-index: 50;
+      backdrop-filter: blur(8px);
+      box-shadow:
+        0 0 0 3px rgba(247, 201, 72, 0.18),
+        0 4px 16px rgba(0, 0, 0, 0.65),
+        0 0 12px rgba(247, 201, 72, 0.25);
+      animation: bubblePop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    /* 金色三角尖朝下 */
+    .seat-speech-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: rgba(247, 201, 72, 0.75);
+    }
+    /* 气泡淡出动效 */
+    .seat-speech-bubble.fading {
+      transition: opacity 0.5s;
+      opacity: 0;
+    }
+    @keyframes bubblePop {
+      from { transform: translateX(-50%) scale(0.6) translateY(8px); opacity: 0; }
+      60%  { transform: translateX(-50%) scale(1.08) translateY(-2px); opacity: 1; }
+      to   { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; }
+    }
+
+    /* ══════════════════════════════════════════
+       功能B：玩家详情卡片浮层
+    ══════════════════════════════════════════ */
+    #player-info-modal {
+      z-index: 350;
+    }
+    #player-info-modal .modal-box {
+      max-width: 360px;
+      padding: 20px;
+    }
+    .pi-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .pi-avatar {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 900; color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+    }
+    .pi-avatar.me { background: linear-gradient(135deg, var(--blue), #0366d6); }
+    .pi-name {
+      font-size: var(--fs-h2);
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pi-sub {
+      font-size: var(--fs-meta);
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .pi-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .pi-stat {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .pi-stat-label {
+      font-size: var(--fs-tag);
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+    .pi-stat-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .pi-stat-value.pos { color: var(--green); }
+    .pi-stat-value.neg { color: var(--red); }
+    .pi-stat-value.warn { color: #ff8c3a; }
+    .pi-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .pi-tag {
+      font-size: var(--fs-tag);
+      padding: 3px 10px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .pi-tag.active { background: rgba(247,201,72,0.15); color: var(--gold); border: 1px solid rgba(247,201,72,0.35); }
+    .pi-tag.danger { background: rgba(255,120,50,0.12); color: #ff8c3a; border: 1px solid rgba(255,120,50,0.3); }
+    .pi-tag.used   { background: rgba(88,166,255,0.12); color: var(--blue); border: 1px solid rgba(88,166,255,0.25); }
+    .pi-tag.managed { background: rgba(110,118,129,0.15); color: var(--muted); border: 1px solid rgba(110,118,129,0.2); }
+    .pi-chat-row {
+      display: flex;
+      gap: 8px;
+    }
+
     /* 弹幕浮层（保留用于快速反馈提示） */
     #chat-float {
       position: fixed;
@@ -1748,6 +1887,37 @@
         <span id="chat-msg-count"></span>
         <div id="chat-history"></div>
         <div id="quick-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────
+       功能B：玩家详情卡浮层
+  ──────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="player-info-modal">
+    <div class="modal-box">
+      <!-- 头部：头像 + 名字 + 关闭 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div class="pi-header">
+          <div class="pi-avatar" id="pi-avatar"></div>
+          <div>
+            <div class="pi-name" id="pi-name"></div>
+            <div class="pi-sub"  id="pi-sub"></div>
+          </div>
+        </div>
+        <button class="chat-close-btn" onclick="closePlayerInfoModal()" style="flex-shrink:0;align-self:flex-start;">✕</button>
+      </div>
+
+      <!-- 数据格子 -->
+      <div class="pi-stats-grid" id="pi-stats-grid"></div>
+
+      <!-- 标签行 -->
+      <div class="pi-tags" id="pi-tags"></div>
+
+      <!-- 底部操作：快速发言 -->
+      <div class="pi-chat-row">
+        <button class="mbtn mbtn-ghost" onclick="closePlayerInfoModal()" style="flex:0 0 auto;max-width:80px;min-height:38px;font-size:var(--fs-tag);">关闭</button>
+        <button class="mbtn mbtn-gold"  id="pi-at-btn" onclick="quickAtPlayer()" style="min-height:38px;font-size:var(--fs-tag);">💬 @TA 说话</button>
       </div>
     </div>
   </div>

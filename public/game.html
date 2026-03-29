@@ -134,6 +134,140 @@
       overflow: visible;             /* 席位头像可溢出桌面边缘 */
     }
 
+    /* ══════════════════════════════════════════
+       实时排行榜侧边栏（左侧，与聊天侧边栏宽高对称）
+    ══════════════════════════════════════════ */
+    #leaderboard-sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: rgba(10, 16, 28, 0.30);    /* 深蓝半透明，与聊天侧边栏区分 */
+      border-right: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      overflow: hidden;
+      backdrop-filter: blur(6px);
+      margin: 4px 0;
+    }
+    #lb-header {
+      padding: 6px 10px;
+      font-size: var(--fs-tag);
+      color: rgba(247,201,72,0.55);          /* 金色，呼应排行榜主题 */
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+    #lb-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      scrollbar-width: none;
+    }
+    #lb-body::-webkit-scrollbar { display: none; }
+
+    /* 单行玩家条 */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      margin: 0 4px;
+      transition: background 0.15s;
+      cursor: pointer;
+    }
+    .lb-row:hover { background: rgba(255,255,255,0.05); }
+    .lb-row.lb-me { background: rgba(88,166,255,0.07); border: 1px solid rgba(88,166,255,0.15); }
+    .lb-row.lb-active { box-shadow: 0 0 0 1px rgba(247,201,72,0.25) inset; }
+
+    /* 排名徽章 */
+    .lb-rank {
+      font-size: 0.72rem;
+      font-weight: 800;
+      width: 18px;
+      flex-shrink: 0;
+      text-align: center;
+      color: var(--muted);
+    }
+    .lb-rank.r1 { color: #ffd700; }
+    .lb-rank.r2 { color: #c0c0c0; }
+    .lb-rank.r3 { color: #cd7f32; }
+
+    /* 头像（小圆形） */
+    .lb-avatar {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .lb-avatar img { width: 100%; height: 100%; object-fit: contain; }
+
+    /* 主信息列 */
+    .lb-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .lb-name {
+      font-size: var(--fs-tag);
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-name.lb-name-me { color: var(--blue); }
+    .lb-scores {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    /* 总分 */
+    .lb-total {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: var(--gold);
+    }
+    .lb-total.neg { color: var(--red); }
+    /* 本局实时得分 */
+    .lb-live {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.4);
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+    }
+    .lb-live.pos { color: rgba(63,185,80,0.85); }
+    .lb-live.neg { color: rgba(248,81,73,0.85); }
+
+    /* 辅助信息条 */
+    .lb-aux {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .lb-chip {
+      font-size: 0.58rem;
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.45);
+      white-space: nowrap;
+    }
+    .lb-chip.used { color: rgba(88,166,255,0.6); background: rgba(88,166,255,0.08); }
+    .lb-chip.danger { color: rgba(255,120,50,0.8); background: rgba(255,120,50,0.08); }
+
     /* ── 聊天侧边栏：常显在桌面右侧，半透明悬浮（约 10%，缩为 200px） ── */
     #chat-sidebar {
       width: 200px;  /* 从 260px 缩减，侧边栏约占 10%，让桌面更宽 */
@@ -867,16 +1001,21 @@
     }
 
     /* 手牌区（上层，flex:1 撑满剩余空间） */
+    /* 3.1 卡带底座：加强对比度，与父容器颜色明显区分 */
     #my-hand-area {
       flex: 1;
       min-height: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 0;
-      background: none;
-      border: none;
+      padding: 6px 14px 8px;
+      /* 加深背景色 + 加强边框对比，让底座明显区分 */
+      background: linear-gradient(180deg, rgba(15,25,40,0.72) 0%, rgba(8,15,28,0.80) 100%);
+      border: 1px solid rgba(88,166,255,0.12);
+      border-radius: 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 2px 14px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.03);
       overflow: hidden;
+      backdrop-filter: blur(6px);
     }
     .hand-label {
       font-size: var(--fs-tag); color: var(--muted); /* tag: 12-13px */
@@ -887,11 +1026,12 @@
     }
     #my-hand-cards {
       display: flex;
-      gap: 3px;
+      gap: 2px;                  /* 3.2 卡间距略缩小 */
       overflow-x: auto;
-      padding-bottom: 3px;
+      padding-bottom: 14px;      /* 为选中上浮留空间 */
+      padding-top: 4px;
       align-items: flex-end;
-      justify-content: center; /* 手牌居中对齐 */
+      justify-content: center;
       min-height: 0;
       flex: 1;
       scrollbar-width: thin;
@@ -930,6 +1070,45 @@
       box-shadow: 0 0 8px rgba(247,201,72,0.7);
     }
 
+    /* 3.4 实时判定提示条 */
+    /* 修复：改为绝对定位，浮在按钮区上方，不占用流式布局高度 */
+    #action-area-wrap {
+      flex-shrink: 0;
+      position: relative;         /* 为 #play-hint 的 absolute 提供定位上下文 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    #play-hint {
+      /* absolute 悬浮在 action-area-wrap 内，不占高度 */
+      position: absolute;
+      bottom: calc(100% + 4px);   /* 按钮行正上方 */
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--fs-tag);
+      font-weight: 700;
+      padding: 3px 14px;
+      border-radius: 10px;
+      gap: 4px;
+      z-index: 10;
+      opacity: 0;
+      transform: translateX(-50%) translateY(4px);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    #play-hint.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #play-hint.valid-beats   { color: var(--green); background: rgba(15,40,20,0.92);  border: 1px solid rgba(63,185,80,0.4); box-shadow: 0 2px 12px rgba(63,185,80,0.15); }
+    #play-hint.valid-no-beat { color: #ff9f43;       background: rgba(40,25,10,0.92); border: 1px solid rgba(255,159,67,0.4); box-shadow: 0 2px 12px rgba(255,159,67,0.15); }
+    #play-hint.invalid       { color: var(--red);   background: rgba(40,12,12,0.92);  border: 1px solid rgba(248,81,73,0.4); box-shadow: 0 2px 12px rgba(248,81,73,0.15); }
+
     /* ── 操作按钮区：底部合并区下层，横向居中排列 ── */
     #action-area {
       flex-shrink: 0;
@@ -958,20 +1137,56 @@
       justify-content: center;
       position: relative;
       cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
-      box-shadow: 0 2px 7px rgba(0,0,0,0.35);
+      transition: transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s, border-color 0.15s, outline 0.12s;
+      /* 3.3 默认阴影：更干净轻薄 */
+      box-shadow: 0 1px 3px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.14);
       user-select: none;
       border: 2px solid transparent;
       flex-shrink: 0;
       touch-action: manipulation;
       -webkit-user-select: none;
     }
-    .game-card:hover  { transform: translateY(-4px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
+    /* 3.3 hover：上浮5px，阴影拉长 */
+    .game-card:not(.stage-card):hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.32), 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
     .game-card:active { transform: scale(0.95); }
+    /* 3.2/3.3 整段选中：牌本身上浮10px + 去掉单卡金边（整段由外层包裹容器发光） */
+    .game-card.in-selection {
+      transform: translateY(-10px);
+      border-color: transparent;
+      box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+    }
+    /* 兼容旧的 .selected（挖角插槽模式下仍在用）*/
     .game-card.selected {
-      transform: translateY(-14px);
-      border-color: var(--gold);
-      box-shadow: 0 10px 24px rgba(247,201,72,0.5);
+      transform: translateY(-10px);
+      border-color: rgba(247,201,72,0.4);
+      box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+    }
+    /* 3.2 hover 时邻牌弱高亮（由 JS 添加类） */
+    .game-card.neighbor-hl {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      border-color: rgba(255,255,255,0.18);
+      z-index: 5;
+    }
+    /* 3.3 整段发光包裹容器 */
+    .selection-band {
+      display: contents; /* 不影响 flex 布局，视觉由 JS 注入 outline 的父包裹实现 */
+    }
+    /* 3.2/3.3 整段外轮廓 wrapper（由 JS 动态插入） */
+    .hand-sel-wrap {
+      display: flex;
+      gap: 2px;
+      align-items: flex-end;
+      border-radius: 10px;
+      padding: 0 3px;
+      outline: 2px solid rgba(247,201,72,0.55);
+      box-shadow: 0 0 0 4px rgba(247,201,72,0.12), 0 6px 24px rgba(247,201,72,0.2);
+      position: relative;
+      flex-shrink: 0;
     }
     .game-card.stage-card { cursor: default; }
     .game-card.stage-card:hover, .game-card.stage-card:active { transform: none; }
@@ -1678,6 +1893,160 @@
     .suggest-chip:active { transform: scale(0.95); }
 
     /* ══════════════════════════════════════════
+       方向2：高光时刻动效
+    ══════════════════════════════════════════ */
+
+    /* 全屏烟花容器（清手/赢局时触发） */
+    #fireworks-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9000;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    #fireworks-canvas.active { opacity: 1; }
+
+    /* 大字幕（重大事件：清手/大翻盘/赢局） */
+    #highlight-banner {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 8500;
+      opacity: 0;
+      transform: scale(0.7);
+      transition: opacity 0.35s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    #highlight-banner.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .hl-banner-emoji { font-size: 4rem; line-height: 1; margin-bottom: 8px; filter: drop-shadow(0 0 24px gold); }
+    .hl-banner-title {
+      font-size: clamp(1.6rem, 6vw, 2.4rem);
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 30px var(--gold), 0 2px 8px rgba(0,0,0,0.8);
+      letter-spacing: 2px;
+      text-align: center;
+      padding: 0 16px;
+    }
+    .hl-banner-sub {
+      font-size: var(--fs-meta);
+      color: rgba(255,255,255,0.7);
+      margin-top: 6px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    /* 成就徽章弹出（右上角弹出型） */
+    #achievement-toast {
+      position: fixed;
+      top: 64px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, rgba(247,201,72,0.18), rgba(188,140,255,0.12));
+      border: 1px solid rgba(247,201,72,0.4);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      z-index: 8000;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateX(110%);
+      transition: opacity 0.3s, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 260px;
+    }
+    #achievement-toast.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .ach-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .ach-text { display: flex; flex-direction: column; gap: 1px; }
+    .ach-title { font-size: var(--fs-tag); font-weight: 800; color: var(--gold); }
+    .ach-desc  { font-size: 0.62rem; color: rgba(255,255,255,0.6); }
+
+    /* ══════════════════════════════════════════
+       方向3：紧张感设计
+    ══════════════════════════════════════════ */
+
+    /* 倒计时最后10秒：屏幕四周红色脉冲边框 */
+    #pulse-border {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 500;
+      border: 3px solid rgba(248,81,73,0);
+      border-radius: 0;
+      box-shadow: inset 0 0 0 rgba(248,81,73,0);
+      transition: none;
+    }
+    #pulse-border.pulse {
+      animation: borderPulse 0.8s ease-in-out infinite;
+    }
+    @keyframes borderPulse {
+      0%   { border-color: rgba(248,81,73,0);   box-shadow: inset 0 0 0 rgba(248,81,73,0); }
+      50%  { border-color: rgba(248,81,73,0.55); box-shadow: inset 0 0 40px rgba(248,81,73,0.12); }
+      100% { border-color: rgba(248,81,73,0);   box-shadow: inset 0 0 0 rgba(248,81,73,0); }
+    }
+
+    /* 危险玩家席位（手牌≤2）的红色外发光闪烁 */
+    .seat.danger {
+      animation: seatDangerPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes seatDangerPulse {
+      0%,100% { filter: drop-shadow(0 0 0 rgba(248,81,73,0)); }
+      50%      { filter: drop-shadow(0 0 10px rgba(248,81,73,0.7)); }
+    }
+
+    /* ── 倒计时心跳（最后10秒，数字本身放大脉动）── */
+    #turn-timer.heartbeat {
+      animation: timerHeartbeat 0.6s ease-in-out infinite;
+      color: var(--red) !important;
+      font-size: 1rem;
+    }
+    @keyframes timerHeartbeat {
+      0%,100% { transform: scale(1); }
+      40%     { transform: scale(1.2); }
+    }
+
+    /* ══════════════════════════════════════════
+       方向4：出牌动效
+    ══════════════════════════════════════════ */
+
+    /* stage-cards 里新飞入的卡片动画 */
+    @keyframes cardFlyIn {
+      from { opacity: 0; transform: translateY(-28px) scale(0.75); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .stage-card-wrap.fly-in {
+      animation: cardFlyIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+
+    /* 挖角时被取走的卡片淡出 */
+    @keyframes cardFlyOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to   { opacity: 0; transform: translateY(-20px) scale(0.8); }
+    }
+    .stage-card-wrap.fly-out {
+      animation: cardFlyOut 0.2s ease-in forwards;
+    }
+
+    /* 手牌中新插入的牌：从下方弹入 */
+    .game-card.new-card {
+      animation: newCardBounce 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes newCardBounce {
+      from { opacity: 0; transform: translateY(20px) scale(0.8); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ══════════════════════════════════════════
        超时 / 托管覆盖层
     ══════════════════════════════════════════ */
     #managed-overlay {
@@ -1804,8 +2173,17 @@
         </span>
       </div>
 
-      <!-- ══ 牌桌区（flex:8）：左侧桌面居中 + 右侧聊天侧边栏 ══ -->
+      <!-- ══ 牌桌区（flex:8）：排行榜 + 桌面 + 聊天三栏水平布局 ══ -->
       <div id="table-wrapper">
+
+        <!-- 实时排行榜（左侧，与聊天侧边栏宽高对称） -->
+        <div id="leaderboard-sidebar">
+          <div id="lb-header">🏆 实时排行榜</div>
+          <div id="lb-body">
+            <!-- 由 JS renderLeaderboard() 动态填充 -->
+          </div>
+        </div><!-- /leaderboard-sidebar -->
+
         <!-- 桌面外层：flex:1，保证桌面居中 -->
         <div id="table-center">
           <!-- 牌桌本体：席位绝对定位在此内 -->
@@ -1865,12 +2243,17 @@
           <div id="my-hand-cards"></div>
         </div>
 
-        <!-- 操作按钮（下层，横向居中排列） -->
-        <div id="action-area">
-          <button class="act-btn show"       id="btn-show"       onclick="doShow()"           disabled>🎭 演出</button>
-          <button class="act-btn scout"      id="btn-scout"      onclick="openScoutModal(false)" disabled>🔍 挖角</button>
-          <button class="act-btn scout-show" id="btn-scout-show" onclick="openScoutModal(true)"  disabled>⚡ 挖+演</button>
-          <button class="act-btn managed-btn" id="btn-managed"   onclick="requestManaged()"  style="display:none;">🤖 托管</button>
+        <!-- 操作按钮区：实时判定提示条 + 按钮行，二者整体高度固定，避免手牌跳动 -->
+        <div id="action-area-wrap">
+          <!-- 3.4 实时判定提示条（绝对定位在 action-area-wrap 内，不占流式高度） -->
+          <div id="play-hint" style="display:none;"></div>
+          <!-- 操作按钮（横向居中排列） -->
+          <div id="action-area">
+            <button class="act-btn show"       id="btn-show"       onclick="doShow()"           disabled>🎭 演出</button>
+            <button class="act-btn scout"      id="btn-scout"      onclick="openScoutModal(false)" disabled>🔍 挖角</button>
+            <button class="act-btn scout-show" id="btn-scout-show" onclick="openScoutModal(true)"  disabled>⚡ 挖+演</button>
+            <button class="act-btn managed-btn" id="btn-managed"   onclick="requestManaged()"  style="display:none;">🤖 托管</button>
+          </div>
         </div>
       </div>
 
@@ -2082,6 +2465,28 @@
   <div id="waiting-bar">⏳ 等待其他玩家行动...</div>
   <!-- Toast -->
   <div id="toast"></div>
+
+  <!-- ─── 方向2：高光时刻动效 DOM ─── -->
+  <!-- 烟花 Canvas（清手/赢局） -->
+  <canvas id="fireworks-canvas"></canvas>
+  <!-- 大字幕浮层 -->
+  <div id="highlight-banner">
+    <div class="hl-banner-emoji" id="hl-emoji">🎉</div>
+    <div class="hl-banner-title" id="hl-title"></div>
+    <div class="hl-banner-sub"   id="hl-sub"></div>
+  </div>
+  <!-- 成就徽章（右上角弹出） -->
+  <div id="achievement-toast">
+    <div class="ach-icon" id="ach-icon">⚡</div>
+    <div class="ach-text">
+      <div class="ach-title" id="ach-title"></div>
+      <div class="ach-desc"  id="ach-desc"></div>
+    </div>
+  </div>
+
+  <!-- ─── 方向3：紧张感 DOM ─── -->
+  <!-- 屏幕边框心跳脉冲（倒计时最后10秒） -->
+  <div id="pulse-border"></div>
 
   <!-- 弹幕浮层（仅保留快速反馈气泡） -->
   <div id="chat-float"></div>

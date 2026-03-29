@@ -128,13 +128,13 @@ function cardBg(val) {
 // ── 渲染卡牌 HTML ──────────────────────────────────────────────
 function cardHtml(card, opts = {}) {
   const val = cv(card), other = co(card);
-  const selClass   = opts.selected ? 'selected' : '';
+  // 3.2/3.3：选中时用 in-selection（整段外轮廓由父容器发光，单卡不散亮）
+  const selClass   = opts.selected ? 'in-selection' : '';
   const stageClass = opts.stage ? 'stage-card' : '';
   const newClass   = opts.isNew ? 'new-card' : '';
   const edgeClass  = opts.edgeClass || '';
   const onclick    = opts.onClick ? `onclick="${opts.onClick}"` : '';
   const idx        = opts.index !== undefined ? `data-index="${opts.index}"` : '';
-  // draggable 已移除：改为纯点击选牌，draggable 在移动端会拦截 touch 导致 onclick 失效
   return `
     <div class="game-card ${selClass} ${stageClass} ${newClass} ${edgeClass}"
          ${onclick} ${idx}
@@ -163,8 +163,15 @@ function startTimer(durationSec) {
     const elapsed = (Date.now() - timerStartedAt) / 1000;
     const left = Math.max(0, Math.ceil(durationSec - elapsed));
     el.textContent = left + 's';
-    if (left <= 10) el.className = 'warning';
-    else el.className = '';
+
+    // 方向3：最后10秒触发心跳脉冲
+    if (left <= 10 && left > 0) {
+      el.className = 'warning heartbeat';
+      startPulseBorder();
+    } else if (left > 10) {
+      el.className = '';
+      stopPulseBorder();
+    }
     if (left <= 0) clearTimer();
   }, 250);
 }
@@ -174,6 +181,163 @@ function clearTimer() {
   timerInterval = null;
   const el = document.getElementById('turn-timer');
   if (el) { el.style.display = 'none'; el.textContent = ''; el.className = ''; }
+  stopPulseBorder();
+}
+
+// ── 方向3：屏幕边框心跳脉冲 ─────────────────────────────────
+function startPulseBorder() {
+  const el = document.getElementById('pulse-border');
+  if (el && !el.classList.contains('pulse')) el.classList.add('pulse');
+}
+function stopPulseBorder() {
+  const el = document.getElementById('pulse-border');
+  if (el) el.classList.remove('pulse');
+}
+
+// ── 方向2：高光时刻动效 ──────────────────────────────────────
+
+// 显示大字幕（emoji + 标题 + 副标题），durationMs 后自动隐藏
+function showHighlightBanner(emoji, title, sub = '', durationMs = 2200) {
+  document.getElementById('hl-emoji').textContent = emoji;
+  document.getElementById('hl-title').textContent = title;
+  document.getElementById('hl-sub').textContent   = sub;
+  const el = document.getElementById('highlight-banner');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), durationMs);
+}
+
+// 显示右上角成就徽章
+function showAchievement(icon, title, desc, durationMs = 3500) {
+  document.getElementById('ach-icon').textContent  = icon;
+  document.getElementById('ach-title').textContent = title;
+  document.getElementById('ach-desc').textContent  = desc;
+  const el = document.getElementById('achievement-toast');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), durationMs);
+}
+
+// 简易烟花效果（Canvas 粒子，不依赖外部库）
+let _fwAnimId = null;
+function launchFireworks(durationMs = 2800) {
+  const canvas = document.getElementById('fireworks-canvas');
+  if (!canvas) return;
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.classList.add('active');
+
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+  const colors = ['#f7c948','#ff6b6b','#51cf66','#74c0fc','#cc5de8','#ff9f43','#fff'];
+
+  // 创建多个爆炸中心
+  const bursts = 5 + Math.floor(Math.random() * 3);
+  for (let b = 0; b < bursts; b++) {
+    const cx = 0.1 * window.innerWidth + Math.random() * 0.8 * window.innerWidth;
+    const cy = 0.1 * window.innerHeight + Math.random() * 0.55 * window.innerHeight;
+    const count = 22 + Math.floor(Math.random() * 14);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const speed = 2.5 + Math.random() * 3.5;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        alpha: 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        radius: 2 + Math.random() * 2.5,
+        decay: 0.012 + Math.random() * 0.01,
+        gravity: 0.06,
+      });
+    }
+  }
+
+  const startTime = Date.now();
+  function frame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.98;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0) return;
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    if (Date.now() - startTime < durationMs) {
+      _fwAnimId = requestAnimationFrame(frame);
+    } else {
+      canvas.classList.remove('active');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  cancelAnimationFrame(_fwAnimId);
+  frame();
+}
+
+// ── 方向4：出牌动效（stage 换主人时触发 fly-in）───────────────
+// 用 stageOwner 变化来判断是否有新演出（比 stageLen 更准确）
+let _lastStageOwner = null;  // 上一次 stageOwner，变化时说明有新人演出
+let _lastStageLen   = 0;     // 上一次 stage 长度（保留，用于空→有的判断）
+
+// ── 方向2：检测 action_log 事件中的高光时刻 ─────────────────────
+/**
+ * 根据 action_log 事件触发对应的高光动效
+ * @param {string} type      - 动作类型
+ * @param {string} playerName - 执行者名字
+ * @param {object} stateSnap  - 当前 gameState 快照（用于判断清手、危险等）
+ */
+function triggerHighlightEffect(type, playerName) {
+  const isMe = (gameState?.players?.find(p => p.name === playerName)?.id === myPlayerId);
+  const mePrefix = isMe ? '你' : playerName;
+
+  if (type === 'scout_and_show') {
+    showAchievement('⚡', `挖角并演出！`, `${mePrefix} 使出了绝招`);
+  }
+  // 手牌极少时的成就（每次出牌后检查自己）
+  if (gameState?.state === 'playing') {
+    const me = gameState.players?.find(p => p.id === myPlayerId);
+    if (me && me.handCount === 1) {
+      showAchievement('🔥', '最后一张！', '下次出牌即可清手！');
+    }
+  }
+}
+
+// 在 round_end/game_over 时触发清手烟花 + 大字幕
+function triggerRoundEndEffect(data) {
+  const isMyWin = data.roundWinnerId === myPlayerId;
+  if (data.winnerType === 'empty_hand') {
+    launchFireworks(2600);
+    if (isMyWin) {
+      showHighlightBanner('🎉', '完美清手！', '你率先清空手牌，赢得本轮！', 2400);
+    } else {
+      showHighlightBanner('👏', `${data.roundWinnerName} 赢得本轮！`, '率先清空手牌，大获全胜！', 2000);
+    }
+  } else {
+    // all_scout 无人压制赢局
+    if (isMyWin) {
+      showHighlightBanner('🏆', '无敌在场组！', '无人能压制你的出牌！', 2200);
+    } else {
+      showHighlightBanner('🎭', `${data.roundWinnerName} 赢得本轮！`, '在场组无人能压制，胜利！', 1800);
+    }
+  }
+}
+
+// 游戏结束时触发终局烟花
+function triggerGameEndEffect(data) {
+  const isMyWin = data.gameWinnerId === myPlayerId;
+  launchFireworks(4000);
+  if (isMyWin) {
+    showHighlightBanner('🏆', '你赢了整局！', '恭喜！你是最终的马戏之星！', 3500);
+  } else {
+    showHighlightBanner('🎪', `${data.gameWinnerName} 赢了！`, '感谢参与这场精彩的马戏表演', 3000);
+  }
 }
 
 // ── 事件字幕 ──────────────────────────────────────────────────
@@ -201,6 +365,73 @@ function renderLogBar() {
   container.innerHTML = recent.map((item, i) =>
     `<span class="log-item ${i === 0 ? 'latest' : ''}">${item.text}</span>`
   ).join('');
+}
+
+// ── 实时排行榜（左侧边栏）──────────────────────────────────────
+/**
+ * 渲染左侧实时排行榜
+ * 信息分两层：
+ *   核心：排名 | 头像 | 名字 | 总分 | 本局实时得分
+ *   辅助：手牌数 | 挖角Token数 | 挖+演是否已用
+ */
+function renderLeaderboard(state) {
+  const body = document.getElementById('lb-body');
+  if (!body || !state?.players) return;
+
+  // 按总分降序排列（同分保留游戏顺序）
+  const sorted = [...state.players].sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+  const rankEmoji = ['🥇', '🥈', '🥉'];
+
+  body.innerHTML = sorted.map((p, idx) => {
+    const isMe   = p.id === myPlayerId;
+    const active = p.id === state.currentPlayerId;
+    const hc     = p.handCount   || 0;
+    const tok    = p.scoutTokens || 0;
+    const cards  = p.scoreCards  || 0;
+    const live   = cards + tok - hc;   // 本局实时得分（正负）
+    const total  = p.totalScore  || 0;
+
+    // 排名标志：前三名用奖牌 emoji，之后用数字
+    const rankLabel = idx < 3 ? rankEmoji[idx] : `${idx + 1}`;
+    const rankCls   = idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : '';
+
+    // 头像
+    const avatarInner = p.avatar
+      ? `<img src="/avatars/${p.avatar}" alt="" />`
+      : `<span>${(p.name || '?').charAt(0).toUpperCase()}</span>`;
+
+    // 本局实时得分（颜色）
+    const liveCls  = live > 0 ? 'pos' : live < 0 ? 'neg' : '';
+    const liveStr  = `${live >= 0 ? '+' : ''}${live}`;
+
+    // 总分颜色
+    const totalCls = total < 0 ? 'neg' : '';
+
+    // 辅助标签：手牌数 / token / 挖+演
+    const auxChips = [
+      `<span class="lb-chip">🃏${hc}张</span>`,
+      tok > 0 ? `<span class="lb-chip">🎫×${tok}</span>` : '',
+      p.usedScoutAndShow ? `<span class="lb-chip used">⚡已用</span>` : '',
+      hc <= 3 && hc > 0 && state.state === 'playing' ? `<span class="lb-chip danger">⚠危险</span>` : '',
+      p.managed ? `<span class="lb-chip">🤖托管</span>` : '',
+    ].filter(Boolean).join('');
+
+    const rowCls = ['lb-row', isMe ? 'lb-me' : '', active ? 'lb-active' : ''].filter(Boolean).join(' ');
+
+    return `
+      <div class="${rowCls}" onclick="showPlayerInfo('${p.id}')">
+        <div class="lb-rank ${rankCls}">${rankLabel}</div>
+        <div class="lb-avatar">${avatarInner}</div>
+        <div class="lb-info">
+          <div class="lb-name ${isMe ? 'lb-name-me' : ''}">${p.name}${isMe ? ' 👤' : ''}</div>
+          <div class="lb-scores">
+            <span class="lb-total ${totalCls}">${total >= 0 ? '+' : ''}${total}分</span>
+            <span class="lb-live ${liveCls}">${liveStr}</span>
+          </div>
+          <div class="lb-aux">${auxChips}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ── 实时分数条 ────────────────────────────────────────────────
@@ -404,10 +635,18 @@ function renderStage(state) {
   if (!state.stage?.length) {
     el.innerHTML = '<div class="stage-empty">舞台空置 · 等待首秀</div>';
     meta.innerHTML = '';
+    _lastStageLen = 0;
     return;
   }
 
   const n = state.stage.length;
+  // 方向4：stageOwner 变化 = 新人演出 → 触发飞入动效
+  // 仅当 stageOwner 发生实际变化时播放动效（挖角只会缩减 stage，不换 owner）
+  const currentOwner = state.stageOwner;
+  const isNewPlay = currentOwner !== null && currentOwner !== _lastStageOwner;
+  _lastStageOwner = currentOwner;
+  _lastStageLen = n;
+
   el.innerHTML = state.stage.map((card, i) => {
     let endBadge = '';
     if (n > 1) {
@@ -416,7 +655,9 @@ function renderStage(state) {
     }
     const edgeClass = (isMyTurn && i === 0) ? 'edge-left'
                     : (isMyTurn && i === n - 1) ? 'edge-right' : '';
-    return `<div class="stage-card-wrap">${endBadge}${cardHtml(card, { stage: true, edgeClass })}</div>`;
+    // 方向4：新演出的牌全部加 fly-in 类
+    const flyClass = isNewPlay ? ' fly-in' : '';
+    return `<div class="stage-card-wrap${flyClass}">${endBadge}${cardHtml(card, { stage: true, edgeClass })}</div>`;
   }).join('');
 
   const ownerName = state.players.find(p => p.id === state.stageOwner)?.name || '?';
@@ -438,14 +679,47 @@ function renderHand(hand, newCardIndex = -1) {
     return;
   }
 
-  el.innerHTML = hand.map((card, i) =>
-    cardHtml(card, {
-      index: i,
-      selected: selectedIndices.includes(i),
-      onClick: `toggleCard(${i})`,
-      isNew: i === newCardIndex,
-      })
-  ).join('');
+  // 3.2/3.3：整段选中用 hand-sel-wrap 容器包裹，共享外轮廓发光
+  if (selectedIndices.length > 0) {
+    const lo = selectedIndices[0];
+    const hi = selectedIndices[selectedIndices.length - 1];
+    let html = '';
+    // 选中段之前
+    for (let i = 0; i < lo; i++) {
+      html += cardHtml(hand[i], { index: i, onClick: `toggleCard(${i})`, isNew: i === newCardIndex });
+    }
+    // 整段选中区：用 hand-sel-wrap 容器包裹
+    html += '<div class="hand-sel-wrap">';
+    for (let i = lo; i <= hi; i++) {
+      html += cardHtml(hand[i], { index: i, selected: true, onClick: `toggleCard(${i})`, isNew: i === newCardIndex });
+    }
+    html += '</div>';
+    // 选中段之后
+    for (let i = hi + 1; i < hand.length; i++) {
+      html += cardHtml(hand[i], { index: i, onClick: `toggleCard(${i})`, isNew: i === newCardIndex });
+    }
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = hand.map((card, i) =>
+      cardHtml(card, { index: i, onClick: `toggleCard(${i})`, isNew: i === newCardIndex })
+    ).join('');
+  }
+
+  // 3.2 hover 邻牌弱高亮：鼠标移入卡片时，前后各1张加 neighbor-hl 类
+  el.querySelectorAll('.game-card:not(.stage-card)').forEach(cardEl => {
+    cardEl.addEventListener('mouseenter', () => {
+      const idx = parseInt(cardEl.dataset.index);
+      if (isNaN(idx)) return;
+      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
+      const prev = el.querySelector(`.game-card[data-index="${idx - 1}"]`);
+      const next = el.querySelector(`.game-card[data-index="${idx + 1}"]`);
+      if (prev && !prev.classList.contains('in-selection')) prev.classList.add('neighbor-hl');
+      if (next && !next.classList.contains('in-selection')) next.classList.add('neighbor-hl');
+    });
+    cardEl.addEventListener('mouseleave', () => {
+      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
+    });
+  });
 
   bindHandDragSelect(); // 已置空，无副作用
 }
@@ -456,7 +730,7 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
   // ── 修复：插槽用 position:absolute 悬浮，不参与 flex 布局 ──
   // 先只渲染卡片（维持原有间距），插槽层叠加在卡片之间
   const CARD_W  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 52;
-  const CARD_GAP = 3; // 与 CSS gap:3px 保持一致
+  const CARD_GAP = 2; // 与 CSS gap:2px 保持一致
 
   // 1. 渲染卡片（不含插槽，flex 布局不变）
   let cardHtmlStr = '';
@@ -581,6 +855,89 @@ function toggleCard(i) {
   updateActionBtns();
 }
 
+// ── 3.4 前端实时合法性判定（复刻服务端逻辑）────────────────────
+function clientGetCardValue(card) {
+  return card.face === 'top' ? card.top : card.bottom;
+}
+function clientIsValidSet(cards) {
+  if (cards.length < 2) return false;
+  const vals = cards.map(clientGetCardValue);
+  return vals.every(v => v === vals[0]);
+}
+function clientIsValidSequence(cards) {
+  if (cards.length < 2) return false;
+  const vals = cards.map(clientGetCardValue).sort((a, b) => a - b);
+  for (let i = 1; i < vals.length; i++) {
+    if (vals[i] !== vals[i - 1] + 1) return false;
+  }
+  return true;
+}
+function clientGetPlayType(cards) {
+  if (!cards || cards.length === 0) return null;
+  if (cards.length === 1) return 'set';
+  if (clientIsValidSet(cards)) return 'set';
+  if (clientIsValidSequence(cards)) return 'sequence';
+  return null;
+}
+function clientBeats(myCards, myType, stage, stageType) {
+  if (!stage || stage.length === 0) return true; // 无在场组，任何合法牌都能出
+  const oldCount = stage.length;
+  const newCount = myCards.length;
+  if (newCount > oldCount) return true;
+  if (newCount < oldCount) return false;
+  // 张数相同比类型：set > sequence
+  if (myType === 'set' && stageType === 'sequence') return true;
+  if (myType === 'sequence' && stageType === 'set') return false;
+  // 比最小值
+  const newMin = Math.min(...myCards.map(clientGetCardValue));
+  const oldMin = Math.min(...stage.map(clientGetCardValue));
+  return newMin > oldMin;
+}
+
+/**
+ * 更新 #play-hint 实时提示条
+ * @returns {'valid-beats'|'valid-no-beat'|'invalid'|'empty'}
+ */
+function updatePlayHint() {
+  const hint = document.getElementById('play-hint');
+  if (!hint) return 'empty';
+
+  // 修复：用 visible class 控制显隐（absolute 定位，不占高度，不推挤手牌）
+  // display 始终保持 flex，只通过 opacity/transform transition 淡入淡出
+  hint.style.display = 'flex';
+
+  const isActive = isMyTurn || pendingFinishScoutAndShow;
+  if (!isActive || selectedIndices.length === 0) {
+    hint.className = 'play-hint';   // 移除状态类 → opacity:0 淡出
+    return 'empty';
+  }
+
+  const hand  = gameState?.myHand || [];
+  const cards = selectedIndices.map(i => hand[i]).filter(Boolean);
+  const type  = clientGetPlayType(cards);
+
+  if (!type) {
+    hint.className = 'play-hint invalid visible';
+    hint.textContent = '❌ 未形成合法组合';
+    return 'invalid';
+  }
+
+  const stage     = gameState?.stage || [];
+  const stageType = gameState?.stageType || null;
+  const canBeat   = clientBeats(cards, type, stage, stageType);
+  const typeLabel = type === 'set' ? '同号组' : '顺子';
+
+  if (canBeat) {
+    hint.className = 'play-hint valid-beats visible';
+    hint.textContent = `✅ 可演出 · ${cards.length}张${typeLabel}`;
+    return 'valid-beats';
+  } else {
+    hint.className = 'play-hint valid-no-beat visible';
+    hint.textContent = `⚠️ 压不过 · ${cards.length}张${typeLabel}`;
+    return 'valid-no-beat';
+  }
+}
+
 // ── 按钮状态 ──────────────────────────────────────────────────
 function updateActionBtns() {
   const btnShow  = document.getElementById('btn-show');
@@ -592,6 +949,9 @@ function updateActionBtns() {
   if (btnManaged) {
     btnManaged.style.display = playing ? 'inline-flex' : 'none';
   }
+
+  // 3.4：每次按钮状态变化时同步更新实时提示
+  const hintStatus = updatePlayHint();
 
   if (pendingFinishScoutAndShow) {
     btnShow.disabled  = selectedIndices.length === 0;
@@ -610,7 +970,8 @@ function updateActionBtns() {
     return;
   }
   const hasStage = !!gameState.stage?.length;
-  btnShow.disabled  = selectedIndices.length === 0;
+  // 合法且能压才允许演出；合法但压不过显示 disabled（提示条已说明原因）
+  btnShow.disabled  = selectedIndices.length === 0 || hintStatus === 'invalid' || hintStatus === 'valid-no-beat';
   btnScout.disabled = !hasStage;
   btnSS.disabled    = !hasStage || gameState.usedScoutAndShow;
 }
@@ -633,6 +994,7 @@ function renderState(state) {
   renderTable(state);        // 圆桌席位（主玩家视图）
   renderPlayersTop(state);   // 移动端顶部（已隐藏，保留兼容）
   renderPlayersSidebar(state); // PC侧栏（已隐藏，保留兼容）
+  renderLeaderboard(state);  // 左侧实时排行榜
   renderScoreBar(state);
   renderStage(state);
   renderHand(state.myHand || []);
@@ -1492,6 +1854,9 @@ socket.on('action_log', ({ type, playerName, position }) => {
   else if (type === 'show')      showAutoSuggest('show', playerName);
   else if (type === 'scout')     showAutoSuggest('scout', playerName);
 
+  // ── 方向2：高光时刻成就检测 ──
+  triggerHighlightEffect(type, playerName);
+
   // ── 功能C：动态刷新侧边栏话术 ──
   const phraseCtx = type === 'scout_and_show' ? 'scout_and_show'
                   : type === 'show'      ? 'show'
@@ -1566,14 +1931,18 @@ socket.on('take_over_result', ({ success, message }) => {
 socket.on('round_end', (data) => {
   pendingFinishScoutAndShow = false;
   selectedIndices = [];
-  showRoundEnd(data);
+  // 方向2：结算时触发高光动效（先播动效，稍后再弹结算弹窗）
+  triggerRoundEndEffect(data);
+  setTimeout(() => showRoundEnd(data), 600);
 });
 
 socket.on('game_over', (data) => {
   pendingFinishScoutAndShow = false;
   selectedIndices = [];
-  showRoundEnd(data);
-  setTimeout(() => showGameEnd(data), 3500);
+  // 方向2：游戏结束终局烟花
+  triggerGameEndEffect(data);
+  setTimeout(() => { showRoundEnd(data); }, 600);
+  setTimeout(() => showGameEnd(data), 4200);
 });
 
 socket.on('round_started', ({ roundNumber }) => {

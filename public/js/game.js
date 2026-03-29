@@ -267,18 +267,34 @@ function renderTable(state) {
     let cls = 'seat';
     if (isMe)   cls += ' is-me';
     if (active) cls += ' active';
-    if (hc <= 2 && hc > 0 && state.state === 'playing') cls += ' danger';
+    if (hc <= 3 && hc > 0 && state.state === 'playing') cls += ' danger';
     if (p.managed) cls += ' managed-seat';
 
-    // 构造内容
+    // ── 卡片式玩家信息组件 ──
     const initials  = (p.name || '?').charAt(0).toUpperCase();
+    const isDanger  = hc <= 3 && hc > 0 && state.state === 'playing';
     const liveClass = live < 0 ? 'neg' : '';
     const liveStr   = `${live >= 0 ? '+' : ''}${live}`;
-    const badge     = active
-      ? `<div class="seat-action-badge">▶ 行动中</div>`
-      : (p.managed ? `<div class="seat-managed-badge">🤖托管</div>` : '');
-    const dangerTip = (hc <= 2 && hc > 0 && state.state === 'playing')
-      ? `<div style="font-size:0.55rem;color:var(--red);font-weight:700;">⚠️清手</div>` : '';
+    // 手牌数颜色：危险时橙红
+    const cardsClass = isDanger ? 's-cards warn' : 's-cards';
+
+    // 状态 badge（优先级：行动中 > 危险 > 托管）
+    // 行动中：区分托管状态（托管中）和正常（正在思考/正在出牌）
+    let badgeHtml = '';
+    if (active) {
+      if (p.managed) {
+        badgeHtml = `<span class="seat-badge-managed">🤖 托管中</span>`;
+      } else if (state.stageOwner === p.id && (state.stage?.length || 0) > 0) {
+        // 刚出过牌，等待其他人响应 → "正在出牌"
+        badgeHtml = `<span class="seat-badge-active">🃏 正在出牌</span>`;
+      } else {
+        badgeHtml = `<span class="seat-badge-active">💭 正在思考</span>`;
+      }
+    } else if (p.managed) {
+      badgeHtml = `<span class="seat-badge-managed">🤖 托管中</span>`;
+    } else if (isDanger) {
+      badgeHtml = `<span class="seat-badge-danger">⚠ 危险</span>`;
+    }
 
     const el = document.createElement('div');
     el.className = cls;
@@ -287,10 +303,20 @@ function renderTable(state) {
     el.dataset.playerId = p.id;
     el.onclick = () => showPlayerInfo(p.id);
     el.innerHTML = `
-      <div class="seat-avatar">${initials}</div>
-      <div class="seat-name">${p.name}${isMe ? ' 👤' : ''}</div>
-      <div class="seat-meta">🃏${hc} · <span class="m-live ${liveClass}">${liveStr}</span></div>
-      ${badge}${dangerTip}`;
+      <div class="seat-card">
+        <div class="seat-avatar-wrap">
+          <div class="seat-avatar">${initials}</div>
+        </div>
+        <div class="seat-info">
+          <div class="seat-name">${p.name}${isMe ? ' 👤' : ''}</div>
+          <div class="seat-stats">
+            <span class="${cardsClass}">🃏${hc}</span>
+            <span class="s-sep">·</span>
+            <span class="s-score ${liveClass}">${liveStr}</span>
+          </div>
+          <div class="seat-status">${badgeHtml}</div>
+        </div>
+      </div>`;
 
     section.appendChild(el);
   });
@@ -406,25 +432,56 @@ function renderHand(hand, newCardIndex = -1) {
 
 function renderHandWithSlots(hand, newCardIndex = -1) {
   const el = document.getElementById('my-hand-cards');
-  // 清除插槽层，先渲染手牌
-  let html = '';
-  for (let i = 0; i <= hand.length; i++) {
-    // 插槽
-    const isActive = (i === selInsertIdx && selPos !== null);
-    html += `<div class="insert-slot-overlay ${isActive ? 'active-slot' : ''}"
-               style="position:relative;left:${i * 0}px;"
-               onclick="setInsertFromHand(${i})">
-            </div>`;
-    if (i < hand.length) {
-      html += cardHtml(hand[i], {
-        index: i,
-        selected: selectedIndices.includes(i),
-        onClick: pendingFinishScoutAndShow ? `toggleCard(${i})` : null,
-        isNew: i === newCardIndex,
-      });
-    }
+
+  // ── 修复：插槽用 position:absolute 悬浮，不参与 flex 布局 ──
+  // 先只渲染卡片（维持原有间距），插槽层叠加在卡片之间
+  const CARD_W  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 52;
+  const CARD_GAP = 3; // 与 CSS gap:3px 保持一致
+
+  // 1. 渲染卡片（不含插槽，flex 布局不变）
+  let cardHtmlStr = '';
+  for (let i = 0; i < hand.length; i++) {
+    cardHtmlStr += cardHtml(hand[i], {
+      index: i,
+      selected: selectedIndices.includes(i),
+      onClick: pendingFinishScoutAndShow ? `toggleCard(${i})` : null,
+      isNew: i === newCardIndex,
+    });
   }
-  el.innerHTML = html;
+  el.innerHTML = cardHtmlStr;
+
+  // 2. 延迟一帧等 flex 布局完成，再计算插槽位置叠加
+  requestAnimationFrame(() => {
+    const cards = el.querySelectorAll('.game-card');
+    if (!cards.length) return;
+
+    // 在容器上增加插槽层（绝对定位，不影响 flex）
+    // 移除旧插槽层
+    el.querySelectorAll('.insert-slot-overlay').forEach(s => s.remove());
+
+    const containerRect = el.getBoundingClientRect();
+
+    cards.forEach((card, i) => {
+      // 在卡片左侧插入插槽
+      const rect = card.getBoundingClientRect();
+      const leftX = rect.left - containerRect.left + el.scrollLeft;
+      const slot = document.createElement('div');
+      slot.className = `insert-slot-overlay${(i === selInsertIdx && selPos !== null) ? ' active-slot' : ''}`;
+      slot.style.left = `${leftX - 8}px`;  // 居中在卡片左边界
+      slot.onclick = () => setInsertFromHand(i);
+      el.appendChild(slot);
+    });
+
+    // 最后一个插槽（最右端）
+    const lastCard = cards[cards.length - 1];
+    const lastRect = lastCard.getBoundingClientRect();
+    const lastX = lastRect.right - containerRect.left + el.scrollLeft;
+    const lastSlot = document.createElement('div');
+    lastSlot.className = `insert-slot-overlay${(hand.length === selInsertIdx && selPos !== null) ? ' active-slot' : ''}`;
+    lastSlot.style.left = `${lastX - 8}px`;
+    lastSlot.onclick = () => setInsertFromHand(hand.length);
+    el.appendChild(lastSlot);
+  });
 }
 
 function setInsertFromHand(idx) {
@@ -690,10 +747,13 @@ function renderScoutPositions() {
 
   const pLeft  = document.getElementById('preview-left');
   const fLeft  = document.getElementById('flip-left-wrap');
+  const cbLeft = document.getElementById('flip-left-cb');
   if (leftCard) {
     pLeft.innerHTML = miniCardHtml(leftCard);
     fLeft.style.display = (leftCard.top !== leftCard.bottom) ? 'block' : 'none';
-    document.getElementById('flip-left-cb').checked = false;
+    // ⚠️ Bug2 修复：只在弹窗首次打开（selPos===null 且未选择）时才重置 checkbox，
+    // 避免用户已勾选翻转后因 gameState 更新触发重渲导致状态丢失
+    if (selPos === null) cbLeft.checked = false;
   } else {
     pLeft.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
     fLeft.style.display = 'none';
@@ -701,13 +761,15 @@ function renderScoutPositions() {
 
   const pRight = document.getElementById('preview-right');
   const fRight = document.getElementById('flip-right-wrap');
+  const cbRight = document.getElementById('flip-right-cb');
   if (stage.length === 0) {
     pRight.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
     fRight.style.display = 'none';
   } else {
     pRight.innerHTML = miniCardHtml(rightCard);
     fRight.style.display = (rightCard.top !== rightCard.bottom) ? 'block' : 'none';
-    document.getElementById('flip-right-cb').checked = false;
+    // ⚠️ Bug2 修复：同上，只在未选择端时才重置
+    if (selPos === null) cbRight.checked = false;
   }
 }
 
@@ -905,7 +967,7 @@ function showRoundEnd(data) {
     hlSection.style.display = 'none';
   }
 
-  // 下一轮预告 & 倒计时
+  // 下一轮预告 & 按钮（移除自动倒计时，改为手动确认）
   const nextRow = document.getElementById('re-next-row');
   const btnNext = document.getElementById('btn-next-round');
   if (!data.gameOver) {
@@ -913,7 +975,7 @@ function showRoundEnd(data) {
     document.getElementById('re-next-label').textContent = '下一轮先手';
     document.getElementById('re-next-val').textContent   = data.nextFirstPlayerName || '';
     btnNext.style.display = 'block';
-    startRoundEndCountdown(data);
+    // 不再自动倒计时推进，等待玩家手动点击
   } else {
     nextRow.style.display = 'none';
     btnNext.style.display = 'none';
@@ -923,18 +985,7 @@ function showRoundEnd(data) {
 }
 
 function startRoundEndCountdown(data) {
-  let sec = 5;
-  const el = document.getElementById('re-countdown');
-  el.textContent = sec + 's';
-
-  roundEndCountdown = setInterval(() => {
-    sec--;
-    el.textContent = sec + 's';
-    if (sec <= 0) {
-      stopRoundEndCountdown();
-      if (!data.gameOver) nextRound();
-    }
-  }, 1000);
+  // 已废弃：自动倒计时已移除，改为手动点击「准备好了，开始下一轮」
 }
 
 function stopRoundEndCountdown() {
@@ -1119,6 +1170,35 @@ function sendSidebarText() {
 
 function sendSidebarSticker(emoji) {
   sendSticker(emoji);  // 直接复用 sendSticker
+}
+
+// ── 聊天快捷面板（emoji + 快捷话术）──────────────────────────
+const CHAT_EMOJIS = ['😄','😂','🤔','😮','😭','🔥','👍','👏','🎉','💪','😏','🫡','🥲','😤','🤯'];
+const CHAT_PHRASES = ['加油！','好球！','让我想想','哎呀~','GG','厉害了','漂亮！','这也行？','服了','要输了'];
+
+function initChatQuickPanel() {
+  const emojiRow  = document.getElementById('chat-emoji-row');
+  const phraseRow = document.getElementById('chat-phrase-row');
+  if (!emojiRow || !phraseRow) return;
+
+  emojiRow.innerHTML = CHAT_EMOJIS.map(e =>
+    `<span class="chat-emoji-item" onclick="sendSticker('${e}')">${e}</span>`
+  ).join('');
+
+  phraseRow.innerHTML = CHAT_PHRASES.map(p =>
+    `<button class="chat-phrase-btn" onclick="sendQuick('${escapeHtml(p)}')">${p}</button>`
+  ).join('');
+}
+
+function toggleChatQuickPanel() {
+  const panel = document.getElementById('chat-quick-panel');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none' || panel.style.display === '';
+  panel.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden) {
+    panel.style.flexDirection = 'column';
+    initChatQuickPanel();
+  }
 }
 
 function checkChatCooldown() {

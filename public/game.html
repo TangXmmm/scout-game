@@ -21,13 +21,13 @@
       --red: #f85149;
       --red-dim: rgba(248,81,73,0.15);
       --purple: #bc8cff;
-      --bg:  #0a0c0f;
-      --bg2: #13161b;
+      --bg:  #0d1016;
+      --bg2: #151a23;
       --bg3: #1a1e26;
       --text: #e6edf3;
       --muted: #6e7681;
       --border: rgba(255,255,255,0.08);
-      --spotlight: radial-gradient(ellipse 60% 40% at 50% 30%, rgba(247,201,72,0.06) 0%, transparent 70%);
+      --spotlight: none;
       --card-w: 52px;
       --card-h: 72px;
       --card-font: 1.5rem;
@@ -58,8 +58,10 @@
     }
 
     body {
-      background: var(--bg);
-      background-image: var(--spotlight);
+      background:
+        radial-gradient(circle at 50% 28%, rgba(70, 94, 140, 0.16), transparent 24%),
+        radial-gradient(circle at 18% 82%, rgba(40, 120, 100, 0.08), transparent 22%),
+        linear-gradient(180deg, #151a23 0%, #0d1016 100%);
       font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
       color: var(--text);
       min-height: 100vh;
@@ -238,6 +240,69 @@
       transition: background 0.15s;
     }
     #chat-sidebar-input button:hover { background: rgba(88,166,255,0.25); }
+    /* emoji 按钮 */
+    #chat-emoji-btn {
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 1rem;
+      padding: 3px 6px;
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.15s;
+    }
+    #chat-emoji-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* 快捷面板容器 */
+    #chat-quick-panel {
+      flex-shrink: 0;
+      padding: 6px 8px 4px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    /* emoji 行 */
+    #chat-emoji-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .chat-emoji-item {
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 2px 3px;
+      border-radius: 6px;
+      transition: background 0.12s;
+      line-height: 1;
+    }
+    .chat-emoji-item:hover { background: rgba(255,255,255,0.1); }
+
+    /* 快捷话术行 */
+    #chat-phrase-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .chat-phrase-btn {
+      font-size: 0.62rem;
+      padding: 2px 7px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .chat-phrase-btn:hover {
+      background: rgba(88,166,255,0.15);
+      border-color: rgba(88,166,255,0.3);
+      color: var(--blue);
+    }
+
     /* 空消息提示 */
     #chat-sidebar-empty {
       text-align: center;
@@ -254,71 +319,57 @@
       left: 24px;
       right: 24px;
       bottom: 24px;
-      /* 完美椭圆（宽高比由父 table-section 固定为 2.05:1） */
-      border-radius: 50% / 50%;
+      /* 圆角矩形（pill 形，与参考设计稿一致） */
+      border-radius: 999px;
       /* ── 哑光丝绒材质渐变 ──
-         1. 底层：深蓝黑基调
-         2. 中层：低饱和暗青绿 felt 面料色
-         3. 顶层：中央聚光椭圆（亮 8~12%），边缘渐暗
-         4. 噪点叠层通过 SVG filter 实现（见 #table-noise）*/
+         参考设计稿三层渐变：中央柔光 + 暗青绿基底 + 深色边缘 */
       background:
-        /* 中央聚光：椭圆亮区，营造舞台感 */
-        radial-gradient(ellipse 52% 60% at 50% 48%,
-          rgba(255,255,255,0.055) 0%,
-          rgba(255,255,255,0.018) 40%,
-          rgba(0,0,0,0.12) 75%,
-          rgba(0,0,0,0.30) 100%),
-        /* 桌面 felt 基底色：低饱和暗青绿 */
-        radial-gradient(ellipse 70% 80% at 50% 46%,
-          #1e4538 0%,
-          #163830 30%,
-          #0f2a22 62%,
-          #091510 100%),
-        /* 底层：深蓝黑，确保边缘足够暗 */
-        linear-gradient(165deg, #131820 0%, #0b0e14 100%);
-      /* ── 桌边：冷金属光泽 ──
-         双层描边：内层半透明青金，外层暗晕 */
-      border: 3px solid;
-      border-color:
-        rgba(100, 168, 140, 0.55);
+        /* 中央淡柔光：营造舞台感 */
+        radial-gradient(circle at 50% 48%, rgba(122, 255, 215, 0.08), transparent 22%),
+        /* 桌面 felt 基底色：低饱和暗青绿径向渐变 */
+        radial-gradient(circle at 50% 50%, rgba(24, 69, 60, 0.96), rgba(15, 42, 37, 0.98) 72%);
+      /* ── 桌边：冷金属光泽 */
       box-shadow:
-        /* 外环暗晕（双层）*/
-        0 0 0 4px rgba(10, 22, 18, 0.96),
-        0 0 0 6px rgba(45, 85, 68, 0.28),
-        /* 冷金属柔光边缘发光（轻微，不刺眼）*/
-        0 0 16px 3px rgba(55, 120, 90, 0.18),
+        /* 内框细线 */
+        inset 0 0 0 2px rgba(118, 255, 213, 0.16),
+        /* 内圈柔光环 */
+        inset 0 0 0 10px rgba(118, 255, 213, 0.05),
         /* 整体大投影 */
-        0 14px 52px rgba(0,0,0,0.88),
-        0 4px 18px rgba(0,0,0,0.6),
-        /* 内发光：极淡顶部高光 */
-        inset 0 2px 22px rgba(255,255,255,0.022),
-        /* 内阴影：底部边缘更暗 */
-        inset 0 -4px 16px rgba(0,0,0,0.55);
-      /* 哑光磨砂质感 SVG 噪点 filter */
-      filter: url(#table-noise);
+        0 30px 80px rgba(0, 0, 0, 0.34);
     }
-    /* 桌面内圈：极细冷金线（丝绒桌的包边压线效果）*/
+    /* 牌桌外部环境阴影（桌面下方落影）*/
+    #table-felt-shadow {
+      position: absolute;
+      left: 8%; right: 8%;
+      bottom: -8%;
+      top: auto;
+      height: 24%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 0, 0, 0.28), transparent 72%);
+      filter: blur(18px);
+      z-index: -1;
+      pointer-events: none;
+    }
+    /* 桌面内圈：极细淡线（内框高光压线效果）*/
     #table-felt::before {
       content: '';
       position: absolute;
-      inset: 8px;
-      border-radius: 50% / 50%;
-      border: 1.5px solid rgba(110, 172, 148, 0.12);
+      inset: 7% 10%;
+      border-radius: 999px;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03), transparent 62%);
       pointer-events: none;
     }
-    /* SCOUT 水印 */
+    /* 桌面中央柔光 glow */
     #table-felt::after {
-      content: 'SCOUT';
+      content: '';
       position: absolute;
-      top: 50%; left: 50%;
+      left: 50%; top: 50%;
+      width: 34%; height: 34%;
       transform: translate(-50%, -50%);
-      font-size: clamp(0.7rem, 2.5vw, 1.1rem);
-      font-weight: 900;
-      letter-spacing: 10px;
-      color: rgba(255,255,255,0.018);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245, 255, 235, 0.09), rgba(255, 255, 255, 0) 70%);
+      filter: blur(10px);
       pointer-events: none;
-      white-space: nowrap;
-      text-transform: uppercase;
     }
 
     /* ── 在场组悬浮在桌面中央（中央聚光底座） ── */
@@ -445,94 +496,261 @@
     @keyframes btnPulse { 0%,100% { box-shadow: 0 3px 12px rgba(0,0,0,0.45); } 50% { box-shadow: 0 4px 22px currentColor; } }
 
     /* 席位通用 */
+    /* ══════════════════════════════════════════
+       玩家信息卡片（统一卡片式席位组件）
+    ══════════════════════════════════════════ */
+
+    /* 席位绝对定位容器：仅负责定位，不干扰卡片本身宽高 */
     .seat {
       position: absolute;
       transform: translate(-50%, -50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      cursor: pointer;
       z-index: 10;
-      transition: transform 0.3s, filter 0.3s;
+      cursor: pointer;
+      transition: transform 0.2s, filter 0.2s;
     }
-    .seat:hover { filter: brightness(1.15); }
+    .seat:hover { transform: translate(-50%, -50%) scale(1.06); }
 
-    /* 头像（随区域放大） */
+    /* ── 卡片主体 ── */
+    .seat-card {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 9px 6px 7px;
+      min-width: 108px;
+      max-width: 140px;
+      background: rgba(12, 20, 16, 0.82);
+      border: 1.5px solid rgba(255, 255, 255, 0.10);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 当前行动玩家：暖金色卡片高亮 */
+    .seat.active .seat-card {
+      background: rgba(50, 36, 8, 0.92);
+      border-color: rgba(247, 201, 72, 0.75);
+      box-shadow:
+        0 0 0 2px rgba(247,201,72,0.3),
+        0 0 20px rgba(247,201,72,0.25),
+        0 4px 18px rgba(0,0,0,0.5);
+    }
+    /* 行动卡片顶部暖金光条 */
+    .seat.active .seat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(247,201,72,0.9) 30%,
+        rgba(255,225,120,1)  50%,
+        rgba(247,201,72,0.9) 70%,
+        transparent 100%);
+      border-radius: 12px 12px 0 0;
+    }
+    /* 自己（非行动）：蓝色边框 */
+    .seat.is-me .seat-card {
+      border-color: rgba(88, 166, 255, 0.5);
+      box-shadow: 0 0 0 2px rgba(88,166,255,0.15), 0 4px 14px rgba(0,0,0,0.4);
+    }
+    /* 自己 + 行动中：绿色高亮 */
+    .seat.active.is-me .seat-card {
+      background: rgba(10, 36, 18, 0.92);
+      border-color: rgba(63, 185, 80, 0.75);
+      box-shadow:
+        0 0 0 2px rgba(63,185,80,0.3),
+        0 0 20px rgba(63,185,80,0.2),
+        0 4px 18px rgba(0,0,0,0.5);
+    }
+    .seat.active.is-me .seat-card::before {
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(63,185,80,0.9) 30%,
+        rgba(120,240,140,1) 50%,
+        rgba(63,185,80,0.9) 70%,
+        transparent 100%);
+    }
+    /* 危险玩家：底部橙红色警示条（不全卡变色） */
+    .seat.danger .seat-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 10%; right: 10%;
+      height: 2px;
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 140, 60, 0.85) 30%,
+        rgba(255, 100, 50, 1)    50%,
+        rgba(255, 140, 60, 0.85) 70%,
+        transparent);
+      border-radius: 0 0 12px 12px;
+    }
+    /* 托管玩家：降低不透明度 */
+    .seat.managed-seat .seat-card { opacity: 0.72; }
+
+    /* 行动高亮时卡片脉冲 */
+    @keyframes cardPulse {
+      0%,100% {
+        box-shadow: 0 0 0 2px rgba(247,201,72,0.3), 0 0 20px rgba(247,201,72,0.25), 0 4px 18px rgba(0,0,0,0.5);
+      }
+      50% {
+        box-shadow: 0 0 0 3px rgba(247,201,72,0.6), 0 0 30px rgba(247,201,72,0.45), 0 4px 22px rgba(0,0,0,0.5);
+      }
+    }
+    @keyframes cardPulseGreen {
+      0%,100% {
+        box-shadow: 0 0 0 2px rgba(63,185,80,0.3), 0 0 20px rgba(63,185,80,0.2), 0 4px 18px rgba(0,0,0,0.5);
+      }
+      50% {
+        box-shadow: 0 0 0 3px rgba(63,185,80,0.6), 0 0 28px rgba(63,185,80,0.4), 0 4px 22px rgba(0,0,0,0.5);
+      }
+    }
+    .seat.active:not(.is-me) .seat-card { animation: cardPulse 1.8s ease infinite; }
+    .seat.active.is-me        .seat-card { animation: cardPulseGreen 1.8s ease infinite; }
+
+    /* ── 圆形头像 + 倒计时环容器 ── */
+    .seat-avatar-wrap {
+      position: relative;
+      width: 40px; height: 40px;
+      flex-shrink: 0;
+    }
+    /* 旋转光环：仅在行动时显示 */
+    .seat-avatar-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(
+        var(--gold) 0deg,
+        rgba(247,201,72,0.6) 200deg,
+        transparent 260deg
+      );
+      animation: ringRotate 2s linear infinite;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .seat.active:not(.is-me) .seat-avatar-wrap::before { opacity: 1; }
+    .seat.active.is-me .seat-avatar-wrap::before {
+      background: conic-gradient(
+        var(--green) 0deg,
+        rgba(63,185,80,0.6) 200deg,
+        transparent 260deg
+      );
+      opacity: 1;
+    }
+    /* 遮罩：让头像内圈保持圆形，不被 conic 溢出 */
+    .seat-avatar-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 1px;
+      border-radius: 50%;
+      background: transparent;
+      box-shadow: 0 0 0 3px rgba(12,20,16,0.92);
+      pointer-events: none;
+    }
+    @keyframes ringRotate {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    /* 头像本体 */
     .seat-avatar {
-      width: 50px; height: 50px;
+      position: absolute;
+      inset: 2px;
       border-radius: 50%;
       background: linear-gradient(135deg, #667eea, #764ba2);
-      border: 3px solid rgba(255,255,255,0.15);
+      border: none;
       display: flex; align-items: center; justify-content: center;
-      font-size: var(--fs-body); font-weight: 900; color: #fff;
-      transition: all 0.3s;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      font-size: 0.9rem; font-weight: 900; color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: background 0.25s;
     }
-    .seat.is-me .seat-avatar {
-      background: linear-gradient(135deg, var(--blue), #0366d6);
-      border-color: var(--blue);
-    }
-    .seat.active .seat-avatar {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px rgba(247,201,72,0.4), 0 4px 16px rgba(247,201,72,0.5);
-      animation: seatPulse 1.5s ease infinite;
-    }
-    .seat.active.is-me .seat-avatar {
-      border-color: var(--green);
-      box-shadow: 0 0 0 3px rgba(63,185,80,0.4), 0 4px 16px rgba(63,185,80,0.5);
-      animation: seatPulseGreen 1.5s ease infinite;
-    }
-    .seat.danger .seat-avatar { border-color: var(--red); }
-    .seat.managed-seat .seat-avatar { opacity: 0.65; }
-    @keyframes seatPulse {
-      0%,100% { box-shadow: 0 0 0 3px rgba(247,201,72,0.4), 0 4px 16px rgba(247,201,72,0.5); }
-      50%      { box-shadow: 0 0 0 5px rgba(247,201,72,0.7), 0 4px 24px rgba(247,201,72,0.8); }
-    }
-    @keyframes seatPulseGreen {
-      0%,100% { box-shadow: 0 0 0 3px rgba(63,185,80,0.4), 0 4px 16px rgba(63,185,80,0.5); }
-      50%      { box-shadow: 0 0 0 5px rgba(63,185,80,0.7), 0 4px 24px rgba(63,185,80,0.8); }
+    .seat.is-me .seat-avatar              { background: linear-gradient(135deg, var(--blue), #0366d6); }
+    .seat.active:not(.is-me) .seat-avatar  { background: linear-gradient(135deg, #7a5c10, #c49a2a); }
+    .seat.active.is-me .seat-avatar        { background: linear-gradient(135deg, #1a5c2a, #2d9a50); }
+
+    /* ── 右侧信息列 ── */
+    .seat-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
     }
 
-    /* 名字（随区域放大） */
+    /* 昵称行 */
     .seat-name {
-      font-size: var(--fs-meta); font-weight: 700;   /* meta: 13-14px */
+      font-size: var(--fs-meta); font-weight: 700; /* 13-14px */
       color: var(--text);
-      background: rgba(0,0,0,0.65);
-      padding: 2px 7px; border-radius: 8px;
-      white-space: nowrap; max-width: 80px;
-      overflow: hidden; text-overflow: ellipsis;
-      backdrop-filter: blur(4px);
-    }
-    .seat.active .seat-name { color: var(--gold); }
-    .seat.is-me .seat-name { color: var(--blue); }
-    .seat.active.is-me .seat-name { color: var(--green); }
-
-    /* 席位分数/手牌信息（随区域放大） */
-    .seat-meta {
-      font-size: var(--fs-tag); color: var(--muted);   /* tag: 12-13px */
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px; border-radius: 6px;
       white-space: nowrap;
-      backdrop-filter: blur(4px);
+      overflow: hidden; text-overflow: ellipsis;
+      max-width: 84px;
+      line-height: 1.2;
     }
-    .seat-meta .m-live { color: var(--green); font-weight: 700; }
-    .seat-meta .m-live.neg { color: var(--red); }
+    .seat.active:not(.is-me) .seat-name { color: var(--gold); }
+    .seat.is-me .seat-name              { color: var(--blue); }
+    .seat.active.is-me .seat-name       { color: var(--green); }
 
-    /* 行动标签（随区域放大） */
-    .seat-action-badge {
-      font-size: var(--fs-tag); font-weight: 800;   /* tag: 12-13px */
+    /* 数据行：手牌数 + 实时分 */
+    .seat-stats {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: var(--fs-tag); /* 12-13px */
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .seat-stats .s-cards       { color: rgba(255,255,255,0.5); }
+    .seat-stats .s-cards.warn  { color: #ff8c3a; font-weight: 700; }  /* 手牌 ≤3 橙红 */
+    .seat-stats .s-score       { color: var(--green); font-weight: 700; }
+    .seat-stats .s-score.neg   { color: var(--red); }
+    .seat-stats .s-sep         { opacity: 0.3; }
+
+    /* 状态标签行 */
+    .seat-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 16px;
+    }
+    /* 行动中 badge（正在思考 / 正在出牌） */
+    .seat-badge-active {
+      font-size: 0.6rem; font-weight: 800;
       color: var(--gold);
-      background: rgba(247,201,72,0.15);
-      border: 1px solid rgba(247,201,72,0.3);
-      padding: 2px 7px; border-radius: 8px;
+      background: rgba(247,201,72,0.18);
+      border: 1px solid rgba(247,201,72,0.45);
+      padding: 1px 6px; border-radius: 6px;
       animation: blink 1.1s ease infinite;
       white-space: nowrap;
+      line-height: 1.5;
+      text-shadow: 0 0 8px rgba(247,201,72,0.6);
     }
-    .seat-managed-badge {
-      font-size: var(--fs-tag); color: var(--muted); /* tag: 12-13px */
-      background: rgba(0,0,0,0.5);
+    .seat.active.is-me .seat-badge-active {
+      color: var(--green);
+      background: rgba(63,185,80,0.18);
+      border-color: rgba(63,185,80,0.45);
+      text-shadow: 0 0 8px rgba(63,185,80,0.6);
+    }
+    /* 危险预警 badge（仅标签，不全卡变色）*/
+    .seat-badge-danger {
+      font-size: 0.58rem; font-weight: 700;
+      color: #ff8c3a;
+      background: rgba(255,120,50,0.12);
+      border: 1px solid rgba(255,120,50,0.35);
       padding: 1px 5px; border-radius: 6px;
+      white-space: nowrap;
+      line-height: 1.5;
+    }
+    /* 托管 badge */
+    .seat-badge-managed {
+      font-size: 0.6rem; color: var(--muted);
+      background: rgba(110,118,129,0.15);
+      border: 1px solid rgba(110,118,129,0.2);
+      padding: 1px 5px; border-radius: 6px;
+      white-space: nowrap;
+      line-height: 1.5;
     }
 
     /* ══════════════════════════════════════════
@@ -1346,7 +1564,8 @@
     ══════════════════════════════════════════ */
     #toast {
       position: fixed;
-      bottom: max(76px, calc(66px + env(safe-area-inset-bottom,0px)));
+      top: max(56px, calc(48px + env(safe-area-inset-top,0px)));
+      bottom: auto;
       left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.88);
       color: #fff; padding: 8px 18px;
@@ -1447,6 +1666,7 @@
         <div id="table-center">
           <!-- 牌桌本体：席位绝对定位在此内 -->
           <div id="table-section">
+            <div id="table-felt-shadow"></div>
             <div id="table-felt"></div>
             <!-- 席位由 JS renderTable() 动态填充 -->
 
@@ -1473,7 +1693,15 @@
           <div id="chat-sidebar-history">
             <div id="chat-sidebar-empty">暂无消息</div>
           </div>
+          <!-- emoji / 快捷话术面板（点击表情按钮展开） -->
+          <div id="chat-quick-panel" style="display:none;">
+            <!-- Emoji 行 -->
+            <div id="chat-emoji-row"></div>
+            <!-- 快捷话术行 -->
+            <div id="chat-phrase-row"></div>
+          </div>
           <div id="chat-sidebar-input">
+            <button id="chat-emoji-btn" onclick="toggleChatQuickPanel()" title="表情 / 快捷语">😄</button>
             <input id="chat-text" type="text" placeholder="说点什么..." maxlength="20"
                    onkeypress="if(event.key==='Enter')sendChatText()" />
             <button onclick="sendChatText()">发</button>
@@ -1636,11 +1864,10 @@
           <div class="re-next-label" id="re-next-label">下一轮先手</div>
           <div class="re-next-val"   id="re-next-val"></div>
         </div>
-        <div class="re-countdown" id="re-countdown"></div>
-      </div>
+        </div>
 
       <div class="modal-footer">
-        <button class="mbtn mbtn-gold" id="btn-next-round" onclick="nextRound()" style="display:none;">▶ 下一轮</button>
+        <button class="mbtn mbtn-gold" id="btn-next-round" onclick="nextRound()" style="display:none;">✅ 准备好了，开始下一轮</button>
       </div>
     </div>
   </div>

@@ -99,10 +99,19 @@ function executeManagedAction(room, playerId) {
       broadcastAfterAction(room, result, playerId, 'scout_managed');
     }
   } else {
-    // 在场组为空，只能 SHOW，但无合法牌组 => 跳过（理论上不应出现）
-    game.nextPlayer();
-    broadcastGameState(room);
-    startTurnTimer(room);
+    // ── Bug 修复：在场组已被前面的玩家挖空，本托管玩家无牌可挖
+    // 等价于"放弃演出/挖角"，需要递增 consecutiveScouts 并检查 all_scout 结束条件
+    // 此时 stageOwner 已被清空，使用 lastStageOwner 找到最后一位演出者作为赢家
+    game.consecutiveScouts++;
+    const lastOwner = game.lastStageOwner;
+    if (game.consecutiveScouts >= game.playerCount - 1 && lastOwner) {
+      const result = game.endRound(lastOwner, 'all_scout');
+      broadcastAfterAction(room, result, playerId, 'scout_managed');
+    } else {
+      game.nextPlayer();
+      broadcastGameState(room);
+      startTurnTimer(room);
+    }
   }
 }
 

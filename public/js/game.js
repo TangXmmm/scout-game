@@ -281,8 +281,10 @@ function launchFireworks(durationMs = 2800) {
   frame();
 }
 
-// ── 方向4：出牌动效（stage 更新时追加 fly-in 类） ───────────────
-let _lastStageLen = 0;  // 记录上一次 stage 长度，判断是新牌还是缩减
+// ── 方向4：出牌动效（stage 换主人时触发 fly-in）───────────────
+// 用 stageOwner 变化来判断是否有新演出（比 stageLen 更准确）
+let _lastStageOwner = null;  // 上一次 stageOwner，变化时说明有新人演出
+let _lastStageLen   = 0;     // 上一次 stage 长度（保留，用于空→有的判断）
 
 // ── 方向2：检测 action_log 事件中的高光时刻 ─────────────────────
 /**
@@ -315,14 +317,14 @@ function triggerRoundEndEffect(data) {
     if (isMyWin) {
       showHighlightBanner('🎉', '完美清手！', '你率先清空手牌，赢得本轮！', 2400);
     } else {
-      showHighlightBanner('👏', `${data.roundWinnerName} 清手了！`, '率先清空手牌，赢得本轮', 2000);
+      showHighlightBanner('👏', `${data.roundWinnerName} 赢得本轮！`, '率先清空手牌，大获全胜！', 2000);
     }
   } else {
     // all_scout 无人压制赢局
     if (isMyWin) {
       showHighlightBanner('🏆', '无敌在场组！', '无人能压制你的出牌！', 2200);
     } else {
-      showHighlightBanner('🎭', `${data.roundWinnerName} 在场！`, '无人能压制，赢得本轮', 1800);
+      showHighlightBanner('🎭', `${data.roundWinnerName} 赢得本轮！`, '在场组无人能压制，胜利！', 1800);
     }
   }
 }
@@ -638,8 +640,11 @@ function renderStage(state) {
   }
 
   const n = state.stage.length;
-  // 方向4：判断是否有新牌飞入（stage 变长，说明有人演出了）
-  const isNewPlay = n > _lastStageLen && _lastStageLen > 0;
+  // 方向4：stageOwner 变化 = 新人演出 → 触发飞入动效
+  // 仅当 stageOwner 发生实际变化时播放动效（挖角只会缩减 stage，不换 owner）
+  const currentOwner = state.stageOwner;
+  const isNewPlay = currentOwner !== null && currentOwner !== _lastStageOwner;
+  _lastStageOwner = currentOwner;
   _lastStageLen = n;
 
   el.innerHTML = state.stage.map((card, i) => {

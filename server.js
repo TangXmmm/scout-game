@@ -450,10 +450,13 @@ io.on('connection', (socket) => {
     if (result.success) {
       const room = gameManager.getRoom(socket.id);
       initHighlightLog(room.code);
-      room.players.forEach(p => {
-        const state = room.game.getStateForPlayer(p.id);
-        io.to(p.socketId).emit('game_started', state);
-      });
+      // ★ 修复：改用房间广播而非逐个 socketId 单播。
+      // 原因：confirm_seating 的发起者（socket.id）与 room.players[].socketId 可能不同，
+      //   当房主经历过多次 connect/rejoin_as_host，players[] 里存的是旧 socketId，
+      //   导致 game_started 发到了一个已经失效的旧 socket，房主收不到事件。
+      // 广播到整个房间 channel 可确保所有当前连接到该房间的 socket 都能收到。
+      // lobby.js 里 game_started 的回调函数自己知道自己的 playerId，不需要在广播中携带 state。
+      io.to(room.code).emit('game_started');
       console.log(`[游戏开始] ${room.code}（含选座位）`);
     } else {
       socket.emit('error', { message: result.message });

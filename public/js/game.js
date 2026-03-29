@@ -74,10 +74,22 @@ const CONTEXT_PHRASES = {
   // 初始化社交面板快捷语
   renderQuickGrid('default');
 
-  // ★ 关键修复：Socket.io 握手是异步的，页面加载时 socket.connected 可能为 false。
-  // 因此统一在 connect 事件里发 rejoin_game（首次 + 断线重连都走这里）。
-  // connect 事件在连接建立后「必然」触发一次，不管是首次还是重连。
-  // 注：如果此刻已经 connected（极少数情况），同样会触发。
+  // ★ 必须在 IIFE 内注册 connect 事件：
+  // socket = io() 在第14行即创建，本地连接极快（<1ms），
+  // 若在文件末尾注册 on('connect')，事件可能已经触发过而错过。
+  // 放在 IIFE 内、myRoomCode/myPlayerId 赋值之后，保证监听器先于事件触发注册好。
+  socket.on('connect', () => {
+    const dot = document.getElementById('conn-dot');
+    if (dot) dot.className = '';
+    if (myRoomCode && myPlayerId) {
+      socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+    }
+  });
+
+  // 若 socket 已经是 connected 状态（极罕见，防御性兜底）
+  if (socket.connected && myRoomCode && myPlayerId) {
+    socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+  }
 })();
 
 function saveGameSession(session) {
@@ -271,7 +283,9 @@ function renderTable(state) {
     if (p.managed) cls += ' managed-seat';
 
     // ── 卡片式玩家信息组件 ──
-    const initials  = (p.name || '?').charAt(0).toUpperCase();
+    const avatarHtml = p.avatar
+      ? `<img src="/avatars/${p.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;" />`
+      : (p.name || '?').charAt(0).toUpperCase();
     const isDanger  = hc <= 3 && hc > 0 && state.state === 'playing';
     const liveClass = live < 0 ? 'neg' : '';
     const liveStr   = `${live >= 0 ? '+' : ''}${live}`;
@@ -302,13 +316,19 @@ function renderTable(state) {
     el.style.top  = `${sy}%`;
     el.dataset.playerId = p.id;
     el.onclick = () => showPlayerInfo(p.id);
+    // 昵称截断：超过 20 字用 ... 补位
+    const MAX_NAME = 20;
+    const displayName = (p.name || '').length > MAX_NAME
+      ? p.name.slice(0, MAX_NAME) + '…'
+      : (p.name || '');
+
     el.innerHTML = `
       <div class="seat-card">
         <div class="seat-avatar-wrap">
-          <div class="seat-avatar">${initials}</div>
+          <div class="seat-avatar" style="${p.avatar ? 'background:rgba(0,0,0,0.25);padding:2px;' : ''}">${avatarHtml}</div>
         </div>
         <div class="seat-info">
-          <div class="seat-name">${p.name}${isMe ? ' 👤' : ''}</div>
+          <div class="seat-name">${displayName}${isMe ? ' 👤' : ''}</div>
           <div class="seat-stats">
             <span class="${cardsClass}">🃏${hc}</span>
             <span class="s-sep">·</span>
@@ -339,7 +359,7 @@ function renderPlayersTop(state) {
     if (hc <= 2 && state.state === 'playing') cls += ' danger';
     if (p.managed) cls += ' managed-chip';
     return `<div class="${cls}" onclick="showPlayerInfo('${p.id}')">
-      <div class="chip-av">${p.name[0]}</div>
+      <div class="chip-av" style="${p.avatar ? 'background:rgba(0,0,0,0.3);padding:1px;overflow:hidden;' : ''}">${p.avatar ? `<img src="/avatars/${p.avatar}" style="width:100%;height:100%;object-fit:contain;"/>` : p.name[0]}</div>
       <div>
         <div class="chip-name">${p.name}${isMe ? ' 👤' : ''}</div>
         <div class="chip-meta">
@@ -1040,6 +1060,32 @@ function toggleChatDrawer() {
   toggleChatBar();
 }
 
+// ── 功能A：席位气泡（发消息时在对应席位旁浮现气泡）─────────
+function showSeatBubble(playerId, text) {
+  const section = document.getElementById('table-section');
+  if (!section) return;
+  const seatEl = section.querySelector(`.seat[data-player-id="${playerId}"]`);
+  if (!seatEl) return;
+
+  // 确保 .seat 为相对定位（CSS 已设置），直接创建气泡子元素
+  // 移除同一席位已有的气泡（避免重叠）
+  const old = seatEl.querySelector('.seat-speech-bubble');
+  if (old) old.remove();
+
+  const bubble = document.createElement('div');
+  bubble.className = 'seat-speech-bubble';
+  // 截断超长文本
+  const displayText = text.length > 12 ? text.slice(0, 12) + '…' : text;
+  bubble.textContent = displayText;
+  seatEl.appendChild(bubble);
+
+  // 2.5s 后淡出并销毁
+  setTimeout(() => {
+    bubble.classList.add('fading');
+    setTimeout(() => bubble.remove(), 450);
+  }, 2500);
+}
+
 // 追加聊天消息到持久化面板（同时写入 #chat-sidebar-history）
 function appendChatMessage(playerName, content, type, isOwn = false) {
   const isSticker = type === 'sticker';
@@ -1082,11 +1128,17 @@ function appendChatMessage(playerName, content, type, isOwn = false) {
     } else {
       div.className = `chat-msg${isOwn ? ' mine' : ''}`;
       const initials = (playerName || '?').charAt(0).toUpperCase();
+      // 从当前状态找发言者头像
+      const senderP = gameState?.players?.find(pl => isOwn ? pl.id === myPlayerId : pl.name === playerName);
+      const avatarHtmlChat = senderP?.avatar
+        ? `<img src="/avatars/${senderP.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;" />`
+        : initials;
+      const avatarStyleChat = senderP?.avatar ? 'background:rgba(0,0,0,0.3);padding:2px;overflow:hidden;' : '';
       const bubbleContent = isSticker
         ? `<div class="chat-msg-sticker">${content}</div>`
         : `<div class="chat-msg-bubble">${escapeXSS(content)}</div>`;
       div.innerHTML = `
-        <div class="chat-msg-avatar">${initials}</div>
+        <div class="chat-msg-avatar" style="${avatarStyleChat}">${avatarHtmlChat}</div>
         <div class="chat-msg-body">
           <div class="chat-msg-name">${isOwn ? '我' : escapeXSS(playerName)}</div>
           ${bubbleContent}
@@ -1201,6 +1253,19 @@ function toggleChatQuickPanel() {
   }
 }
 
+// ── 功能C：侧边栏话术动态刷新 ──────────────────────────────
+function refreshSidebarPhrases(ctx) {
+  const phraseRow = document.getElementById('chat-phrase-row');
+  const panel     = document.getElementById('chat-quick-panel');
+  // 只在面板已展开时刷新
+  if (!phraseRow || !panel || panel.style.display === 'none') return;
+  const phrases = CONTEXT_PHRASES[ctx] || CONTEXT_PHRASES.default;
+  phraseRow.innerHTML = phrases.map(p =>
+    `<button class="chat-phrase-btn" onclick="sendQuick('${escapeHtml(p)}')">` +
+    `<span style="opacity:0.55;font-size:0.55rem;margin-right:2px;">▶</span>${p}</button>`
+  ).join('');
+}
+
 function checkChatCooldown() {
   const now = Date.now();
   if (now < chatCooldownEnd) {
@@ -1259,11 +1324,87 @@ function sendQuickFromSuggest(idx) {
   document.getElementById('auto-suggest-bar')?.classList.remove('visible');
 }
 
-// 简易玩家信息浮层（占位）
+// ── 功能B：玩家详情卡浮层 ────────────────────────────────────
+let playerInfoTarget = null; // 当前弹层的玩家ID
+
 function showPlayerInfo(playerId) {
   const p = gameState?.players?.find(x => x.id === playerId);
   if (!p) return;
-  showToast(`${p.name} · 总分 ${p.totalScore} · 手牌 ${p.handCount}张`, 'info');
+  playerInfoTarget = playerId;
+
+  const isMe    = p.id === myPlayerId;
+  const hc      = p.handCount   || 0;
+  const tok     = p.scoutTokens || 0;
+  const cards   = p.scoreCards  || 0;
+  const live    = cards + tok - hc;
+
+  // 头像 & 名字
+  const avatarEl = document.getElementById('pi-avatar');
+  const nameEl   = document.getElementById('pi-name');
+  const subEl    = document.getElementById('pi-sub');
+  if (p.avatar) {
+    avatarEl.innerHTML = `<img src="/avatars/${p.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:50%;" />`;
+    avatarEl.style.background = 'rgba(0,0,0,0.3)';
+    avatarEl.style.padding = '4px';
+  } else {
+    avatarEl.textContent = (p.name || '?').charAt(0).toUpperCase();
+    avatarEl.style.background = '';
+    avatarEl.style.padding = '';
+  }
+  avatarEl.className = 'pi-avatar' + (isMe ? ' me' : '');
+  nameEl.textContent   = p.name + (isMe ? '  👤 我' : '');
+  subEl.textContent    = `总积分 ${p.totalScore ?? 0} 分`;
+
+  // 数据格子
+  const statsEl = document.getElementById('pi-stats-grid');
+  const liveClass = live < 0 ? 'neg' : live > 0 ? 'pos' : '';
+  const hcClass   = hc <= 3 && hc > 0 ? 'warn' : '';
+  statsEl.innerHTML = [
+    { label: '手牌数',    val: `🃏 ${hc}张`, cls: hcClass },
+    { label: '挖角 Token', val: `🎫 ${tok}`,  cls: '' },
+    { label: '演出分卡',  val: `🎴 ${cards}`, cls: '' },
+    { label: '本轮实时',  val: `${live >= 0 ? '+' : ''}${live}`, cls: liveClass },
+  ].map(s => `
+    <div class="pi-stat">
+      <div class="pi-stat-label">${s.label}</div>
+      <div class="pi-stat-value ${s.cls}">${s.val}</div>
+    </div>`).join('');
+
+  // 标签行
+  const tagsEl = document.getElementById('pi-tags');
+  const tags = [];
+  if (p.id === gameState?.currentPlayerId) tags.push({ cls: 'active',  text: '▶ 行动中' });
+  if (hc <= 3 && hc > 0 && gameState?.state === 'playing') tags.push({ cls: 'danger',  text: '⚠ 危险' });
+  if (p.usedScoutAndShow)  tags.push({ cls: 'used',    text: '已用挖+演' });
+  if (p.managed)           tags.push({ cls: 'managed', text: '🤖 托管中' });
+  if (isMe)                tags.push({ cls: 'used',    text: '这是你' });
+  tagsEl.innerHTML = tags.map(t => `<span class="pi-tag ${t.cls}">${t.text}</span>`).join('');
+
+  // @TA 按钮文案
+  const atBtn = document.getElementById('pi-at-btn');
+  if (atBtn) atBtn.textContent = isMe ? '💬 说话（全体）' : `💬 @${p.name} 说话`;
+
+  // 显示浮层
+  const modal = document.getElementById('player-info-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePlayerInfoModal() {
+  const modal = document.getElementById('player-info-modal');
+  if (modal) modal.style.display = 'none';
+  playerInfoTarget = null;
+}
+
+function quickAtPlayer() {
+  closePlayerInfoModal();
+  const p = gameState?.players?.find(x => x.id === playerInfoTarget);
+  const input = document.getElementById('chat-text');
+  if (input && p && p.id !== myPlayerId) {
+    input.value = `@${p.name} `;
+    input.focus();
+  } else if (input) {
+    input.focus();
+  }
 }
 
 // ── Socket 事件处理 ────────────────────────────────────────────
@@ -1350,12 +1491,29 @@ socket.on('action_log', ({ type, playerName, position }) => {
   if (type === 'scout_and_show') showAutoSuggest('scout_and_show', playerName);
   else if (type === 'show')      showAutoSuggest('show', playerName);
   else if (type === 'scout')     showAutoSuggest('scout', playerName);
+
+  // ── 功能C：动态刷新侧边栏话术 ──
+  const phraseCtx = type === 'scout_and_show' ? 'scout_and_show'
+                  : type === 'show'      ? 'show'
+                  : type === 'scout'     ? 'scout'
+                  : 'default';
+  refreshSidebarPhrases(phraseCtx);
 });
 
 socket.on('scout_prepared', () => {
   pendingFinishScoutAndShow = true;
   selectedIndices = [];
   showToast('✅ 挖角成功！请在手牌中选连续的牌，然后点「演出」', 'success');
+  updateActionBtns();
+});
+
+// 超时托管取消了"挖角并演出"的中间态 → 重置客户端状态
+socket.on('scout_and_show_cancelled', ({ message }) => {
+  pendingFinishScoutAndShow = false;
+  scoutAndShowMode = false;
+  selPos = null;
+  selectedIndices = [];
+  showToast('⏰ ' + (message || '挖角并演出已超时取消'), 'error');
   updateActionBtns();
 });
 
@@ -1433,12 +1591,20 @@ socket.on('player_offline', ({ playerName }) => {
   addLog(`📵 ${playerName} 掉线`);
 });
 
-socket.on('chat_message', ({ playerName, content, type }) => {
-  const isOwn = (playerName === (gameState?.players?.find(p => p.id === myPlayerId)?.name));
+socket.on('chat_message', ({ playerName, content, type, senderId }) => {
+  const myName = gameState?.players?.find(p => p.id === myPlayerId)?.name;
+  const isOwn = (playerName === myName);
   // 1. 追加到持久化聊天记录
   appendChatMessage(playerName, content, type, isOwn);
   // 2. 同时显示浮动气泡（仅他人消息）
   if (!isOwn) showChatBubble(playerName, content, type);
+  // 3. ── 功能A：在对应席位旁显示对话气泡（自己和他人都显示）──
+  if (type !== 'system') {
+    const senderPlayer = isOwn
+      ? gameState?.players?.find(p => p.id === myPlayerId)
+      : gameState?.players?.find(p => p.name === playerName);
+    if (senderPlayer) showSeatBubble(senderPlayer.id, content);
+  }
 });
 
 socket.on('lobby_error', ({ message }) => showToast('⚠️ ' + message, 'error'));

@@ -53,6 +53,18 @@ function saveNickname(name) {
 function showHostRoomModal(roomCode, playerId, playerName) {
   const modal = document.createElement('div');
   modal.id = 'host-room-modal';
+  // 强制 fixed 全屏遮罩，避免插入文档流导致页面布局偏移
+  Object.assign(modal.style, {
+    position: 'fixed',
+    top: '0', left: '0', right: '0', bottom: '0',
+    background: 'rgba(0,0,0,0.75)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: '10000',
+    backdropFilter: 'blur(4px)',
+    animation: 'fadeIn 0.25s ease',
+  });
   modal.innerHTML = `
     <div class="continue-modal-content">
       <h3>👑 检测到您的房间</h3>
@@ -66,11 +78,9 @@ function showHostRoomModal(roomCode, playerId, playerName) {
     </div>
   `;
   
-  // 点击模态框背景关闭
+  // 点击遮罩背景关闭
   modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      dismissHostRoomModal();
-    }
+    if (e.target === modal) dismissHostRoomModal();
   });
   
   document.body.appendChild(modal);
@@ -206,8 +216,9 @@ function createRoom() {
   const name = document.getElementById('player-name').value.trim();
   if (!name) return showError('entry-error', '请先输入你的昵称');
   myPlayerName = name;
-  saveNickname(name); // 保存昵称
-  socket.emit('create_room', { playerName: name });
+  saveNickname(name);
+  const avatar = localStorage.getItem('scout_game_avatar') || '';
+  socket.emit('create_room', { playerName: name, playerAvatar: avatar });
 }
 
 function joinRoom() {
@@ -216,8 +227,9 @@ function joinRoom() {
   if (!name) return showError('entry-error', '请先输入你的昵称');
   if (!code) return showError('entry-error', '请输入房间码');
   myPlayerName = name;
-  saveNickname(name); // 保存昵称
-  socket.emit('join_room', { roomCode: code, playerName: name });
+  saveNickname(name);
+  const avatar = localStorage.getItem('scout_game_avatar') || '';
+  socket.emit('join_room', { roomCode: code, playerName: name, playerAvatar: avatar });
 }
 
 function startGame() {
@@ -230,7 +242,10 @@ function renderPlayers(players) {
   countEl.textContent = players.length;
   container.innerHTML = players.map(p => `
     <div class="player-item">
-      <div class="player-avatar">${p.name.charAt(0).toUpperCase()}</div>
+      <div class="player-avatar">${p.avatar
+        ? `<img src="/avatars/${p.avatar}" alt="" />`
+        : p.name.charAt(0).toUpperCase()
+      }</div>
       <div class="player-info">
         <div class="name">${p.name}${p.id === myPlayerId ? ' (我)' : ''}</div>
         ${p.isHost ? '<div class="role">👑 房主</div>' : ''}

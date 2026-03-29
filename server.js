@@ -80,6 +80,26 @@ function executeManagedAction(room, playerId) {
   const game = room.game;
   if (!game || game.state !== 'playing') return;
 
+  // ── 处理"挖角并演出"中间态 ──────────────────────────────────
+  // 场景：玩家已执行 prepareScoutAndShow（挖角完成），但在选演出牌阶段超时。
+  // 此时 pendingScoutAndShow = playerId，游戏处于不一致中间态：
+  //   - 挖到的牌已插入手牌，stage 已少一张
+  //   - usedScoutAndShow 还没标记，下一轮仍可重复使用
+  //   - 所有后续 show/scout 调用都会因 pendingScoutAndShow 状态被拒绝（或状态异常）
+  // 修复：清除挂起标记并标记 usedScoutAndShow，然后尝试托管演出（此时手牌已含挖到的牌）
+  if (game.pendingScoutAndShow === playerId) {
+    game.cancelPendingScoutAndShow(playerId);
+    console.log(`[超时托管] ${room.code} - ${playerId} 取消 pendingScoutAndShow 中间态`);
+    // 通知客户端：挖+演中间态被取消，重置 pendingFinishScoutAndShow 状态
+    const playerInfo = room.players.find(p => p.id === playerId);
+    if (playerInfo?.socketId) {
+      io.to(playerInfo.socketId).emit('scout_and_show_cancelled', {
+        message: '超时：挖角并演出已取消，挖到的牌已保留在手牌中',
+      });
+    }
+    // 继续往下走，使用托管策略完成演出（手牌已更新，stage 已是挖角后的状态）
+  }
+
   // 尝试找最小可行 SHOW
   const minShow = findMinimalShow(game, playerId);
   if (minShow) {
@@ -237,6 +257,7 @@ function getPlayersInfo(room) {
   return room.players.map(p => ({
     id: p.id,
     name: p.name,
+    avatar: p.avatar || '',
     isHost: p.id === room.hostPlayerId,
     online: p.online !== false,
   }));
@@ -321,10 +342,10 @@ io.on('connection', (socket) => {
   console.log(`[连接] ${socket.id}`);
 
   // ── 创建房间 ──────────────────────────────────────────────
-  socket.on('create_room', ({ playerName }) => {
+  socket.on('create_room', ({ playerName, playerAvatar }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: '请输入玩家昵称' });
 
-    const result = gameManager.createRoom(socket.id, playerName.trim());
+    const result = gameManager.createRoom(socket.id, playerName.trim(), playerAvatar || '');
     if (result.success) {
       socket.join(result.roomCode);
       const room = gameManager.rooms[result.roomCode];
@@ -340,10 +361,10 @@ io.on('connection', (socket) => {
   });
 
   // ── 加入房间 ──────────────────────────────────────────────
-  socket.on('join_room', ({ roomCode, playerName }) => {
+  socket.on('join_room', ({ roomCode, playerName, playerAvatar }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: '请输入玩家昵称' });
 
-    const result = gameManager.joinRoom(socket.id, roomCode?.toUpperCase(), playerName.trim());
+    const result = gameManager.joinRoom(socket.id, roomCode?.toUpperCase(), playerName.trim(), playerAvatar || '');
     if (result.success) {
       socket.join(result.roomCode);
       const room = gameManager.rooms[result.roomCode];
@@ -449,10 +470,13 @@ io.on('connection', (socket) => {
     if (result.success) {
       const room = gameManager.getRoom(socket.id);
       initHighlightLog(room.code);
-      room.players.forEach(p => {
-        const state = room.game.getStateForPlayer(p.id);
-        io.to(p.socketId).emit('game_started', state);
-      });
+      // ★ 修复：改用房间广播而非逐个 socketId 单播。
+      // 原因：confirm_seating 的发起者（socket.id）与 room.players[].socketId 可能不同，
+      //   当房主经历过多次 connect/rejoin_as_host，players[] 里存的是旧 socketId，
+      //   导致 game_started 发到了一个已经失效的旧 socket，房主收不到事件。
+      // 广播到整个房间 channel 可确保所有当前连接到该房间的 socket 都能收到。
+      // lobby.js 里 game_started 的回调函数自己知道自己的 playerId，不需要在广播中携带 state。
+      io.to(room.code).emit('game_started');
       console.log(`[游戏开始] ${room.code}（含选座位）`);
     } else {
       socket.emit('error', { message: result.message });

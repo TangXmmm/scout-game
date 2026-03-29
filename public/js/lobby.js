@@ -327,11 +327,15 @@ socket.on('host_rejoined', ({ roomCode, playerId, players }) => {
   console.log('[房主返回] 成功返回等待室');
 });
 
-// 房主重连失败
+// 房主重连失败（兼容新旧事件名）
+socket.on('lobby_error', ({ message }) => {
+  dismissHostRoomModal();
+  showError('entry-error', message || '返回失败，房间可能已过期');
+  localStorage.removeItem('scout_host_room');
+});
 socket.on('rejoin_failed', ({ message }) => {
   dismissHostRoomModal();
   showError('entry-error', message || '返回失败，房间可能已过期');
-  // 清除房主房间信息
   localStorage.removeItem('scout_host_room');
 });
 
@@ -345,9 +349,113 @@ socket.on('player_left', ({ players }) => {
   updateStartButton(players);
 });
 
+// ── 选座位阶段（由 start_game 触发） ─────────────────────────
+let seatingData = null; // { players, totalSeats, seating, hostPlayerId }
+
+socket.on('seating_phase', (data) => {
+  seatingData = data;
+  openSeatingModal(data);
+});
+
+socket.on('seat_updated', ({ seating, players }) => {
+  if (seatingData) {
+    seatingData.seating  = seating;
+    seatingData.players  = players;
+    renderSeatingModal(seatingData);
+  }
+});
+
+function openSeatingModal(data) {
+  const modal = document.getElementById('seating-modal');
+  if (!modal) return;
+  modal.classList.add('open');
+  renderSeatingModal(data);
+  // 房主才显示「确认开始」按钮
+  const btnConfirm = document.getElementById('btn-seating-confirm');
+  if (btnConfirm) btnConfirm.style.display = data.hostPlayerId === myPlayerId ? 'inline-flex' : 'none';
+}
+
+function renderSeatingModal(data) {
+  const wrap = document.getElementById('seating-table-wrap');
+  if (!wrap) return;
+
+  const { players, totalSeats, seating } = data;
+  const felt  = wrap.querySelector('.seating-felt');
+  // 清除旧 seat-btn
+  wrap.querySelectorAll('.seat-btn').forEach(el => el.remove());
+
+  // 椭圆参数（与游戏圆桌一致）
+  const cx = 50, cy = 50;
+  const rx = 38, ry = 38;
+
+  for (let seatIdx = 1; seatIdx <= totalSeats; seatIdx++) {
+    const angleDeg = 90 + (seatIdx - 1) * (360 / totalSeats);
+    const rad      = angleDeg * Math.PI / 180;
+    const sx       = cx + rx * Math.cos(rad);
+    const sy       = cy + ry * Math.sin(rad);
+
+    // 查找该座位的玩家
+    const occupantId = Object.entries(seating).find(([pid, si]) => si === seatIdx)?.[0];
+    const occupant   = occupantId ? players.find(p => p.id === occupantId) : null;
+    const isMe       = occupantId === myPlayerId;
+
+    const btn = document.createElement('button');
+    btn.className = `seat-btn${occupant ? ' taken' : ''}${isMe ? ' mine' : ''}`;
+    btn.style.left = `${sx}%`;
+    btn.style.top  = `${sy}%`;
+    btn.onclick    = () => chooseSeatClick(seatIdx);
+
+    const label = occupant ? occupant.name.slice(0, 3) : `${seatIdx}`;
+    const sub   = occupant ? (isMe ? '👤 我' : occupant.name) : '空位';
+    btn.innerHTML = `
+      <div class="seat-circle">${seatIdx}</div>
+      <div class="seat-label">${sub}</div>`;
+    wrap.appendChild(btn);
+  }
+
+  // 状态文字
+  const chosen  = Object.keys(seating).length;
+  const total   = totalSeats;
+  const statusEl = document.getElementById('seating-status');
+  if (statusEl) {
+    statusEl.textContent = chosen === total
+      ? `✅ 所有玩家已选座位，房主可以确认开始！`
+      : `已选 ${chosen}/${total} 位，等待玩家选座...`;
+  }
+}
+
+function chooseSeatClick(seatIndex) {
+  socket.emit('choose_seat', { seatIndex });
+}
+
+function seatingRandom() {
+  // 找一个还没有被自己或他人占用的随机空座位
+  if (!seatingData) return;
+  const { totalSeats, seating } = seatingData;
+  const myCurrentSeat = seating[myPlayerId];
+  const usedByOthers  = new Set(
+    Object.entries(seating).filter(([pid]) => pid !== myPlayerId).map(([, si]) => si)
+  );
+  const available = [];
+  for (let i = 1; i <= totalSeats; i++) {
+    if (!usedByOthers.has(i)) available.push(i);
+  }
+  if (available.length === 0) return;
+  const pick = available[Math.floor(Math.random() * available.length)];
+  socket.emit('choose_seat', { seatIndex: pick });
+}
+
+function seatingConfirm() {
+  socket.emit('confirm_seating');
+}
+
+// 游戏正式开始（选座位后跳转）
 socket.on('game_started', () => {
   // 游戏开始时清除房主房间记录
   localStorage.removeItem('scout_host_room');
+  // 关闭选座位弹窗（如果打开）
+  const modal = document.getElementById('seating-modal');
+  if (modal) modal.classList.remove('open');
   
   // 跳转时传递稳定的 playerId（不是 socketId）
   const params = new URLSearchParams({

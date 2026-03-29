@@ -49,6 +49,9 @@ class ScoutGame {
     this.stage = [];
     this.stageOwner = null;
     this.stageType = null;
+    // lastStageOwner：记录最后一次有效演出者，即使在场组被挖空也保留
+    // 用于 all_scout 场景下在场组被挖空后仍能判断赢家
+    this.lastStageOwner = null;
 
     // 行动轮次
     this.currentPlayerIndex = this.startPlayerIndex;
@@ -229,6 +232,7 @@ class ScoutGame {
     // 更新在场组
     this.stage = cards;
     this.stageOwner = playerId;
+    this.lastStageOwner = playerId;  // 同步更新 lastStageOwner
     this.stageType = type;
     this.consecutiveScouts = 0;
 
@@ -283,15 +287,20 @@ class ScoutGame {
       this.stageOwner = null;
       this.stageType = null;
     } else if (this.stage.length === 1) {
-      // 只剩1张时类型必须修正为'set'（1张不可能是顺子）
       this.stageType = 'set';
     }
 
     this.consecutiveScouts++;
 
     // 条件 ii：所有其他玩家都连续挖角（无人演出），在场组主人赢
-    if (this.consecutiveScouts >= this.playerCount - 1 && this.stageOwner !== null) {
-      return this.endRound(this.stageOwner, 'all_scout');
+    // ⚠️ 关键修复：使用 lastStageOwner 而非 previousStageOwner/stageOwner
+    // 原因：在场组可能已被挖空（stageOwner=null），但 lastStageOwner 始终保存最后一位演出者
+    // 覆盖场景：
+    //   1. A出牌(1张) → B挖走唯一一张 → C/D再挖：stageOwner 早已为 null，必须用 lastStageOwner
+    //   2. 第一轮 A 出牌后 B/C/D 全部挖角：同上
+    //   3. 连续多人挖角，在场组被挖到0张后仍有人轮到：同上
+    if (this.consecutiveScouts >= this.playerCount - 1 && this.lastStageOwner !== null) {
+      return this.endRound(this.lastStageOwner, 'all_scout');
     }
 
     this.nextPlayer();
@@ -388,6 +397,7 @@ class ScoutGame {
 
     this.stage = cards;
     this.stageOwner = playerId;
+    this.lastStageOwner = playerId;  // 同步更新 lastStageOwner
     this.stageType = type;
     this.consecutiveScouts = 0;
     this.usedScoutAndShow[playerId] = true;

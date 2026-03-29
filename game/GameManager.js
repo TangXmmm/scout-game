@@ -43,7 +43,7 @@ class GameManager {
     return { success: true, roomCode, playerId };
   }
 
-  // 加入房间
+  // 加入房间（选座位阶段：增加了 seating_phase 事件）
   joinRoom(socketId, roomCode, playerName) {
     const room = this.rooms[roomCode];
     if (!room) return { success: false, message: '房间不存在，请检查房间码' };
@@ -61,7 +61,77 @@ class GameManager {
     return { success: true, roomCode, playerId };
   }
 
-  // 开始游戏
+  // 房主发起选座位阶段（替换原 startGame 的直接开始逻辑）
+  initSeating(socketId) {
+    const roomCode = this.socketToRoom[socketId];
+    const room     = this.rooms[roomCode];
+    if (!room)                           return { success: false, message: '未加入房间' };
+    const playerId = this.socketToPlayerId[socketId];
+    if (room.hostPlayerId !== playerId)  return { success: false, message: '只有房主可以开始游戏' };
+    if (room.players.length < 2)         return { success: false, message: '至少需要2名玩家' };
+    if (room.status !== 'waiting')       return { success: false, message: '游戏已经开始' };
+
+    // 进入选座位阶段，重置所有座位选择
+    room.status  = 'seating';
+    room.seating = {}; // playerId -> seatIndex (1~N)
+    return { success: true };
+  }
+
+  // 玩家选择座位
+  chooseSeat(socketId, seatIndex) {
+    const roomCode = this.socketToRoom[socketId];
+    const room     = this.rooms[roomCode];
+    const playerId = this.socketToPlayerId[socketId];
+    if (!room || room.status !== 'seating') return { success: false, message: '当前不在选座位阶段' };
+    if (!playerId) return { success: false, message: '玩家不存在' };
+
+    const n = room.players.length;
+    if (seatIndex < 1 || seatIndex > n) return { success: false, message: '座位号不合法' };
+
+    // 检查该座位是否已被他人占用
+    const occupantId = Object.entries(room.seating).find(([pid, si]) => si === seatIndex)?.[0];
+    if (occupantId && occupantId !== playerId) {
+      return { success: false, message: '该座位已被占用' };
+    }
+
+    room.seating[playerId] = seatIndex;
+    return { success: true, seating: { ...room.seating } };
+  }
+
+  // 房主确认座位，真正开始游戏
+  confirmSeating(socketId) {
+    const roomCode = this.socketToRoom[socketId];
+    const room     = this.rooms[roomCode];
+    if (!room || room.status !== 'seating') return { success: false, message: '当前不在选座位阶段' };
+    const playerId = this.socketToPlayerId[socketId];
+    if (room.hostPlayerId !== playerId) return { success: false, message: '只有房主可以确认开始' };
+
+    const n          = room.players.length;
+    const assignedN  = Object.keys(room.seating).length;
+
+    // 若部分玩家未选座位，自动分配剩余空位
+    const usedSeats = new Set(Object.values(room.seating));
+    let nextSeat = 1;
+    room.players.forEach(p => {
+      if (!room.seating[p.id]) {
+        while (usedSeats.has(nextSeat)) nextSeat++;
+        room.seating[p.id] = nextSeat;
+        usedSeats.add(nextSeat);
+        nextSeat++;
+      }
+    });
+
+    // 按座位号排序玩家顺序
+    const orderedPlayers = [...room.players].sort(
+      (a, b) => (room.seating[a.id] || 99) - (room.seating[b.id] || 99)
+    );
+
+    room.game   = new ScoutGame(orderedPlayers.map(p => ({ id: p.id, name: p.name })));
+    room.status = 'playing';
+    return { success: true };
+  }
+
+  // 开始游戏（兼容旧版：直接跳过选座位）
   startGame(socketId) {
     const roomCode = this.socketToRoom[socketId];
     const room = this.rooms[roomCode];
@@ -71,7 +141,7 @@ class GameManager {
     if (room.players.length < 2) return { success: false, message: '至少需要2名玩家' };
     if (room.status !== 'waiting') return { success: false, message: '游戏已经开始' };
 
-    room.game = new ScoutGame(room.players.map(p => ({ id: p.id, name: p.name })));
+    room.game   = new ScoutGame(room.players.map(p => ({ id: p.id, name: p.name })));
     room.status = 'playing';
 
     return { success: true };

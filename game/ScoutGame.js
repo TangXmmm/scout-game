@@ -511,6 +511,7 @@ class ScoutGame {
       players: this.players.map(p => ({
         id: p.id,
         name: p.name,
+        avatar: p.avatar || null,
         handCount: (this.hands[p.id] || []).length,
         scoreCards: this.scoreCards[p.id] || 0,    // 演出获得的分数卡
         scoutTokens: this.scoutTokens[p.id] || 0,  // 被挖角获得的补偿

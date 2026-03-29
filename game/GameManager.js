@@ -126,7 +126,7 @@ class GameManager {
       (a, b) => (room.seating[a.id] || 99) - (room.seating[b.id] || 99)
     );
 
-    room.game   = new ScoutGame(orderedPlayers.map(p => ({ id: p.id, name: p.name })));
+    room.game   = new ScoutGame(orderedPlayers.map(p => ({ id: p.id, name: p.name, avatar: p.avatar || null })));
     room.status = 'playing';
     return { success: true };
   }

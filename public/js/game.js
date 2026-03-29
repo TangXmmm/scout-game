@@ -1175,10 +1175,12 @@ function selectPos(pos) {
     // 原地更新卡片内容（不重建 DOM，默认不加动画）
     updateScoutedCardDisplay(card, false);
 
-    // 2.2 翻转 toggle
+    // 2.2 翻转 toggle / 无翻转提示
     const toggleWrap = document.getElementById('flip-face-toggle-wrap');
+    const noFlipTip  = document.getElementById('no-flip-tip');
     const canFlip = card.top !== card.bottom;
     if (toggleWrap) toggleWrap.style.display = canFlip ? 'block' : 'none';
+    if (noFlipTip)  noFlipTip.style.display  = canFlip ? 'none'  : 'block';
     updateFlipFaceToggle();
   }
 
@@ -1293,6 +1295,12 @@ function showScoutPendingBanner() {
 function hideScoutPendingBanner() {
   const el = document.getElementById('scout-pending-banner');
   if (el) el.classList.remove('show');
+}
+
+function confirmDismissScoutBanner() {
+  // 二次确认：告知用户挖角不可逆
+  if (!confirm('放弃演出后，挖到的牌保留在手牌中，本回合将结束。\n\n确定放弃演出吗？')) return;
+  dismissScoutBanner();
 }
 
 function dismissScoutBanner() {

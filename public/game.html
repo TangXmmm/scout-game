@@ -2361,7 +2361,7 @@
         <div id="scout-pending-banner">
           <span class="banner-icon">⚡</span>
           <div class="banner-text">挖+演进行中 · 现在请在手牌中选连续的牌，然后点「演出」完成绝招！</div>
-          <button class="banner-cancel" onclick="dismissScoutBanner()">放弃</button>
+          <button class="banner-cancel" onclick="confirmDismissScoutBanner()">放弃演出</button>
         </div>
 
         <!-- 操作按钮区：实时判定提示条 + 按钮行，二者整体高度固定，避免手牌跳动 -->
@@ -2507,6 +2507,8 @@
             <span id="flip-face-label">以正面插入</span>
           </button>
         </div>
+        <!-- 正反面相同时的说明文字（不可翻转状态） -->
+        <div id="no-flip-tip" style="display:none;margin-top:8px;font-size:var(--fs-tag);color:var(--muted);text-align:center;">↕ 此牌正反面相同，无需翻转</div>
       </div>
 
       <!-- Step 2：选插入位置（2.1 分步弱化效果通过 insert-section-wrap 控制） -->

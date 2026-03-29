@@ -1385,6 +1385,23 @@
       font-family: inherit; touch-action: manipulation; flex-shrink: 0;
     }
     .banner-cancel:hover { background: rgba(247,151,30,0.15); }
+
+    /* 2.2 翻转面切换按钮 */
+    .flip-face-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid var(--border);
+      color: var(--text); font-size: var(--fs-tag); font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      touch-action: manipulation; transition: all 0.18s;
+    }
+    .flip-face-toggle.flipped {
+      border-color: var(--gold);
+      background: var(--gold-dim);
+      color: var(--gold);
+    }
+    .flip-face-toggle:hover { opacity: 0.85; }
     .pos-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .pos-btn {
       padding: 12px 8px; border-radius: 12px;
@@ -2459,10 +2476,18 @@
         </button>
       </div>
 
-      <!-- 已挖到预览 -->
+      <!-- 已挖到预览 + 2.2 翻转 toggle 按钮 -->
       <div class="scouted-preview" id="scouted-preview">
         <div class="scouted-preview-label">✅ 你将挖到这张牌：</div>
         <div id="scouted-card-show"></div>
+        <!-- 2.2 翻转双态 toggle 按钮（选端后出现，仅当牌可翻转时可见） -->
+        <div id="flip-face-toggle-wrap" style="display:none;margin-top:10px;">
+          <button class="flip-face-toggle" id="flip-face-toggle" onclick="toggleFlipFace()">
+            <span id="flip-face-icon">▲</span>
+            <span id="flip-face-label">以正面插入</span>
+          </button>
+          <div style="font-size:var(--fs-tag);color:var(--muted);margin-top:4px;text-align:center;">点击切换正/反面</div>
+        </div>
       </div>
 
       <!-- Step 2：选插入位置（2.1 分步弱化效果通过 insert-section-wrap 控制） -->

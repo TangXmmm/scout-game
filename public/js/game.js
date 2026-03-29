@@ -1127,6 +1127,11 @@ function openScoutModal(isAndShow = false) {
   renderScoutPositions();
   renderInsertPreview();
   document.getElementById('scouted-preview').style.display = 'none';
+  // 2.2 重置翻转 toggle
+  const toggleWrap = document.getElementById('flip-face-toggle-wrap');
+  if (toggleWrap) toggleWrap.style.display = 'none';
+  willFlip = false;
+  updateFlipFaceToggle();
   document.getElementById('scout-modal').style.display = 'flex';
 }
 
@@ -1185,6 +1190,14 @@ function selectPos(pos) {
     const prev = document.getElementById('scouted-preview');
     prev.style.display = 'flex';
     document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, willFlip);
+
+    // ── 2.2 翻转 toggle 按钮 ──
+    const toggleWrap = document.getElementById('flip-face-toggle-wrap');
+    const canFlip = card.top !== card.bottom;
+    if (toggleWrap) toggleWrap.style.display = canFlip ? 'block' : 'none';
+    // 重置 toggle 为正面状态
+    willFlip = false;
+    updateFlipFaceToggle();
   }
 
   // ── 2.5 解锁确认按钮 ──
@@ -1265,7 +1278,37 @@ function setInsert(idx) {
   renderInsertPreview();
 }
 
-// ── 2.1 分步进度指示器控制 ──
+// ── 2.1/2.2/2.4 辅助函数 ───────────────────────────────────
+
+// 2.2 翻转 toggle 按钮（正/反面切换）
+function toggleFlipFace() {
+  willFlip = !willFlip;
+  updateFlipFaceToggle();
+  // 同步更新大牌预览
+  const stage = gameState?.stage || [];
+  const card  = selPos === 'left' ? stage[0] : stage[stage.length - 1];
+  if (card) {
+    document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, willFlip);
+  }
+  renderInsertPreview();
+}
+
+function updateFlipFaceToggle() {
+  const btn   = document.getElementById('flip-face-toggle');
+  const icon  = document.getElementById('flip-face-icon');
+  const label = document.getElementById('flip-face-label');
+  if (!btn || !icon || !label) return;
+  if (willFlip) {
+    btn.classList.add('flipped');
+    icon.textContent  = '▼';
+    label.textContent = '以反面插入';
+  } else {
+    btn.classList.remove('flipped');
+    icon.textContent  = '▲';
+    label.textContent = '以正面插入';
+  }
+}
+
 // ── 2.4 挖+演持久 Banner ───────────────────────────────────
 function showScoutPendingBanner() {
   const el = document.getElementById('scout-pending-banner');

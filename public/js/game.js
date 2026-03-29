@@ -74,10 +74,22 @@ const CONTEXT_PHRASES = {
   // 初始化社交面板快捷语
   renderQuickGrid('default');
 
-  // ★ 关键修复：Socket.io 握手是异步的，页面加载时 socket.connected 可能为 false。
-  // 因此统一在 connect 事件里发 rejoin_game（首次 + 断线重连都走这里）。
-  // connect 事件在连接建立后「必然」触发一次，不管是首次还是重连。
-  // 注：如果此刻已经 connected（极少数情况），同样会触发。
+  // ★ 必须在 IIFE 内注册 connect 事件：
+  // socket = io() 在第14行即创建，本地连接极快（<1ms），
+  // 若在文件末尾注册 on('connect')，事件可能已经触发过而错过。
+  // 放在 IIFE 内、myRoomCode/myPlayerId 赋值之后，保证监听器先于事件触发注册好。
+  socket.on('connect', () => {
+    const dot = document.getElementById('conn-dot');
+    if (dot) dot.className = '';
+    if (myRoomCode && myPlayerId) {
+      socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+    }
+  });
+
+  // 若 socket 已经是 connected 状态（极罕见，防御性兜底）
+  if (socket.connected && myRoomCode && myPlayerId) {
+    socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+  }
 })();
 
 function saveGameSession(session) {

@@ -162,8 +162,13 @@ class GameManager {
     // 更新 socketId 绑定
     const oldSocketId = player.socketId;
     if (oldSocketId && oldSocketId !== socketId) {
+      // 真正的重连：新 socketId 替换旧的，清理旧映射
       delete this.socketToRoom[oldSocketId];
       delete this.socketToPlayerId[oldSocketId];
+    } else if (oldSocketId && oldSocketId === socketId) {
+      // 同一 socketId 重复调用（客户端偶发双重 rejoin_game），无需删除映射，直接覆盖写入
+      // bugfix(not-in-game): 此处防御性日志，可在线上排查竞态是否还残留
+      console.warn(`[rejoinGame] 同一 socketId 重复 rejoin：${socketId} player:${playerId} room:${roomCode}`);
     }
     player.socketId = socketId;
     player.online = true;

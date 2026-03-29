@@ -485,6 +485,117 @@
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
       body { padding-bottom: env(safe-area-inset-bottom); }
     }
+
+    /* ── 选座位弹窗 ───────────────────────────────── */
+    #seating-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+    }
+    #seating-modal.open { display: flex; }
+    .seating-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: clamp(20px, 5vw, 32px);
+      width: 100%;
+      max-width: 460px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .seating-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--gold-light);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .seating-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    /* 圆桌预览（纯 CSS，用 flex/grid 简单示意） */
+    .seating-table-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      margin-bottom: 20px;
+    }
+    .seating-felt {
+      position: absolute;
+      top: 12%; left: 14%; right: 14%; bottom: 5%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, #1e4d35 0%, #0e2a1e 100%);
+      border: 3px solid #2a6647;
+      box-shadow: 0 0 30px rgba(0,0,0,0.6);
+    }
+    .seating-felt::after {
+      content: 'SCOUT';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.07);
+    }
+    .seat-btn {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text);
+      font-family: inherit;
+      z-index: 10;
+      transition: filter 0.2s;
+    }
+    .seat-btn:hover { filter: brightness(1.2); }
+    .seat-circle {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2.5px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 900;
+      transition: all 0.2s;
+    }
+    .seat-btn.taken .seat-circle {
+      background: rgba(247,201,72,0.2);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .seat-btn.mine .seat-circle {
+      background: rgba(88,166,255,0.25);
+      border-color: var(--blue);
+      color: var(--blue);
+      box-shadow: 0 0 12px rgba(88,166,255,0.4);
+    }
+    .seat-label {
+      font-size: 0.58rem; color: var(--text-muted);
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; max-width: 52px;
+      text-align: center;
+    }
+    .seating-status {
+      font-size: 0.78rem; color: var(--text-muted);
+      text-align: center; margin-bottom: 16px;
+    }
+    .seating-btns { display: flex; gap: 10px; }
   </style>
 </head>
 <body>
@@ -597,6 +708,34 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ── 选座位弹窗 ─────────────────────────────────────────── -->
+  <div id="seating-modal">
+    <div class="seating-box">
+      <div class="seating-title">🎪 选择你的座位</div>
+      <div class="seating-sub">
+        在圆桌上选一个位置吧！<br>
+        座位顺序即为游戏出牌顺序。房主确认后游戏开始。
+      </div>
+
+      <!-- 圆桌预览（seat-btn 由 JS 动态生成） -->
+      <div class="seating-table-wrap" id="seating-table-wrap">
+        <div class="seating-felt"></div>
+        <!-- .seat-btn 由 JS 填充 -->
+      </div>
+
+      <div class="seating-status" id="seating-status">等待玩家选座...</div>
+
+      <div class="seating-btns">
+        <button class="btn btn-secondary" id="btn-seating-random" onclick="seatingRandom()" style="flex:1;">
+          🎲 随机选座
+        </button>
+        <button class="btn btn-primary"   id="btn-seating-confirm" onclick="seatingConfirm()" style="flex:1;display:none;">
+          ✅ 确认开始！
+        </button>
+      </div>
     </div>
   </div>
 

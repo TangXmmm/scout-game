@@ -1402,6 +1402,32 @@
       color: var(--gold);
     }
     .flip-face-toggle:hover { opacity: 0.85; }
+
+    /* 大牌预览固定容器（防止翻转时跳动）*/
+    .scouted-card-shell {
+      width: 44px; height: 60px;
+      border-radius: 7px;
+      position: relative;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      border: 1.5px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.18s;
+    }
+    .scouted-card-val {
+      font-size: 1.4rem; font-weight: 900; color: #1a1a2e;
+      transition: color 0.18s;
+    }
+    .scouted-card-corner {
+      position: absolute;
+      font-size: 0.52rem; color: #aaa; line-height: 1;
+    }
+    .scouted-card-tl { top: 2px; left: 3px; }
+    .scouted-card-br { bottom: 2px; right: 3px; }
+    .scouted-card-sub {
+      font-size: 0.68rem; color: var(--muted); margin-top: 4px;
+      transition: color 0.18s;
+    }
     .pos-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .pos-btn {
       padding: 12px 8px; border-radius: 12px;
@@ -2457,36 +2483,29 @@
         <button class="pos-btn" id="pos-left" onclick="selectPos('left')">
           <div style="font-size:var(--fs-tag);opacity:0.7;margin-bottom:4px;">← 左端</div>
           <div id="preview-left"></div>
-          <div id="flip-left-wrap" style="display:none;margin-top:4px;">
-            <label class="flip-toggle" onclick="event.stopPropagation()">
-              <input type="checkbox" id="flip-left-cb" onchange="onFlipChange()" />
-              <label for="flip-left-cb" style="font-size:var(--fs-tag);">翻转此牌</label>
-            </label>
-          </div>
         </button>
         <button class="pos-btn" id="pos-right" onclick="selectPos('right')">
           <div style="font-size:var(--fs-tag);opacity:0.7;margin-bottom:4px;">右端 →</div>
           <div id="preview-right"></div>
-          <div id="flip-right-wrap" style="display:none;margin-top:4px;">
-            <label class="flip-toggle" onclick="event.stopPropagation()">
-              <input type="checkbox" id="flip-right-cb" onchange="onFlipChange()" />
-              <label for="flip-right-cb" style="font-size:var(--fs-tag);">翻转此牌</label>
-            </label>
-          </div>
         </button>
       </div>
 
       <!-- 已挖到预览 + 2.2 翻转 toggle 按钮 -->
       <div class="scouted-preview" id="scouted-preview">
         <div class="scouted-preview-label">✅ 你将挖到这张牌：</div>
-        <div id="scouted-card-show"></div>
+        <!-- 固定尺寸容器，防止内容变化时跳动 -->
+        <div id="scouted-card-shell" class="scouted-card-shell">
+          <div id="scouted-card-val" class="scouted-card-val"></div>
+          <div id="scouted-card-top" class="scouted-card-corner scouted-card-tl"></div>
+          <div id="scouted-card-bot" class="scouted-card-corner scouted-card-br"></div>
+        </div>
+        <div id="scouted-card-sub" class="scouted-card-sub">（以当前面插入）</div>
         <!-- 2.2 翻转双态 toggle 按钮（选端后出现，仅当牌可翻转时可见） -->
         <div id="flip-face-toggle-wrap" style="display:none;margin-top:10px;">
           <button class="flip-face-toggle" id="flip-face-toggle" onclick="toggleFlipFace()">
             <span id="flip-face-icon">▲</span>
             <span id="flip-face-label">以正面插入</span>
           </button>
-          <div style="font-size:var(--fs-tag);color:var(--muted);margin-top:4px;text-align:center;">点击切换正/反面</div>
         </div>
       </div>
 

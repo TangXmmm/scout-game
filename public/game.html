@@ -83,26 +83,151 @@
        牌桌区（圆角矩形扑克桌 + 席位围桌）
     ══════════════════════════════════════════ */
 
-    /* 牌桌区：flex:8，撑满剩余空间 */
+    /* 牌桌区：flex:8，内部横向：桌面居中 + 聊天侧边栏右侧 */
     #table-wrapper {
       flex: 8;
       min-height: 0;
       display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      padding: 6px 8px 4px;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* 桌面外层：flex:1，保持居中，左右均衡 */
+    #table-center {
+      flex: 1;
+      min-width: 0;
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 6px 0 4px;
       overflow: hidden;
     }
 
-    /* 桌面区：撑满 table-wrapper，保持合理比例 */
+    /* 桌面区：撑满 table-center，保持合理比例 */
     #table-section {
       position: relative;
-      width: 94%;
-      max-width: 640px;
+      width: 100%;
+      max-width: 560px;
       flex: 1;
       min-height: 0;
       margin: 0 auto;
+    }
+
+    /* ── 聊天侧边栏：常显在桌面右侧，半透明悬浮 ── */
+    #chat-sidebar {
+      width: 150px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: rgba(10, 20, 12, 0.30);  /* 30% 透明度 */
+      border-left: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      overflow: hidden;
+      backdrop-filter: blur(6px);
+      margin: 4px 0;
+    }
+    /* 侧边栏标题 */
+    #chat-sidebar-header {
+      padding: 6px 10px;
+      font-size: 0.6rem;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 2px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    /* 聊天记录区（侧边栏内） */
+    #chat-sidebar-history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    #chat-sidebar-history::-webkit-scrollbar { display: none; }
+    /* 侧边栏消息气泡（紧凑版） */
+    .sb-msg {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .sb-msg-sender {
+      font-size: 0.52rem;
+      color: rgba(255,255,255,0.35);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sb-msg-text {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.4;
+      word-break: break-all;
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      padding: 3px 6px;
+    }
+    .sb-msg.mine .sb-msg-sender { color: rgba(88,166,255,0.6); text-align: right; }
+    .sb-msg.mine .sb-msg-text { background: rgba(88,166,255,0.1); text-align: right; }
+    .sb-msg-system .sb-msg-text {
+      text-align: center;
+      font-size: 0.55rem;
+      color: rgba(255,255,255,0.25);
+      background: none;
+      padding: 1px 0;
+    }
+    /* 侧边栏输入区 */
+    #chat-sidebar-input {
+      flex-shrink: 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 5px 8px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    #chat-sidebar-input input {
+      flex: 1;
+      min-width: 0;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.62rem;
+      padding: 4px 7px;
+      font-family: inherit;
+      outline: none;
+    }
+    #chat-sidebar-input input::placeholder { color: rgba(255,255,255,0.2); }
+    #chat-sidebar-input input:focus { border-color: rgba(88,166,255,0.3); }
+    #chat-sidebar-input button {
+      flex-shrink: 0;
+      background: rgba(88,166,255,0.15);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 7px;
+      color: var(--blue);
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 4px 7px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    #chat-sidebar-input button:hover { background: rgba(88,166,255,0.25); }
+    /* 空消息提示 */
+    #chat-sidebar-empty {
+      text-align: center;
+      color: rgba(255,255,255,0.15);
+      font-size: 0.58rem;
+      padding: 16px 4px;
     }
 
     /* 圆角矩形桌面（扑克桌风格） */
@@ -218,7 +343,7 @@
     }
     #stage-caption.show { opacity: 1; }
 
-    /* ── 行为日志：桌面下方紧跟（在 table-wrapper 内） ── */
+    /* ── 行为日志：桌面下方紧跟（在 table-center 内） ── */
     #log-bar {
       display: flex;
       align-items: center;
@@ -233,18 +358,8 @@
       margin: 1px auto 0;
     }
 
-    /* ── 操作按钮区：底部合并区右侧，纵向排列 ── */
-    #action-area {
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      justify-content: center;
-      align-items: stretch;
-      padding: 0;
-      background: none;
-      border: none;
-    }
+    /* ── 操作按钮区：底部合并区下层，横向居中 ── */
+    /* 此处 #action-area 的权威定义在第 580+ 行（#bottom-bar 区块内）*/
     .act-btn {
       padding: 6px 12px;
       border-radius: 18px;
@@ -454,38 +569,38 @@
     .log-item.latest { color: var(--text); border-color: rgba(247,201,72,0.25); background: rgba(247,201,72,0.12); }
 
     /* ══════════════════════════════════════════
-       底部合并区：手牌 + 操作按钮（flex:2，横向排列）
+       底部合并区：手牌(上) + 操作按钮(下)，纵向布局（唯一权威定义）
     ══════════════════════════════════════════ */
     #bottom-bar {
       flex: 2;
       min-height: 0;
       display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: center;
-      padding: 4px 8px;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 4px 10px;
       padding-bottom: max(4px, env(safe-area-inset-bottom, 4px));
       background: rgba(0,0,0,0.32);
       border-top: 1px solid var(--border);
-      gap: 8px;
+      gap: 4px;
       overflow: hidden;
     }
 
-    /* 手牌区（占底部合并区左侧大部分） */
+    /* 手牌区（上层，flex:1 撑满剩余空间） */
     #my-hand-area {
       flex: 1;
-      min-width: 0;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
       padding: 0;
       background: none;
       border: none;
+      overflow: hidden;
     }
     .hand-label {
-      font-size: 0.6rem; color: var(--muted);
+      font-size: 0.58rem; color: var(--muted);
       letter-spacing: 1.5px;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       display: flex; align-items: center; gap: 5px;
       flex-shrink: 0;
     }
@@ -493,9 +608,10 @@
       display: flex;
       gap: 3px;
       overflow-x: auto;
-      padding-bottom: 4px;
+      padding-bottom: 3px;
       align-items: flex-end;
-      min-height: calc(var(--card-h) + 12px);
+      min-height: 0;
+      flex: 1;
       scrollbar-width: thin;
       scrollbar-color: rgba(255,255,255,0.08) transparent;
       -webkit-overflow-scrolling: touch;
@@ -530,6 +646,19 @@
       background: var(--gold);
       width: 3px;
       box-shadow: 0 0 8px rgba(247,201,72,0.7);
+    }
+
+    /* ── 操作按钮区：底部合并区下层，横向居中排列 ── */
+    #action-area {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: row;
+      gap: 6px;
+      justify-content: center;
+      align-items: center;
+      padding: 2px 0;
+      background: none;
+      border: none;
     }
 
     /* ══════════════════════════════════════════
@@ -1236,33 +1365,49 @@
         </span>
       </div>
 
-      <!-- ══ 牌桌区（flex:8）：桌面 + 在场组 + 行为日志 ══ -->
+      <!-- ══ 牌桌区（flex:8）：左侧桌面居中 + 右侧聊天侧边栏 ══ -->
       <div id="table-wrapper">
-        <!-- 牌桌本体：席位绝对定位在此内 -->
-        <div id="table-section">
-          <div id="table-felt"></div>
-          <!-- 席位由 JS renderTable() 动态填充 -->
+        <!-- 桌面外层：flex:1，保证桌面居中 -->
+        <div id="table-center">
+          <!-- 牌桌本体：席位绝对定位在此内 -->
+          <div id="table-section">
+            <div id="table-felt"></div>
+            <!-- 席位由 JS renderTable() 动态填充 -->
 
-          <!-- 在场组浮层（绝对定位，叠在桌面中央） -->
-          <div id="stage-area">
-            <div class="stage-label">🎭 在场组</div>
-            <div id="stage-caption"></div>
-            <div id="stage-cards">
-              <div class="stage-empty">舞台空置 · 等待首秀</div>
+            <!-- 在场组浮层（绝对定位，叠在桌面中央） -->
+            <div id="stage-area">
+              <div class="stage-label">🎭 在场组</div>
+              <div id="stage-caption"></div>
+              <div id="stage-cards">
+                <div class="stage-empty">舞台空置 · 等待首秀</div>
+              </div>
+              <div id="stage-meta"></div>
             </div>
-            <div id="stage-meta"></div>
           </div>
-        </div>
 
-        <!-- 行为日志（桌面正下方） -->
-        <div id="log-bar">
-          <span id="log-items" style="display:flex;gap:6px;"></span>
-        </div>
-      </div>
+          <!-- 行为日志（桌面正下方） -->
+          <div id="log-bar">
+            <span id="log-items" style="display:flex;gap:6px;"></span>
+          </div>
+        </div><!-- /table-center -->
 
-      <!-- ══ 底部合并区（flex:2）：手牌(左) + 操作按钮(右) 横向居中 ══ -->
+        <!-- 聊天侧边栏（常显，半透明，桌面右侧） -->
+        <div id="chat-sidebar">
+          <div id="chat-sidebar-header">💬 聊天</div>
+          <div id="chat-sidebar-history">
+            <div id="chat-sidebar-empty">暂无消息</div>
+          </div>
+          <div id="chat-sidebar-input">
+            <input id="chat-text" type="text" placeholder="说点什么..." maxlength="20"
+                   onkeypress="if(event.key==='Enter')sendChatText()" />
+            <button onclick="sendChatText()">发</button>
+          </div>
+        </div><!-- /chat-sidebar -->
+      </div><!-- /table-wrapper -->
+
+      <!-- ══ 底部合并区（flex:2）：手牌(上) + 操作按钮(下) 纵向布局 ══ -->
       <div id="bottom-bar">
-        <!-- 我的手牌 -->
+        <!-- 我的手牌（上层） -->
         <div id="my-hand-area">
           <div class="hand-label">
             🃏 我的手牌
@@ -1272,7 +1417,7 @@
           <div id="my-hand-cards"></div>
         </div>
 
-        <!-- 操作按钮（纵向排列在右侧） -->
+        <!-- 操作按钮（下层，横向居中排列） -->
         <div id="action-area">
           <button class="act-btn show"       id="btn-show"       onclick="doShow()"           disabled>🎭 演出</button>
           <button class="act-btn scout"      id="btn-scout"      onclick="openScoutModal(false)" disabled>🔍 挖角</button>
@@ -1287,45 +1432,18 @@
       <div id="score-bar"       style="display:none!important;"></div>
     </div>
 
-    <!-- ══ 聊天条：固定在 app-shell 底部，独立于 game-layout ══ -->
-    <!-- 这样 #chat-panel 的 position:absolute bottom:100% 可以正确向上展开 -->
-    <div id="chat-bar" onclick="toggleChatBar()">
-      <!-- 常显预览行 -->
-      <div id="chat-bar-peek">
-        <div id="chat-bar-icon">
-          💬<span id="chat-bar-badge"></span>
-        </div>
-        <div id="chat-bar-preview">点击展开聊天记录...</div>
-        <div id="chat-bar-toggle">▲</div>
+    <!-- 旧版 chat-bar 已移除：聊天已整合进 #chat-sidebar（#table-wrapper 右侧常显） -->
+    <!-- 保留空 #chat-bar 壳供 JS 兼容引用 -->
+    <div id="chat-bar" style="display:none;">
+      <div id="chat-bar-peek" style="display:none;">
+        <div id="chat-bar-icon" style="display:none;"><span id="chat-bar-badge"></span></div>
+        <div id="chat-bar-preview" style="display:none;"></div>
+        <div id="chat-bar-toggle" style="display:none;"></div>
       </div>
-
-      <!-- 展开面板（position:absolute, bottom:100%, 向上浮出） -->
-      <div id="chat-panel">
-        <div class="chat-drawer-header">
-          <div class="chat-drawer-title">💬 聊天 <span id="chat-msg-count">0 条消息</span></div>
-          <button class="chat-close-btn" onclick="event.stopPropagation();toggleChatBar()">✕</button>
-        </div>
+      <div id="chat-panel" style="display:none;">
+        <span id="chat-msg-count"></span>
         <div id="chat-history"></div>
-        <div class="chat-input-area" onclick="event.stopPropagation()">
-          <div class="quick-grid" id="quick-grid"></div>
-          <div class="sticker-row">
-            <button class="sticker-btn" onclick="sendSticker('😂')">😂</button>
-            <button class="sticker-btn" onclick="sendSticker('🔥')">🔥</button>
-            <button class="sticker-btn" onclick="sendSticker('👍')">👍</button>
-            <button class="sticker-btn" onclick="sendSticker('💀')">💀</button>
-            <button class="sticker-btn" onclick="sendSticker('😱')">😱</button>
-            <button class="sticker-btn" onclick="sendSticker('🥳')">🥳</button>
-            <button class="sticker-btn" onclick="sendSticker('😤')">😤</button>
-            <button class="sticker-btn" onclick="sendSticker('🤡')">🤡</button>
-            <button class="sticker-btn" onclick="sendSticker('💪')">💪</button>
-            <button class="sticker-btn" onclick="sendSticker('🎯')">🎯</button>
-          </div>
-          <div class="text-input-row">
-            <input id="chat-text" type="text" placeholder="说点什么（最多20字）..." maxlength="20"
-                   onkeypress="if(event.key==='Enter')sendChatText()" onclick="event.stopPropagation()" />
-            <button onclick="event.stopPropagation();sendChatText()">发</button>
-          </div>
-        </div>
+        <div id="quick-grid"></div>
       </div>
     </div>
   </div>

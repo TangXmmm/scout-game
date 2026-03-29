@@ -987,7 +987,7 @@ function toggleChatDrawer() {
   toggleChatBar();
 }
 
-// 追加聊天消息到持久化面板
+// 追加聊天消息到持久化面板（同时写入 #chat-sidebar-history）
 function appendChatMessage(playerName, content, type, isOwn = false) {
   const isSticker = type === 'sticker';
   const now = new Date();
@@ -996,59 +996,56 @@ function appendChatMessage(playerName, content, type, isOwn = false) {
   chatMessages.push({ playerName, content, type, time: timeStr, isOwn });
   if (chatMessages.length > 50) chatMessages.shift();
 
-  const history = document.getElementById('chat-history');
-  if (!history) return;
+  // ── 写入侧边栏聊天区（新版主入口）──────────────────────
+  const sidebar = document.getElementById('chat-sidebar-history');
+  if (sidebar) {
+    // 移除空消息提示
+    const emptyEl = document.getElementById('chat-sidebar-empty');
+    if (emptyEl) emptyEl.remove();
 
-  const div = document.createElement('div');
-  if (type === 'system') {
-    div.className = 'chat-msg';
-    div.innerHTML = `<div class="chat-msg-system">${escapeXSS(content)}</div>`;
-  } else {
-    div.className = `chat-msg${isOwn ? ' mine' : ''}`;
-    const initials = (playerName || '?').charAt(0).toUpperCase();
-    const bubbleContent = isSticker
-      ? `<div class="chat-msg-sticker">${content}</div>`
-      : `<div class="chat-msg-bubble">${escapeXSS(content)}</div>`;
-    div.innerHTML = `
-      <div class="chat-msg-avatar">${initials}</div>
-      <div class="chat-msg-body">
-        <div class="chat-msg-name">${isOwn ? '我' : escapeXSS(playerName)}</div>
-        ${bubbleContent}
-        <div class="chat-msg-time">${timeStr}</div>
-      </div>`;
+    const sbDiv = document.createElement('div');
+    if (type === 'system') {
+      sbDiv.className = 'sb-msg sb-msg-system';
+      sbDiv.innerHTML = `<div class="sb-msg-text">${escapeXSS(content)}</div>`;
+    } else {
+      sbDiv.className = `sb-msg${isOwn ? ' mine' : ''}`;
+      const senderLabel = isOwn ? '我' : escapeXSS(playerName);
+      const contentText = isSticker ? content : escapeXSS(content);
+      sbDiv.innerHTML = `<div class="sb-msg-sender">${senderLabel}</div><div class="sb-msg-text">${contentText}</div>`;
+    }
+    sidebar.appendChild(sbDiv);
+    while (sidebar.children.length > 60) sidebar.removeChild(sidebar.firstChild);
+    // 自动滚到底
+    sidebar.scrollTop = sidebar.scrollHeight;
   }
-  history.appendChild(div);
-  while (history.children.length > 50) history.removeChild(history.firstChild);
+
+  // ── 兼容旧版隐藏面板（#chat-history）──────────────────
+  const history = document.getElementById('chat-history');
+  if (history) {
+    const div = document.createElement('div');
+    if (type === 'system') {
+      div.className = 'chat-msg';
+      div.innerHTML = `<div class="chat-msg-system">${escapeXSS(content)}</div>`;
+    } else {
+      div.className = `chat-msg${isOwn ? ' mine' : ''}`;
+      const initials = (playerName || '?').charAt(0).toUpperCase();
+      const bubbleContent = isSticker
+        ? `<div class="chat-msg-sticker">${content}</div>`
+        : `<div class="chat-msg-bubble">${escapeXSS(content)}</div>`;
+      div.innerHTML = `
+        <div class="chat-msg-avatar">${initials}</div>
+        <div class="chat-msg-body">
+          <div class="chat-msg-name">${isOwn ? '我' : escapeXSS(playerName)}</div>
+          ${bubbleContent}
+          <div class="chat-msg-time">${timeStr}</div>
+        </div>`;
+    }
+    history.appendChild(div);
+    while (history.children.length > 50) history.removeChild(history.firstChild);
+  }
 
   const countEl = document.getElementById('chat-msg-count');
   if (countEl) countEl.textContent = `${chatMessages.length} 条消息`;
-
-  // ── 更新底部预览条 ──────────────────────────────────────
-  const chatBar = document.getElementById('chat-bar');
-  const previewEl = document.getElementById('chat-bar-preview');
-  if (previewEl) {
-    if (type === 'system') {
-      previewEl.innerHTML = `<span style="color:var(--muted);">${escapeXSS(content)}</span>`;
-    } else {
-      const senderLabel = isOwn ? '我' : escapeXSS(playerName);
-      const contentLabel = isSticker ? content : escapeXSS(content.length > 16 ? content.slice(0,16)+'…' : content);
-      previewEl.innerHTML = `<span class="cb-sender">${senderLabel}：</span>${contentLabel}`;
-    }
-  }
-
-  // 面板是否已展开
-  const isExpanded = chatBar?.classList.contains('expanded');
-  if (isExpanded) {
-    // 面板打开时自动滚到底
-    history.scrollTop = history.scrollHeight;
-  } else {
-    // 面板收起：显示未读角标
-    const badge = document.getElementById('chat-bar-badge');
-    if (badge) { badge.classList.add('show'); setTimeout(() => badge?.classList.remove('show'), 5000); }
-    // 旧版 chat-badge 兼容
-    const oldBadge = document.getElementById('chat-badge');
-    if (oldBadge) { oldBadge.classList.add('show'); setTimeout(() => oldBadge?.classList.remove('show'), 5000); }
-  }
 }
 
 // 显示弹幕气泡（快速浮现，用于他人消息）
@@ -1103,13 +1100,23 @@ function sendSticker(emoji) {
 }
 
 function sendChatText() {
-  const input   = document.getElementById('chat-text');
-  const content = input.value.trim();
+  // 兼容旧版 #chat-text（隐藏壳）和新版 #sidebar-chat-text（侧边栏）
+  const input = document.getElementById('sidebar-chat-text') || document.getElementById('chat-text');
+  const content = input ? input.value.trim() : '';
   if (!content) return;
   if (content.length > 20) return showToast('消息不超过20字', 'error');
   if (!checkChatCooldown()) return;
   socket.emit('send_chat', { type: 'text', content });
-  input.value = '';
+  if (input) input.value = '';
+}
+
+// ── 侧边栏聊天输入（新版常显侧边栏入口）────────────────────
+function sendSidebarText() {
+  sendChatText();  // 直接复用，已优先读取 #sidebar-chat-text
+}
+
+function sendSidebarSticker(emoji) {
+  sendSticker(emoji);  // 直接复用 sendSticker
 }
 
 function checkChatCooldown() {

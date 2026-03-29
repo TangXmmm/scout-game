@@ -163,8 +163,15 @@ function startTimer(durationSec) {
     const elapsed = (Date.now() - timerStartedAt) / 1000;
     const left = Math.max(0, Math.ceil(durationSec - elapsed));
     el.textContent = left + 's';
-    if (left <= 10) el.className = 'warning';
-    else el.className = '';
+
+    // 方向3：最后10秒触发心跳脉冲
+    if (left <= 10 && left > 0) {
+      el.className = 'warning heartbeat';
+      startPulseBorder();
+    } else if (left > 10) {
+      el.className = '';
+      stopPulseBorder();
+    }
     if (left <= 0) clearTimer();
   }, 250);
 }
@@ -174,6 +181,161 @@ function clearTimer() {
   timerInterval = null;
   const el = document.getElementById('turn-timer');
   if (el) { el.style.display = 'none'; el.textContent = ''; el.className = ''; }
+  stopPulseBorder();
+}
+
+// ── 方向3：屏幕边框心跳脉冲 ─────────────────────────────────
+function startPulseBorder() {
+  const el = document.getElementById('pulse-border');
+  if (el && !el.classList.contains('pulse')) el.classList.add('pulse');
+}
+function stopPulseBorder() {
+  const el = document.getElementById('pulse-border');
+  if (el) el.classList.remove('pulse');
+}
+
+// ── 方向2：高光时刻动效 ──────────────────────────────────────
+
+// 显示大字幕（emoji + 标题 + 副标题），durationMs 后自动隐藏
+function showHighlightBanner(emoji, title, sub = '', durationMs = 2200) {
+  document.getElementById('hl-emoji').textContent = emoji;
+  document.getElementById('hl-title').textContent = title;
+  document.getElementById('hl-sub').textContent   = sub;
+  const el = document.getElementById('highlight-banner');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), durationMs);
+}
+
+// 显示右上角成就徽章
+function showAchievement(icon, title, desc, durationMs = 3500) {
+  document.getElementById('ach-icon').textContent  = icon;
+  document.getElementById('ach-title').textContent = title;
+  document.getElementById('ach-desc').textContent  = desc;
+  const el = document.getElementById('achievement-toast');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), durationMs);
+}
+
+// 简易烟花效果（Canvas 粒子，不依赖外部库）
+let _fwAnimId = null;
+function launchFireworks(durationMs = 2800) {
+  const canvas = document.getElementById('fireworks-canvas');
+  if (!canvas) return;
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.classList.add('active');
+
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+  const colors = ['#f7c948','#ff6b6b','#51cf66','#74c0fc','#cc5de8','#ff9f43','#fff'];
+
+  // 创建多个爆炸中心
+  const bursts = 5 + Math.floor(Math.random() * 3);
+  for (let b = 0; b < bursts; b++) {
+    const cx = 0.1 * window.innerWidth + Math.random() * 0.8 * window.innerWidth;
+    const cy = 0.1 * window.innerHeight + Math.random() * 0.55 * window.innerHeight;
+    const count = 22 + Math.floor(Math.random() * 14);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const speed = 2.5 + Math.random() * 3.5;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        alpha: 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        radius: 2 + Math.random() * 2.5,
+        decay: 0.012 + Math.random() * 0.01,
+        gravity: 0.06,
+      });
+    }
+  }
+
+  const startTime = Date.now();
+  function frame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.98;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0) return;
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    if (Date.now() - startTime < durationMs) {
+      _fwAnimId = requestAnimationFrame(frame);
+    } else {
+      canvas.classList.remove('active');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  cancelAnimationFrame(_fwAnimId);
+  frame();
+}
+
+// ── 方向4：出牌动效（stage 更新时追加 fly-in 类） ───────────────
+let _lastStageLen = 0;  // 记录上一次 stage 长度，判断是新牌还是缩减
+
+// ── 方向2：检测 action_log 事件中的高光时刻 ─────────────────────
+/**
+ * 根据 action_log 事件触发对应的高光动效
+ * @param {string} type      - 动作类型
+ * @param {string} playerName - 执行者名字
+ * @param {object} stateSnap  - 当前 gameState 快照（用于判断清手、危险等）
+ */
+function triggerHighlightEffect(type, playerName) {
+  const isMe = (gameState?.players?.find(p => p.name === playerName)?.id === myPlayerId);
+  const mePrefix = isMe ? '你' : playerName;
+
+  if (type === 'scout_and_show') {
+    showAchievement('⚡', `挖角并演出！`, `${mePrefix} 使出了绝招`);
+  }
+  // 手牌极少时的成就（每次出牌后检查自己）
+  if (gameState?.state === 'playing') {
+    const me = gameState.players?.find(p => p.id === myPlayerId);
+    if (me && me.handCount === 1) {
+      showAchievement('🔥', '最后一张！', '下次出牌即可清手！');
+    }
+  }
+}
+
+// 在 round_end/game_over 时触发清手烟花 + 大字幕
+function triggerRoundEndEffect(data) {
+  const isMyWin = data.roundWinnerId === myPlayerId;
+  if (data.winnerType === 'empty_hand') {
+    launchFireworks(2600);
+    if (isMyWin) {
+      showHighlightBanner('🎉', '完美清手！', '你率先清空手牌，赢得本轮！', 2400);
+    } else {
+      showHighlightBanner('👏', `${data.roundWinnerName} 清手了！`, '率先清空手牌，赢得本轮', 2000);
+    }
+  } else {
+    // all_scout 无人压制赢局
+    if (isMyWin) {
+      showHighlightBanner('🏆', '无敌在场组！', '无人能压制你的出牌！', 2200);
+    } else {
+      showHighlightBanner('🎭', `${data.roundWinnerName} 在场！`, '无人能压制，赢得本轮', 1800);
+    }
+  }
+}
+
+// 游戏结束时触发终局烟花
+function triggerGameEndEffect(data) {
+  const isMyWin = data.gameWinnerId === myPlayerId;
+  launchFireworks(4000);
+  if (isMyWin) {
+    showHighlightBanner('🏆', '你赢了整局！', '恭喜！你是最终的马戏之星！', 3500);
+  } else {
+    showHighlightBanner('🎪', `${data.gameWinnerName} 赢了！`, '感谢参与这场精彩的马戏表演', 3000);
+  }
 }
 
 // ── 事件字幕 ──────────────────────────────────────────────────
@@ -471,10 +633,15 @@ function renderStage(state) {
   if (!state.stage?.length) {
     el.innerHTML = '<div class="stage-empty">舞台空置 · 等待首秀</div>';
     meta.innerHTML = '';
+    _lastStageLen = 0;
     return;
   }
 
   const n = state.stage.length;
+  // 方向4：判断是否有新牌飞入（stage 变长，说明有人演出了）
+  const isNewPlay = n > _lastStageLen && _lastStageLen > 0;
+  _lastStageLen = n;
+
   el.innerHTML = state.stage.map((card, i) => {
     let endBadge = '';
     if (n > 1) {
@@ -483,7 +650,9 @@ function renderStage(state) {
     }
     const edgeClass = (isMyTurn && i === 0) ? 'edge-left'
                     : (isMyTurn && i === n - 1) ? 'edge-right' : '';
-    return `<div class="stage-card-wrap">${endBadge}${cardHtml(card, { stage: true, edgeClass })}</div>`;
+    // 方向4：新演出的牌全部加 fly-in 类
+    const flyClass = isNewPlay ? ' fly-in' : '';
+    return `<div class="stage-card-wrap${flyClass}">${endBadge}${cardHtml(card, { stage: true, edgeClass })}</div>`;
   }).join('');
 
   const ownerName = state.players.find(p => p.id === state.stageOwner)?.name || '?';
@@ -1560,6 +1729,9 @@ socket.on('action_log', ({ type, playerName, position }) => {
   else if (type === 'show')      showAutoSuggest('show', playerName);
   else if (type === 'scout')     showAutoSuggest('scout', playerName);
 
+  // ── 方向2：高光时刻成就检测 ──
+  triggerHighlightEffect(type, playerName);
+
   // ── 功能C：动态刷新侧边栏话术 ──
   const phraseCtx = type === 'scout_and_show' ? 'scout_and_show'
                   : type === 'show'      ? 'show'
@@ -1634,14 +1806,18 @@ socket.on('take_over_result', ({ success, message }) => {
 socket.on('round_end', (data) => {
   pendingFinishScoutAndShow = false;
   selectedIndices = [];
-  showRoundEnd(data);
+  // 方向2：结算时触发高光动效（先播动效，稍后再弹结算弹窗）
+  triggerRoundEndEffect(data);
+  setTimeout(() => showRoundEnd(data), 600);
 });
 
 socket.on('game_over', (data) => {
   pendingFinishScoutAndShow = false;
   selectedIndices = [];
-  showRoundEnd(data);
-  setTimeout(() => showGameEnd(data), 3500);
+  // 方向2：游戏结束终局烟花
+  triggerGameEndEffect(data);
+  setTimeout(() => { showRoundEnd(data); }, 600);
+  setTimeout(() => showGameEnd(data), 4200);
 });
 
 socket.on('round_started', ({ roundNumber }) => {

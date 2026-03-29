@@ -1812,6 +1812,160 @@
     .suggest-chip:active { transform: scale(0.95); }
 
     /* ══════════════════════════════════════════
+       方向2：高光时刻动效
+    ══════════════════════════════════════════ */
+
+    /* 全屏烟花容器（清手/赢局时触发） */
+    #fireworks-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9000;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    #fireworks-canvas.active { opacity: 1; }
+
+    /* 大字幕（重大事件：清手/大翻盘/赢局） */
+    #highlight-banner {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 8500;
+      opacity: 0;
+      transform: scale(0.7);
+      transition: opacity 0.35s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    #highlight-banner.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .hl-banner-emoji { font-size: 4rem; line-height: 1; margin-bottom: 8px; filter: drop-shadow(0 0 24px gold); }
+    .hl-banner-title {
+      font-size: clamp(1.6rem, 6vw, 2.4rem);
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 30px var(--gold), 0 2px 8px rgba(0,0,0,0.8);
+      letter-spacing: 2px;
+      text-align: center;
+      padding: 0 16px;
+    }
+    .hl-banner-sub {
+      font-size: var(--fs-meta);
+      color: rgba(255,255,255,0.7);
+      margin-top: 6px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    /* 成就徽章弹出（右上角弹出型） */
+    #achievement-toast {
+      position: fixed;
+      top: 64px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, rgba(247,201,72,0.18), rgba(188,140,255,0.12));
+      border: 1px solid rgba(247,201,72,0.4);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      z-index: 8000;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateX(110%);
+      transition: opacity 0.3s, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 260px;
+    }
+    #achievement-toast.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .ach-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .ach-text { display: flex; flex-direction: column; gap: 1px; }
+    .ach-title { font-size: var(--fs-tag); font-weight: 800; color: var(--gold); }
+    .ach-desc  { font-size: 0.62rem; color: rgba(255,255,255,0.6); }
+
+    /* ══════════════════════════════════════════
+       方向3：紧张感设计
+    ══════════════════════════════════════════ */
+
+    /* 倒计时最后10秒：屏幕四周红色脉冲边框 */
+    #pulse-border {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 500;
+      border: 3px solid rgba(248,81,73,0);
+      border-radius: 0;
+      box-shadow: inset 0 0 0 rgba(248,81,73,0);
+      transition: none;
+    }
+    #pulse-border.pulse {
+      animation: borderPulse 0.8s ease-in-out infinite;
+    }
+    @keyframes borderPulse {
+      0%   { border-color: rgba(248,81,73,0);   box-shadow: inset 0 0 0 rgba(248,81,73,0); }
+      50%  { border-color: rgba(248,81,73,0.55); box-shadow: inset 0 0 40px rgba(248,81,73,0.12); }
+      100% { border-color: rgba(248,81,73,0);   box-shadow: inset 0 0 0 rgba(248,81,73,0); }
+    }
+
+    /* 危险玩家席位（手牌≤2）的红色外发光闪烁 */
+    .seat.danger {
+      animation: seatDangerPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes seatDangerPulse {
+      0%,100% { filter: drop-shadow(0 0 0 rgba(248,81,73,0)); }
+      50%      { filter: drop-shadow(0 0 10px rgba(248,81,73,0.7)); }
+    }
+
+    /* ── 倒计时心跳（最后10秒，数字本身放大脉动）── */
+    #turn-timer.heartbeat {
+      animation: timerHeartbeat 0.6s ease-in-out infinite;
+      color: var(--red) !important;
+      font-size: 1rem;
+    }
+    @keyframes timerHeartbeat {
+      0%,100% { transform: scale(1); }
+      40%     { transform: scale(1.2); }
+    }
+
+    /* ══════════════════════════════════════════
+       方向4：出牌动效
+    ══════════════════════════════════════════ */
+
+    /* stage-cards 里新飞入的卡片动画 */
+    @keyframes cardFlyIn {
+      from { opacity: 0; transform: translateY(-28px) scale(0.75); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .stage-card-wrap.fly-in {
+      animation: cardFlyIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+
+    /* 挖角时被取走的卡片淡出 */
+    @keyframes cardFlyOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to   { opacity: 0; transform: translateY(-20px) scale(0.8); }
+    }
+    .stage-card-wrap.fly-out {
+      animation: cardFlyOut 0.2s ease-in forwards;
+    }
+
+    /* 手牌中新插入的牌：从下方弹入 */
+    .game-card.new-card {
+      animation: newCardBounce 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes newCardBounce {
+      from { opacity: 0; transform: translateY(20px) scale(0.8); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ══════════════════════════════════════════
        超时 / 托管覆盖层
     ══════════════════════════════════════════ */
     #managed-overlay {
@@ -2225,6 +2379,28 @@
   <div id="waiting-bar">⏳ 等待其他玩家行动...</div>
   <!-- Toast -->
   <div id="toast"></div>
+
+  <!-- ─── 方向2：高光时刻动效 DOM ─── -->
+  <!-- 烟花 Canvas（清手/赢局） -->
+  <canvas id="fireworks-canvas"></canvas>
+  <!-- 大字幕浮层 -->
+  <div id="highlight-banner">
+    <div class="hl-banner-emoji" id="hl-emoji">🎉</div>
+    <div class="hl-banner-title" id="hl-title"></div>
+    <div class="hl-banner-sub"   id="hl-sub"></div>
+  </div>
+  <!-- 成就徽章（右上角弹出） -->
+  <div id="achievement-toast">
+    <div class="ach-icon" id="ach-icon">⚡</div>
+    <div class="ach-text">
+      <div class="ach-title" id="ach-title"></div>
+      <div class="ach-desc"  id="ach-desc"></div>
+    </div>
+  </div>
+
+  <!-- ─── 方向3：紧张感 DOM ─── -->
+  <!-- 屏幕边框心跳脉冲（倒计时最后10秒） -->
+  <div id="pulse-border"></div>
 
   <!-- 弹幕浮层（仅保留快速反馈气泡） -->
   <div id="chat-float"></div>

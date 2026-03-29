@@ -1269,6 +1269,20 @@
     .mbtn:active { transform: scale(0.97); }
     .mbtn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+    /* 自定义 Confirm 弹窗 */
+    #custom-confirm-modal .modal-box {
+      animation: confirmPop 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes confirmPop {
+      from { opacity:0; transform: scale(0.88) translateY(10px); }
+      to   { opacity:1; transform: scale(1) translateY(0); }
+    }
+    #confirm-ok-btn.danger {
+      background: linear-gradient(90deg, #e05050, #ff7070);
+      color: #fff;
+    }
+    #confirm-ok-btn.danger:hover { box-shadow: 0 4px 16px rgba(224,80,80,0.45); }
+
     /* ══════════════════════════════════════════
        翻牌决策弹窗（Page 04 Flip Phase）
     ══════════════════════════════════════════ */
@@ -1314,6 +1328,120 @@
     ══════════════════════════════════════════ */
     #scout-modal { z-index: 220; }
     .scout-title { color: var(--gold); }
+
+    /* 2.3 模式标签 */
+    .mode-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: var(--fs-tag); font-weight: 700;
+      padding: 2px 10px; border-radius: 20px;
+      margin-left: 8px; vertical-align: middle;
+    }
+    .mode-scout-show {
+      background: rgba(88,166,255,0.18);
+      color: #82c4ff;
+      border: 1px solid rgba(88,166,255,0.45);
+    }
+
+    /* 2.1 分步进度条 */
+    .scout-steps {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .scout-step {
+      display: flex; align-items: center; gap: 5px;
+      font-size: var(--fs-tag); font-weight: 700;
+      color: var(--muted); transition: color 0.2s;
+    }
+    .scout-step .step-num {
+      width: 20px; height: 20px;
+      border-radius: 50%; border: 1.5px solid var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; transition: all 0.2s;
+    }
+    .scout-step.active { color: var(--gold); }
+    .scout-step.active .step-num {
+      border-color: var(--gold); background: var(--gold-dim); color: var(--gold);
+    }
+    .scout-step.done { color: var(--green); }
+    .scout-step.done .step-num {
+      border-color: var(--green); background: rgba(63,185,80,0.18); color: var(--green);
+    }
+    .scout-step-arrow { color: var(--muted); font-size: 0.7rem; }
+
+    /* insert-section 过渡 */
+    #insert-section-wrap { transition: opacity 0.2s; }
+
+    /* 2.4 挖+演持久 Banner */
+    #scout-pending-banner {
+      display: none;
+      align-items: center; gap: 10px;
+      padding: 9px 14px;
+      background: linear-gradient(90deg, rgba(247,151,30,0.22), rgba(247,201,72,0.15));
+      border: 1px solid rgba(247,151,30,0.4);
+      border-radius: 12px;
+      margin: 0 0 4px;
+      font-size: var(--fs-meta);
+      color: var(--gold-light);
+      position: relative;
+      animation: bannerSlideIn 0.35s ease;
+    }
+    @keyframes bannerSlideIn {
+      from { opacity:0; transform: translateY(8px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    #scout-pending-banner.show { display: flex; }
+    .banner-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .banner-text { flex: 1; line-height: 1.4; }
+    .banner-cancel {
+      background: none; border: 1px solid rgba(247,151,30,0.4);
+      color: var(--gold); border-radius: 8px; padding: 3px 10px;
+      font-size: var(--fs-tag); font-weight: 700; cursor: pointer;
+      font-family: inherit; touch-action: manipulation; flex-shrink: 0;
+    }
+    .banner-cancel:hover { background: rgba(247,151,30,0.15); }
+
+    /* 2.2 翻转面切换按钮 */
+    .flip-face-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid var(--border);
+      color: var(--text); font-size: var(--fs-tag); font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      touch-action: manipulation; transition: all 0.18s;
+    }
+    .flip-face-toggle.flipped {
+      border-color: var(--gold);
+      background: var(--gold-dim);
+      color: var(--gold);
+    }
+    .flip-face-toggle:hover { opacity: 0.85; }
+
+    /* 大牌预览固定容器（防止翻转时跳动）*/
+    .scouted-card-shell {
+      width: 44px; height: 60px;
+      border-radius: 7px;
+      position: relative;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      border: 1.5px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.18s;
+    }
+    .scouted-card-val {
+      font-size: 1.4rem; font-weight: 900; color: #1a1a2e;
+      transition: color 0.18s;
+    }
+    .scouted-card-corner {
+      position: absolute;
+      font-size: 0.52rem; color: #aaa; line-height: 1;
+    }
+    .scouted-card-tl { top: 2px; left: 3px; }
+    .scouted-card-br { bottom: 2px; right: 3px; }
+    .scouted-card-sub {
+      font-size: 0.68rem; color: var(--muted); margin-top: 4px;
+      transition: color 0.18s;
+    }
     .pos-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .pos-btn {
       padding: 12px 8px; border-radius: 12px;
@@ -2243,6 +2371,13 @@
           <div id="my-hand-cards"></div>
         </div>
 
+        <!-- 2.4 挖+演进行中持久 Banner -->
+        <div id="scout-pending-banner">
+          <span class="banner-icon">⚡</span>
+          <div class="banner-text">挖+演进行中 · 现在请在手牌中选连续的牌，然后点「演出」完成绝招！</div>
+          <button class="banner-cancel" onclick="confirmDismissScoutBanner()">放弃演出</button>
+        </div>
+
         <!-- 操作按钮区：实时判定提示条 + 按钮行，二者整体高度固定，避免手牌跳动 -->
         <div id="action-area-wrap">
           <!-- 3.4 实时判定提示条（绝对定位在 action-area-wrap 内，不占流式高度） -->
@@ -2335,46 +2470,72 @@
   ──────────────────────────────────────────────────────── -->
   <div class="modal-overlay" id="scout-modal">
     <div class="modal-box">
-      <div class="modal-title scout-title" id="scout-modal-title">🔍 挖角</div>
-      <p class="desc-text" id="scout-modal-desc">从在场组两端取1张牌，插入手牌任意位置。</p>
 
-      <div style="font-size:var(--fs-tag);color:var(--muted);margin-bottom:8px;">① 选择取哪一端（每次只取 1 张）：</div>
+      <!-- 标题行 + 2.3 模式标签 -->
+      <div style="display:flex;align-items:center;margin-bottom:12px;">
+        <div class="modal-title scout-title" id="scout-modal-title" style="margin-bottom:0;">🔍 挖角</div>
+        <span class="mode-tag mode-scout-show" id="scout-mode-tag" style="display:none;">⚡ 挖+演 · 限1次</span>
+      </div>
+
+      <p class="desc-text" id="scout-modal-desc" style="margin-bottom:10px;">从在场组两端取1张牌，插入手牌任意位置。</p>
+
+      <!-- 2.1 分步进度条 -->
+      <div class="scout-steps">
+        <div class="scout-step active" id="scout-step-1">
+          <div class="step-num">1</div>
+          <span>选牌端</span>
+        </div>
+        <div class="scout-step-arrow">›</div>
+        <div class="scout-step" id="scout-step-2">
+          <div class="step-num">2</div>
+          <span>选插入位置</span>
+        </div>
+      </div>
+
+      <!-- Step 1：选端 -->
       <div class="pos-btns">
         <button class="pos-btn" id="pos-left" onclick="selectPos('left')">
           <div style="font-size:var(--fs-tag);opacity:0.7;margin-bottom:4px;">← 左端</div>
           <div id="preview-left"></div>
-          <div id="flip-left-wrap" style="display:none;margin-top:4px;">
-            <label class="flip-toggle" onclick="event.stopPropagation()">
-              <input type="checkbox" id="flip-left-cb" onchange="onFlipChange()" />
-              <label for="flip-left-cb" style="font-size:var(--fs-tag);">翻转此牌</label>
-            </label>
-          </div>
         </button>
         <button class="pos-btn" id="pos-right" onclick="selectPos('right')">
           <div style="font-size:var(--fs-tag);opacity:0.7;margin-bottom:4px;">右端 →</div>
           <div id="preview-right"></div>
-          <div id="flip-right-wrap" style="display:none;margin-top:4px;">
-            <label class="flip-toggle" onclick="event.stopPropagation()">
-              <input type="checkbox" id="flip-right-cb" onchange="onFlipChange()" />
-              <label for="flip-right-cb" style="font-size:var(--fs-tag);">翻转此牌</label>
-            </label>
-          </div>
         </button>
       </div>
 
+      <!-- 已挖到预览 + 2.2 翻转 toggle 按钮 -->
       <div class="scouted-preview" id="scouted-preview">
         <div class="scouted-preview-label">✅ 你将挖到这张牌：</div>
-        <div id="scouted-card-show"></div>
+        <!-- 固定尺寸容器，防止内容变化时跳动 -->
+        <div id="scouted-card-shell" class="scouted-card-shell">
+          <div id="scouted-card-val" class="scouted-card-val"></div>
+          <div id="scouted-card-top" class="scouted-card-corner scouted-card-tl"></div>
+          <div id="scouted-card-bot" class="scouted-card-corner scouted-card-br"></div>
+        </div>
+        <div id="scouted-card-sub" class="scouted-card-sub">（以当前面插入）</div>
+        <!-- 2.2 翻转双态 toggle 按钮（选端后出现，仅当牌可翻转时可见） -->
+        <div id="flip-face-toggle-wrap" style="display:none;margin-top:10px;">
+          <button class="flip-face-toggle" id="flip-face-toggle" onclick="toggleFlipFace()">
+            <span id="flip-face-icon">▲</span>
+            <span id="flip-face-label">以正面插入</span>
+          </button>
+        </div>
+        <!-- 正反面相同时的说明文字（不可翻转状态） -->
+        <div id="no-flip-tip" style="display:none;margin-top:8px;font-size:var(--fs-tag);color:var(--muted);text-align:center;">↕ 此牌正反面相同，无需翻转</div>
       </div>
 
-      <div class="insert-section">
-        <div class="insert-section-title">② 点击位置线选择插入位置：</div>
-        <div id="insert-preview-row"></div>
-        <div class="insert-hint-text" id="insert-hint"></div>
+      <!-- Step 2：选插入位置（2.1 分步弱化效果通过 insert-section-wrap 控制） -->
+      <div id="insert-section-wrap">
+        <div class="insert-section">
+          <div class="insert-section-title">② 点击位置线选择插入位置：</div>
+          <div id="insert-preview-row"></div>
+          <div class="insert-hint-text" id="insert-hint"></div>
+        </div>
       </div>
 
       <div id="scout-and-show-hint" style="display:none;margin-bottom:10px;padding:8px 10px;background:var(--blue-dim);border-radius:8px;font-size:var(--fs-tag);color:var(--blue);">
-        ✅ 挖角后，请在手牌中选择要演出的连续牌
+        ⚡ 挖角后，请在手牌中选择要演出的连续牌完成绝招！
       </div>
 
       <div class="modal-footer">
@@ -2465,6 +2626,21 @@
   <div id="waiting-bar">⏳ 等待其他玩家行动...</div>
   <!-- Toast -->
   <div id="toast"></div>
+
+  <!-- ─────────────────────────────────────────────────────
+       通用自定义 Confirm 弹窗
+  ──────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="custom-confirm-modal" style="z-index:500;">
+    <div class="modal-box" style="max-width:340px;text-align:center;">
+      <div id="confirm-icon" style="font-size:2rem;margin-bottom:8px;">⚠️</div>
+      <div class="modal-title" id="confirm-title" style="margin-bottom:8px;"></div>
+      <p class="desc-text" id="confirm-message" style="margin-bottom:0;"></p>
+      <div class="modal-footer" style="margin-top:18px;">
+        <button class="mbtn mbtn-ghost" id="confirm-cancel-btn" onclick="closeCustomConfirm(false)">取消</button>
+        <button class="mbtn" id="confirm-ok-btn" onclick="closeCustomConfirm(true)">确定</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ─── 方向2：高光时刻动效 DOM ─── -->
   <!-- 烟花 Canvas（清手/赢局） -->

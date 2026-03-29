@@ -1104,6 +1104,7 @@ function doShow() {
     socket.emit('finish_scout_and_show', { showIndices: selectedIndices });
     pendingFinishScoutAndShow = false;
     selectedIndices = [];
+    hideScoutPendingBanner(); // 2.4 演出完成，隐藏 Banner
   } else {
     socket.emit('show', { cardIndices: selectedIndices });
     selectedIndices = [];
@@ -1132,9 +1133,26 @@ function openScoutModal(isAndShow = false) {
     confirmBtn.textContent = '确认挖角';
   }
 
+  // ── 2.5 disable 确认按钮，直到用户选端 ──
+  confirmBtn.disabled = true;
+
+  // ── 2.3 模式标签 ──
+  const modeTag = document.getElementById('scout-mode-tag');
+  if (modeTag) {
+    modeTag.style.display = isAndShow ? 'inline-flex' : 'none';
+  }
+
+  // ── 2.1 重置分步进度条到 Step 1 ──
+  setScoutStep(1);
+
   renderScoutPositions();
   renderInsertPreview();
   document.getElementById('scouted-preview').style.display = 'none';
+  // 2.2 重置翻转 toggle
+  const toggleWrap = document.getElementById('flip-face-toggle-wrap');
+  if (toggleWrap) toggleWrap.style.display = 'none';
+  willFlip = false;
+  updateFlipFaceToggle();
   document.getElementById('scout-modal').style.display = 'flex';
 }
 
@@ -1149,30 +1167,17 @@ function renderScoutPositions() {
   const rightCard = stage[stage.length - 1];
 
   const pLeft  = document.getElementById('preview-left');
-  const fLeft  = document.getElementById('flip-left-wrap');
-  const cbLeft = document.getElementById('flip-left-cb');
   if (leftCard) {
     pLeft.innerHTML = miniCardHtml(leftCard);
-    fLeft.style.display = (leftCard.top !== leftCard.bottom) ? 'block' : 'none';
-    // ⚠️ Bug2 修复：只在弹窗首次打开（selPos===null 且未选择）时才重置 checkbox，
-    // 避免用户已勾选翻转后因 gameState 更新触发重渲导致状态丢失
-    if (selPos === null) cbLeft.checked = false;
   } else {
     pLeft.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
-    fLeft.style.display = 'none';
   }
 
   const pRight = document.getElementById('preview-right');
-  const fRight = document.getElementById('flip-right-wrap');
-  const cbRight = document.getElementById('flip-right-cb');
   if (stage.length === 0) {
     pRight.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
-    fRight.style.display = 'none';
   } else {
     pRight.innerHTML = miniCardHtml(rightCard);
-    fRight.style.display = (rightCard.top !== rightCard.bottom) ? 'block' : 'none';
-    // ⚠️ Bug2 修复：同上，只在未选择端时才重置
-    if (selPos === null) cbRight.checked = false;
   }
 }
 
@@ -1181,51 +1186,59 @@ function selectPos(pos) {
   document.getElementById('pos-left').classList.toggle('selected',  pos === 'left');
   document.getElementById('pos-right').classList.toggle('selected', pos === 'right');
 
-  if (pos === 'left')  document.getElementById('flip-right-cb').checked = false;
-  else                 document.getElementById('flip-left-cb').checked  = false;
-
-  const cbId = pos === 'left' ? 'flip-left-cb' : 'flip-right-cb';
-  willFlip = document.getElementById(cbId).checked;
+  // 重置翻转状态（每次选新端时重置）
+  willFlip = false;
 
   const stage = gameState?.stage || [];
   const card  = pos === 'left' ? stage[0] : stage[stage.length - 1];
   if (card) {
-    const prev = document.getElementById('scouted-preview');
-    prev.style.display = 'flex';
-    document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, willFlip);
+    document.getElementById('scouted-preview').style.display = 'flex';
+    // 原地更新卡片内容（不重建 DOM，默认不加动画）
+    updateScoutedCardDisplay(card, false);
+
+    // 2.2 翻转 toggle / 无翻转提示
+    const toggleWrap = document.getElementById('flip-face-toggle-wrap');
+    const noFlipTip  = document.getElementById('no-flip-tip');
+    const canFlip = card.top !== card.bottom;
+    if (toggleWrap) toggleWrap.style.display = canFlip ? 'block' : 'none';
+    if (noFlipTip)  noFlipTip.style.display  = canFlip ? 'none'  : 'block';
+    updateFlipFaceToggle();
   }
+
+  // ── 2.5 解锁确认按钮 ──
+  const confirmBtn = document.getElementById('scout-confirm-btn');
+  if (confirmBtn) confirmBtn.disabled = false;
+
+  // ── 2.1 进入 Step 2 ──
+  setScoutStep(2);
+
   renderInsertPreview();
 }
 
-function onFlipChange() {
-  if (!selPos) return;
-  const cbId = selPos === 'left' ? 'flip-left-cb' : 'flip-right-cb';
-  willFlip = document.getElementById(cbId).checked;
-  const stage = gameState?.stage || [];
-  const card  = selPos === 'left' ? stage[0] : stage[stage.length - 1];
-  if (card) {
-    document.getElementById('scouted-card-show').innerHTML = renderScoutedCardBig(card, willFlip);
-  }
-  renderInsertPreview();
-}
-
-function renderScoutedCardBig(card, flipped) {
+// 原地更新大牌预览内容（不重建 DOM ，防止跳动）
+function updateScoutedCardDisplay(card, flipped) {
   const displayCard = flipped
     ? { ...card, face: card.face === 'top' ? 'bottom' : 'top' }
     : card;
-  const val = cv(displayCard), other = co(displayCard);
-  return `
-    <div style="display:inline-flex;flex-direction:column;align-items:center;
-                justify-content:center;width:44px;height:60px;border-radius:7px;
-                background:${cardBg(val)};position:relative;
-                box-shadow:0 2px 10px rgba(0,0,0,0.4);border:1.5px solid var(--gold);">
-      <div style="position:absolute;top:2px;left:3px;font-size:0.52rem;color:#aaa;">${other}</div>
-      <div style="font-size:1.4rem;font-weight:900;color:#1a1a2e;" class="${vc(val)}">${val}</div>
-      <div style="position:absolute;bottom:2px;right:3px;font-size:0.52rem;color:#aaa;">${other}</div>
-    </div>
-    <div style="font-size:0.68rem;color:var(--muted);margin-top:4px;">
-      ${flipped ? '（已翻转）' : '（以当前面插入）'}
-    </div>`;
+  const val   = cv(displayCard);
+  const other = co(displayCard);
+  const bg    = cardBg(val);
+
+  const shell = document.getElementById('scouted-card-shell');
+  const valEl = document.getElementById('scouted-card-val');
+  const topEl = document.getElementById('scouted-card-top');
+  const botEl = document.getElementById('scouted-card-bot');
+  const subEl = document.getElementById('scouted-card-sub');
+
+  if (!shell) return;
+
+  // 更新颜色类名（先清除旧的）
+  valEl.className = 'scouted-card-val ' + vc(val);
+  valEl.textContent = val;
+  shell.style.background = bg;
+  topEl.textContent = other;
+  botEl.textContent = other;
+  subEl.textContent = flipped ? '（已翻转，以反面插入）' : '（以正面插入）';
 }
 
 function renderInsertPreview() {
@@ -1263,6 +1276,104 @@ function renderInsertPreview() {
 function setInsert(idx) {
   selInsertIdx = idx;
   renderInsertPreview();
+}
+
+// ── 2.1/2.2/2.4 辅助函数 ───────────────────────────────────
+
+// 2.2 翻转 toggle 按钮（正/反面切换）
+function toggleFlipFace() {
+  willFlip = !willFlip;
+  updateFlipFaceToggle();
+  // 原地更新大牌预览（无跳动）
+  const stage = gameState?.stage || [];
+  const card  = selPos === 'left' ? stage[0] : stage[stage.length - 1];
+  if (card) updateScoutedCardDisplay(card, willFlip);
+  renderInsertPreview();
+}
+
+function updateFlipFaceToggle() {
+  const btn   = document.getElementById('flip-face-toggle');
+  const icon  = document.getElementById('flip-face-icon');
+  const label = document.getElementById('flip-face-label');
+  if (!btn || !icon || !label) return;
+  if (willFlip) {
+    btn.classList.add('flipped');
+    icon.textContent  = '▼';
+    label.textContent = '以反面插入';
+  } else {
+    btn.classList.remove('flipped');
+    icon.textContent  = '▲';
+    label.textContent = '以正面插入';
+  }
+}
+
+// ── 2.4 挖+演持久 Banner ───────────────────────────────────
+function showScoutPendingBanner() {
+  const el = document.getElementById('scout-pending-banner');
+  if (el) el.classList.add('show');
+}
+
+function hideScoutPendingBanner() {
+  const el = document.getElementById('scout-pending-banner');
+  if (el) el.classList.remove('show');
+}
+
+// ── 通用自定义 Confirm 弹窗 ───────────────────────────────────
+let _confirmCallback = null;
+
+/**
+ * showConfirm({ title, message, confirmText, danger, onConfirm })
+ * 替代原生 window.confirm()
+ */
+function showConfirm({ title = '请确认', message = '', confirmText = '确定', danger = false, icon = '⚠️', onConfirm }) {
+  _confirmCallback = onConfirm || null;
+  document.getElementById('confirm-title').textContent   = title;
+  document.getElementById('confirm-message').textContent = message;
+  document.getElementById('confirm-icon').textContent    = icon;
+  document.getElementById('confirm-ok-btn').textContent  = confirmText;
+  document.getElementById('confirm-ok-btn').className    = 'mbtn' + (danger ? ' danger' : ' mbtn-gold');
+  document.getElementById('custom-confirm-modal').style.display = 'flex';
+}
+
+function closeCustomConfirm(confirmed) {
+  document.getElementById('custom-confirm-modal').style.display = 'none';
+  if (confirmed && typeof _confirmCallback === 'function') {
+    _confirmCallback();
+  }
+  _confirmCallback = null;
+}
+
+function confirmDismissScoutBanner() {
+  showConfirm({
+    title:       '放弃演出？',
+    message:     '放弃后本回合结束，挖到的牌保留在手牌中。',
+    confirmText: '确定放弃',
+    danger:      true,
+    icon:        '⚠️',
+    onConfirm:   dismissScoutBanner,
+  });
+}
+
+function dismissScoutBanner() {
+  // 放弃演出步骤：向服务端发送取消指令，服务端会结束本回合
+  // 挖角不可逆，挖到的牌保留在手牌中
+  socket.emit('cancel_scout_and_show');
+  // 客户端状态在 scout_and_show_cancelled 事件回调中重置
+}
+
+function setScoutStep(step) {
+  const s1 = document.getElementById('scout-step-1');
+  const s2 = document.getElementById('scout-step-2');
+  const insertSection = document.getElementById('insert-section-wrap');
+  if (!s1 || !s2) return;
+  s1.classList.toggle('active',  step === 1);
+  s1.classList.toggle('done',    step > 1);
+  s2.classList.toggle('active',  step === 2);
+  // 选端前弱化插入区
+  if (insertSection) {
+    insertSection.style.opacity = step === 1 ? '0.35' : '1';
+    insertSection.style.pointerEvents = step === 1 ? 'none' : 'auto';
+  }
 }
 
 function confirmScout() {
@@ -1886,7 +1997,8 @@ socket.on('action_log', ({ type, playerName, position }) => {
 socket.on('scout_prepared', () => {
   pendingFinishScoutAndShow = true;
   selectedIndices = [];
-  showToast('✅ 挖角成功！请在手牌中选连续的牌，然后点「演出」', 'success');
+  showToast('✅ 挖角成功！', 'success');
+  showScoutPendingBanner(); // 2.4 持久 Banner
   updateActionBtns();
 });
 
@@ -1896,6 +2008,7 @@ socket.on('scout_and_show_cancelled', ({ message }) => {
   scoutAndShowMode = false;
   selPos = null;
   selectedIndices = [];
+  hideScoutPendingBanner(); // 2.4 隐藏 Banner
   showToast('⏰ ' + (message || '挖角并演出已超时取消'), 'error');
   updateActionBtns();
 });

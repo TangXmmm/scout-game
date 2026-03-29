@@ -80,6 +80,26 @@ function executeManagedAction(room, playerId) {
   const game = room.game;
   if (!game || game.state !== 'playing') return;
 
+  // ── 处理"挖角并演出"中间态 ──────────────────────────────────
+  // 场景：玩家已执行 prepareScoutAndShow（挖角完成），但在选演出牌阶段超时。
+  // 此时 pendingScoutAndShow = playerId，游戏处于不一致中间态：
+  //   - 挖到的牌已插入手牌，stage 已少一张
+  //   - usedScoutAndShow 还没标记，下一轮仍可重复使用
+  //   - 所有后续 show/scout 调用都会因 pendingScoutAndShow 状态被拒绝（或状态异常）
+  // 修复：清除挂起标记并标记 usedScoutAndShow，然后尝试托管演出（此时手牌已含挖到的牌）
+  if (game.pendingScoutAndShow === playerId) {
+    game.cancelPendingScoutAndShow(playerId);
+    console.log(`[超时托管] ${room.code} - ${playerId} 取消 pendingScoutAndShow 中间态`);
+    // 通知客户端：挖+演中间态被取消，重置 pendingFinishScoutAndShow 状态
+    const playerInfo = room.players.find(p => p.id === playerId);
+    if (playerInfo?.socketId) {
+      io.to(playerInfo.socketId).emit('scout_and_show_cancelled', {
+        message: '超时：挖角并演出已取消，挖到的牌已保留在手牌中',
+      });
+    }
+    // 继续往下走，使用托管策略完成演出（手牌已更新，stage 已是挖角后的状态）
+  }
+
   // 尝试找最小可行 SHOW
   const minShow = findMinimalShow(game, playerId);
   if (minShow) {

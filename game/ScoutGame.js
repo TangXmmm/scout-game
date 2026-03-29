@@ -411,6 +411,34 @@ class ScoutGame {
     return { success: true, action: 'scout_and_show' };
   }
 
+  /**
+   * 取消"挖角并演出"的挖角步骤（超时托管时调用）
+   *
+   * 场景：玩家执行了 prepareScoutAndShow（挖角完成），但在选演出牌阶段超时。
+   * 此时游戏处于不一致的中间态：
+   *   - 挖到的牌已插入手牌
+   *   - stage 可能已少了一张
+   *   - stageOwner 可能已被清空
+   *   - scoutTokens 可能已发放了补偿
+   *   - pendingScoutAndShow = playerId（卡住标记）
+   *
+   * 回滚策略（最简化）：
+   *   直接清除 pendingScoutAndShow 标记，不回滚牌和 token。
+   *   将该回合视为"完成了一次挖角"（无 scoutAndShow 特权），
+   *   标记 usedScoutAndShow = true，防止后续重复使用，
+   *   并让 executeManagedAction 以普通"挖角完成"状态继续执行托管演出逻辑。
+   *
+   *   ⚠️ 注意：此方法不切换玩家也不广播，调用方负责后续行动。
+   */
+  cancelPendingScoutAndShow(playerId) {
+    if (this.pendingScoutAndShow !== playerId) return false;
+    // 标记挖+演已用（防止后续再次触发）
+    this.usedScoutAndShow[playerId] = true;
+    // 清除挂起标记，让游戏恢复正常流程
+    this.pendingScoutAndShow = null;
+    return true;
+  }
+
   // 兼容旧接口：一次性完成挖角并演出（已弃用，保留向后兼容）
   scoutAndShow(playerId, scoutPosition, insertIndex, showIndices, flipScoutedCard = false) {
     const prep = this.prepareScoutAndShow(playerId, scoutPosition, insertIndex, flipScoutedCard);

@@ -1507,6 +1507,16 @@ socket.on('scout_prepared', () => {
   updateActionBtns();
 });
 
+// 超时托管取消了"挖角并演出"的中间态 → 重置客户端状态
+socket.on('scout_and_show_cancelled', ({ message }) => {
+  pendingFinishScoutAndShow = false;
+  scoutAndShowMode = false;
+  selPos = null;
+  selectedIndices = [];
+  showToast('⏰ ' + (message || '挖角并演出已超时取消'), 'error');
+  updateActionBtns();
+});
+
 socket.on('action_error', ({ message }) => {
   showToast('❌ ' + message, 'error');
   selectedIndices = [];

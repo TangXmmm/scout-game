@@ -424,6 +424,179 @@
       padding: 0 8px;
     }
 
+    /* ── 昵称快捷选项 ─────────────────────────────── */
+    .nickname-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .preset-chip {
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: rgba(247,151,30,0.08);
+      border: 1px solid rgba(247,151,30,0.25);
+      color: var(--gold);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+    .preset-chip:hover {
+      background: rgba(247,151,30,0.2);
+      border-color: rgba(247,151,30,0.5);
+      transform: translateY(-1px);
+    }
+    .preset-chip:active { transform: scale(0.95); }
+    .preset-chip.selected {
+      background: rgba(247,151,30,0.25);
+      border-color: var(--gold);
+      box-shadow: 0 0 8px rgba(247,151,30,0.3);
+    }
+    .adjective-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .adjective-btn {
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: rgba(88,166,255,0.08);
+      border: 1px solid rgba(88,166,255,0.2);
+      color: var(--blue);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      touch-action: manipulation;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .adjective-btn:hover { background: rgba(88,166,255,0.15); }
+    .adjective-preview {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .adjective-preview .preview-name {
+      color: var(--gold);
+      font-weight: 600;
+    }
+    .nickname-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .nickname-label-row label { color: var(--text-muted); font-size: 0.82rem; }
+    .nickname-label-row .clear-adj {
+      font-size: 0.72rem;
+      color: #4a5568;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 8px;
+      transition: color 0.15s;
+    }
+    .nickname-label-row .clear-adj:hover { color: var(--text-muted); }
+
+    /* ── 玩法卡片（右侧/下方）────────────────────────── */
+    .play-cards-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .play-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      transition: background 0.2s, border-color 0.2s;
+      cursor: default;
+    }
+    .play-card:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.12);
+    }
+    .play-card-icon {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+      line-height: 1;
+      margin-top: 2px;
+    }
+    .play-card-body {}
+    .play-card-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .play-card-title .badge {
+      font-size: 0.62rem;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .badge-show  { background: rgba(63,185,80,0.15);  color: #3fb950; border: 1px solid rgba(63,185,80,0.25); }
+    .badge-scout { background: rgba(247,201,72,0.15); color: #f7c948; border: 1px solid rgba(247,201,72,0.25); }
+    .badge-order { background: rgba(88,166,255,0.12); color: #58a6ff; border: 1px solid rgba(88,166,255,0.2); }
+    .play-card-desc {
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+    .play-card-desc em {
+      font-style: normal;
+      color: var(--text);
+      font-weight: 600;
+    }
+    /* 完整规则折叠按钮 */
+    .rules-toggle-btn {
+      width: 100%;
+      margin-top: 4px;
+      padding: 9px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s;
+      touch-action: manipulation;
+    }
+    .rules-toggle-btn:hover { background: rgba(255,255,255,0.06); }
+    .rules-toggle-btn .arrow { transition: transform 0.25s; }
+    .rules-toggle-btn.open .arrow { transform: rotate(180deg); }
+    /* 完整规则折叠区 */
+    #full-rules {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    #full-rules.open { max-height: 800px; }
+    .rules-inner {
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     /* ── 规则卡片（右侧或下方）─────────────────────── */
     .rules-card {
       background: rgba(255,255,255,0.03);
@@ -484,6 +657,22 @@
     /* ── 移动端 safe area ─────────────────────────── */
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
       body { padding-bottom: env(safe-area-inset-bottom); }
+    }
+
+    /* ── 规则区（新版）容器 ─────────────────────────── */
+    .rules-new-wrap {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(16px, 4vw, 24px);
+    }
+    .rules-new-wrap h3 {
+      color: var(--gold-light);
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* ── 选座位弹窗 ───────────────────────────────── */
@@ -616,10 +805,33 @@
         <div id="lobby-entry">
           <div class="card" style="margin-bottom:14px;">
             <h2>🎭 开始游戏</h2>
-            <div class="input-group">
+
+            <!-- 昵称快捷选项 -->
+            <div class="nickname-label-row">
               <label>你的昵称</label>
-              <input type="text" id="player-name" placeholder="输入昵称（最多8字）" maxlength="8"
-                     autocomplete="off" autocorrect="off" spellcheck="false" />
+              <span class="clear-adj" id="clear-adj-btn" onclick="clearAdjective()" style="display:none;">✕ 去掉定语</span>
+            </div>
+            <!-- 快捷昵称 chips -->
+            <div class="nickname-presets" id="nickname-presets">
+              <span class="preset-chip" onclick="pickPreset('汤胖')">汤胖</span>
+              <span class="preset-chip" onclick="pickPreset('Nico')">Nico</span>
+              <span class="preset-chip" onclick="pickPreset('王姐')">王姐</span>
+              <span class="preset-chip" onclick="pickPreset('娜姐')">娜姐</span>
+              <span class="preset-chip" onclick="pickPreset('🐒')">🐒</span>
+              <span class="preset-chip" onclick="pickPreset('三分甜哥哥')">三分甜哥哥</span>
+              <span class="preset-chip" onclick="pickPreset('亮仔')">亮仔</span>
+              <span class="preset-chip" onclick="pickPreset('路人甲')">路人甲</span>
+            </div>
+            <!-- 随机定语行 -->
+            <div class="adjective-row" id="adjective-row" style="display:none;">
+              <button class="adjective-btn" onclick="randomAdjective()">✨ 生成人设</button>
+              <div class="adjective-preview" id="adjective-preview"></div>
+            </div>
+
+            <div class="input-group" style="margin-bottom:14px;">
+              <input type="text" id="player-name" placeholder="点上方快捷名 或 直接输入" maxlength="10"
+                     autocomplete="off" autocorrect="off" spellcheck="false"
+                     oninput="onNameInput()" />
             </div>
             <div class="input-group">
               <label>房间码 <span style="color:#4a5568;font-weight:400;">（加入已有房间时填写）</span></label>
@@ -629,7 +841,7 @@
             </div>
             <button class="btn btn-primary" id="btn-create" onclick="createRoom()">🎪 创建新房间</button>
             <div class="divider">— 或 —</div>
-            <button class="btn btn-secondary" id="btn-join" onclick="joinRoom()">🚪 加入已有房间</button>
+            <button class="btn btn-secondary" id="btn-join" onclick="joinRoom()">🔑 加入已有房间</button>
             <div class="error-message" id="entry-error"></div>
           </div>
         </div>
@@ -656,56 +868,91 @@
         </div>
       </div>
 
-      <!-- 右栏：规则说明 -->
-      <div class="rules-card">
-        <h3>📖 游戏规则速览</h3>
+      <!-- 右栏：3张玩法卡片 + 折叠完整规则 -->
+      <div class="rules-new-wrap">
+        <h3>⚡ 核心玩法 · 30秒上手</h3>
 
-        <div class="rule-item">
-          <div class="rule-icon">🎭</div>
-          <div class="rule-content">
-            <strong>演出（SHOW）</strong>
-            出一组手牌中连续位置的同值牌或顺子，压过当前在场组。张数多直接赢；同张数时，同值组强于顺子；同类型则比最小数字。
+        <!-- 3张关键认知卡 -->
+        <div class="play-cards-wrap">
+
+          <div class="play-card">
+            <div class="play-card-icon">🎭</div>
+            <div class="play-card-body">
+              <div class="play-card-title">
+                怎么出牌？
+                <span class="badge badge-show">SHOW</span>
+              </div>
+              <div class="play-card-desc">
+                从手牌中选<em>位置连续</em>的一组牌（同值 或 顺子），张数要比桌上在场组<em>多</em>，或同张数时<em>数字更大</em>，就能压过去。
+              </div>
+            </div>
+          </div>
+
+          <div class="play-card">
+            <div class="play-card-icon">🔍</div>
+            <div class="play-card-body">
+              <div class="play-card-title">
+                怎么挖角？
+                <span class="badge badge-scout">SCOUT</span>
+              </div>
+              <div class="play-card-desc">
+                打不过就挖：从在场组<em>左端或右端</em>取 1 张牌，插入自己手牌<em>任意位置</em>。对方获得 1 个 +1 分的 Token。
+              </div>
+            </div>
+          </div>
+
+          <div class="play-card">
+            <div class="play-card-icon">🔢</div>
+            <div class="play-card-body">
+              <div class="play-card-title">
+                为什么不能乱排手牌？
+                <span class="badge badge-order">顺序</span>
+              </div>
+              <div class="play-card-desc">
+                出牌必须是<em>手牌中位置相邻</em>的一组——顺序是你的战术核心，挖到的牌插哪里，决定后续能出什么组合。
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 完整规则折叠二级入口 -->
+        <button class="rules-toggle-btn" id="rules-toggle-btn" onclick="toggleFullRules()">
+          📖 查看完整规则
+          <span class="arrow">▼</span>
+        </button>
+        <div id="full-rules">
+          <div class="rules-inner">
+            <div class="rule-item">
+              <div class="rule-icon">⚡</div>
+              <div class="rule-content">
+                <strong>挖角+演出（SCOUT & SHOW）</strong>
+                先挖角再出牌，每局每人只能用 1 次。
+              </div>
+            </div>
+            <div class="rule-item">
+              <div class="rule-icon">🏆</div>
+              <div class="rule-content">
+                <strong>计分规则</strong>
+                赢家（先出完手牌者）：只得挖角Token分；其他人：Token数 − 剩余手牌数。共进行「人数」轮，总分最高者胜。
+              </div>
+            </div>
+            <div class="rule-item">
+              <div class="rule-icon">🔄</div>
+              <div class="rule-content">
+                <strong>翻牌阶段</strong>
+                每局开始时，可选择将整手牌上下翻转（正反面互换且顺序倒置），顺序确认后不可再变。
+              </div>
+            </div>
+            <div class="player-count-row">
+              <div class="pcount-chip">2人: 各11张</div>
+              <div class="pcount-chip">3人: 各12张</div>
+              <div class="pcount-chip">4人: 各11张</div>
+              <div class="pcount-chip">5人: 各9张</div>
+            </div>
           </div>
         </div>
 
-        <div class="rule-item">
-          <div class="rule-icon">🔍</div>
-          <div class="rule-content">
-            <strong>挖角（SCOUT）</strong>
-            从在场组左端或右端取1张牌，插入自己手牌任意位置。在场组主人获得1个挖角Token（+1分）。
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <div class="rule-icon">⚡</div>
-          <div class="rule-content">
-            <strong>挖角+演出（SCOUT & SHOW）</strong>
-            先挖角再出牌，每局每人只能用1次。
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <div class="rule-icon">🏆</div>
-          <div class="rule-content">
-            <strong>计分规则</strong>
-            赢家（先出完手牌者）：只得挖角Token分；其他人：Token数 − 剩余手牌数。游戏共进行「人数」轮，总分最高者胜。
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <div class="rule-icon">🔄</div>
-          <div class="rule-content">
-            <strong>翻牌阶段</strong>
-            每局开始时，你可以选择将整手牌上下翻转（正反面互换且顺序倒置），顺序固定后不可再变动。
-          </div>
-        </div>
-
-        <div class="player-count-row">
-          <div class="pcount-chip">2人: 44张/各11张</div>
-          <div class="pcount-chip">3人: 36张/各12张</div>
-          <div class="pcount-chip">4人: 44张/各11张</div>
-          <div class="pcount-chip">5人: 45张/各9张</div>
-        </div>
       </div>
 
     </div>
@@ -740,6 +987,90 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script>
+  // ── 昵称快捷选项 & 随机定语 ────────────────────────────────────────
+  const ADJECTIVES = [
+    '靠谱又迷糊的','摸鱼专业户','不知道在干嘛的',
+    '永远在线但不回消息的','随时准备甩锅的','表面很忙实则在划水的',
+    '发疯中的','开局必出最烂牌的','嘴上说不要手上很诚实的',
+    '吃瓜群众代表','在找厕所的','假装自己会玩的',
+    '演技派','刀法全靠猜的','号称从不失误的',
+    '宇宙级社恐但话最多的','今天运气贼好的','被牌运支配的',
+    '人畜无害表情包本体','颠覆传统玩法的','躺平宣言代言人',
+    '永远不看规则直接玩的','眼神死但心里有数的','随机应变选手',
+  ];
+
+  let _currentBase = '';     // 当前选中的预设基础昵称
+  let _currentAdj  = '';     // 当前附加的定语
+
+  function pickPreset(name) {
+    _currentBase = name;
+    // 高亮选中 chip
+    document.querySelectorAll('.preset-chip').forEach(el => {
+      el.classList.toggle('selected', el.textContent === name);
+    });
+    // 展示定语行
+    const adjRow = document.getElementById('adjective-row');
+    const clearBtn = document.getElementById('clear-adj-btn');
+    if (adjRow) adjRow.style.display = 'flex';
+    if (clearBtn) clearBtn.style.display = '';
+    // 如果没有定语，先随机一个
+    if (!_currentAdj) randomAdjective();
+    else updateNameWithAdj();
+  }
+
+  function randomAdjective() {
+    const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+    _currentAdj = adj;
+    updateNameWithAdj();
+  }
+
+  function clearAdjective() {
+    _currentAdj = '';
+    const input = document.getElementById('player-name');
+    if (input) input.value = _currentBase;
+    const preview = document.getElementById('adjective-preview');
+    if (preview) preview.innerHTML = '';
+    document.getElementById('clear-adj-btn').style.display = 'none';
+    const adjRow = document.getElementById('adjective-row');
+    if (adjRow) adjRow.style.display = 'none';
+  }
+
+  function updateNameWithAdj() {
+    const finalName = _currentAdj ? _currentAdj + _currentBase : _currentBase;
+    const input = document.getElementById('player-name');
+    if (input) input.value = finalName;
+    const preview = document.getElementById('adjective-preview');
+    if (preview) {
+      preview.innerHTML = `昵称将是：<span class="preview-name">${finalName}</span>`;
+    }
+  }
+
+  // 用户手动输入时取消快捷选中状态
+  function onNameInput() {
+    _currentBase = '';
+    _currentAdj  = '';
+    document.querySelectorAll('.preset-chip').forEach(el => el.classList.remove('selected'));
+    const adjRow = document.getElementById('adjective-row');
+    const clearBtn = document.getElementById('clear-adj-btn');
+    if (adjRow) adjRow.style.display = 'none';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+
+  // ── 完整规则折叠 ────────────────────────────────────────────────────
+  function toggleFullRules() {
+    const btn  = document.getElementById('rules-toggle-btn');
+    const area = document.getElementById('full-rules');
+    if (!btn || !area) return;
+    const isOpen = area.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+    btn.querySelector('.arrow').textContent = isOpen ? '▲' : '▼';
+    btn.innerHTML = btn.innerHTML.replace(
+      isOpen ? '查看完整规则' : '收起规则',
+      isOpen ? '收起规则' : '查看完整规则'
+    );
+  }
+  </script>
   <script src="/js/lobby.js"></script>
 </body>
 </html>

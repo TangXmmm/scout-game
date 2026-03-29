@@ -302,13 +302,19 @@ function renderTable(state) {
     el.style.top  = `${sy}%`;
     el.dataset.playerId = p.id;
     el.onclick = () => showPlayerInfo(p.id);
+    // 昵称截断：超过 20 字用 ... 补位
+    const MAX_NAME = 20;
+    const displayName = (p.name || '').length > MAX_NAME
+      ? p.name.slice(0, MAX_NAME) + '…'
+      : (p.name || '');
+
     el.innerHTML = `
       <div class="seat-card">
         <div class="seat-avatar-wrap">
           <div class="seat-avatar">${initials}</div>
         </div>
         <div class="seat-info">
-          <div class="seat-name">${p.name}${isMe ? ' 👤' : ''}</div>
+          <div class="seat-name">${displayName}${isMe ? ' 👤' : ''}</div>
           <div class="seat-stats">
             <span class="${cardsClass}">🃏${hc}</span>
             <span class="s-sep">·</span>

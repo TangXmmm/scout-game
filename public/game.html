@@ -518,7 +518,7 @@
       gap: 7px;
       padding: 6px 9px 6px 7px;
       min-width: 108px;
-      max-width: 140px;
+      max-width: 200px;
       background: rgba(12, 20, 16, 0.82);
       border: 1.5px solid rgba(255, 255, 255, 0.10);
       border-radius: 12px;
@@ -684,10 +684,15 @@
     .seat-name {
       font-size: var(--fs-meta); font-weight: 700; /* 13-14px */
       color: var(--text);
-      white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis;
-      max-width: 84px;
-      line-height: 1.2;
+      /* 允许折行：最多 2 行，超出截断 */
+      white-space: normal;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-all;
+      line-height: 1.3;
+      max-height: calc(1.3em * 2); /* 精确限制 2 行高度 */
     }
     .seat.active:not(.is-me) .seat-name { color: var(--gold); }
     .seat.is-me .seat-name              { color: var(--blue); }

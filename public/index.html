@@ -472,6 +472,11 @@
       justify-content: center;
       backdrop-filter: blur(6px);
       padding: 0;
+      pointer-events: none;
+    }
+    #avatar-full-modal.open {
+      display: flex;
+      pointer-events: auto;
     }
     #avatar-full-modal.open { display: flex; }
     .avatar-full-sheet {
@@ -860,7 +865,7 @@
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.85);
-      z-index: 500;
+      z-index: 10100;
       align-items: center;
       justify-content: center;
       padding: 16px;

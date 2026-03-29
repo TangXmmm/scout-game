@@ -81,12 +81,12 @@
       overflow: hidden;
       position: relative;
     }
-    /* 游戏主区：8:2 比例分配 */
+    /* 游戏主区：纵向 flex，顶部 header + 牌桌 + 手牌 */
     #game-layout {
       flex: 1;
       display: flex;
       flex-direction: column;
-      min-height: 0;   /* 允许 flex 子项收缩 */
+      min-height: 0;
       overflow: hidden;
     }
 
@@ -99,9 +99,9 @@
        牌桌区（圆角矩形扑克桌 + 席位围桌）
     ══════════════════════════════════════════ */
 
-    /* 牌桌区：flex:8，内部横向：桌面居中 + 聊天侧边栏右侧 */
+    /* 牌桌区：目标占 61%，flex:61 */
     #table-wrapper {
-      flex: 8;
+      flex: 61;
       min-height: 0;
       display: flex;
       flex-direction: row;
@@ -122,19 +122,19 @@
       overflow: hidden;
     }
 
-    /* 桌面区：撑满 table-center，保持合理比例 */
+    /* 桌面区：固定 2.05:1 宽高比横向椭圆舞台桌 */
     #table-section {
       position: relative;
-      width: 100%;
-      max-width: 560px;
-      flex: 1;
-      min-height: 0;
-      margin: 0 auto;
+      width: min(100%, 640px);       /* 最宽 640px，给侧边栏和边距留空间 */
+      aspect-ratio: 2.05 / 1;        /* ★ 固定宽高比 2.05:1 */
+      flex-shrink: 0;                /* 不压缩，保持宽高比 */
+      margin: auto;                  /* 垂直 + 水平居中 */
+      overflow: visible;             /* 席位头像可溢出桌面边缘 */
     }
 
-    /* ── 聊天侧边栏：常显在桌面右侧，半透明悬浮 ── */
+    /* ── 聊天侧边栏：常显在桌面右侧，半透明悬浮（约 10%，缩为 200px） ── */
     #chat-sidebar {
-      width: 260px;  /* 扩大至约 2 倍（原 130-150px → 260px） */
+      width: 200px;  /* 从 260px 缩减，侧边栏约占 10%，让桌面更宽 */
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -246,58 +246,79 @@
       padding: 16px 4px;
     }
 
-    /* ── 扑克桌：横向软边椭圆，深蓝黑/暗青桌底 ── */
+    /* ── 扑克桌：2.05:1 横向椭圆，哑光丝绒深色磨砂材质 ── */
     #table-felt {
       position: absolute;
-      /* 内缩留出席位头像空间 */
+      /* 席位溢出桌边 → 桌面 inset 让出席位头像所需 24px 空间 */
       top: 24px;
-      left: 0;
-      right: 0;
+      left: 24px;
+      right: 24px;
       bottom: 24px;
-      /* 横向软边椭圆：水平弧度大，垂直弧度小，整体扁平不全圆 */
-      border-radius: 46% / 38%;
+      /* 完美椭圆（宽高比由父 table-section 固定为 2.05:1） */
+      border-radius: 50% / 50%;
+      /* ── 哑光丝绒材质渐变 ──
+         1. 底层：深蓝黑基调
+         2. 中层：低饱和暗青绿 felt 面料色
+         3. 顶层：中央聚光椭圆（亮 8~12%），边缘渐暗
+         4. 噪点叠层通过 SVG filter 实现（见 #table-noise）*/
       background:
-        /* 中央聚光：低饱和青绿，营造舞台感 */
-        radial-gradient(ellipse 55% 65% at 50% 46%,
-          #1b3d32 0%,
-          #12342e 35%,
-          #0e2420 65%,
-          #0b1a16 100%),
-        /* 外围深蓝黑底色 */
-        linear-gradient(180deg, #151a22 0%, #0f1116 100%);
-      /* 冷金/青灰描边，而非亮绿 */
-      border: 4px solid rgba(80, 140, 120, 0.45);
+        /* 中央聚光：椭圆亮区，营造舞台感 */
+        radial-gradient(ellipse 52% 60% at 50% 48%,
+          rgba(255,255,255,0.055) 0%,
+          rgba(255,255,255,0.018) 40%,
+          rgba(0,0,0,0.12) 75%,
+          rgba(0,0,0,0.30) 100%),
+        /* 桌面 felt 基底色：低饱和暗青绿 */
+        radial-gradient(ellipse 70% 80% at 50% 46%,
+          #1e4538 0%,
+          #163830 30%,
+          #0f2a22 62%,
+          #091510 100%),
+        /* 底层：深蓝黑，确保边缘足够暗 */
+        linear-gradient(165deg, #131820 0%, #0b0e14 100%);
+      /* ── 桌边：冷金属光泽 ──
+         双层描边：内层半透明青金，外层暗晕 */
+      border: 3px solid;
+      border-color:
+        rgba(100, 168, 140, 0.55);
       box-shadow:
-        /* 外描边：深青灰轮廓 */
-        0 0 0 6px rgba(15, 28, 24, 0.9),
-        0 0 0 8px rgba(50, 90, 75, 0.25),
-        /* 整体投影 */
-        0 10px 40px rgba(0,0,0,0.8),
-        0 4px 16px rgba(0,0,0,0.6),
-        /* 内发光：极淡 */
-        inset 0 1px 16px rgba(255,255,255,0.025),
-        inset 0 -2px 12px rgba(0,0,0,0.4);
+        /* 外环暗晕（双层）*/
+        0 0 0 4px rgba(10, 22, 18, 0.96),
+        0 0 0 6px rgba(45, 85, 68, 0.28),
+        /* 冷金属柔光边缘发光（轻微，不刺眼）*/
+        0 0 16px 3px rgba(55, 120, 90, 0.18),
+        /* 整体大投影 */
+        0 14px 52px rgba(0,0,0,0.88),
+        0 4px 18px rgba(0,0,0,0.6),
+        /* 内发光：极淡顶部高光 */
+        inset 0 2px 22px rgba(255,255,255,0.022),
+        /* 内阴影：底部边缘更暗 */
+        inset 0 -4px 16px rgba(0,0,0,0.55);
+      /* 哑光磨砂质感 SVG 噪点 filter */
+      filter: url(#table-noise);
     }
-    /* 桌面内圈线：冷金细线 */
+    /* 桌面内圈：极细冷金线（丝绒桌的包边压线效果）*/
     #table-felt::before {
       content: '';
       position: absolute;
-      inset: 10px;
-      border-radius: 46% / 38%;
-      border: 1px solid rgba(100, 160, 140, 0.1);
+      inset: 8px;
+      border-radius: 50% / 50%;
+      border: 1.5px solid rgba(110, 172, 148, 0.12);
+      pointer-events: none;
     }
     /* SCOUT 水印 */
     #table-felt::after {
       content: 'SCOUT';
       position: absolute;
       top: 50%; left: 50%;
-      transform: translate(-50%,-50%);
-      font-size: 1rem;
+      transform: translate(-50%, -50%);
+      font-size: clamp(0.7rem, 2.5vw, 1.1rem);
       font-weight: 900;
-      letter-spacing: 8px;
-      color: rgba(255,255,255,0.025);
+      letter-spacing: 10px;
+      color: rgba(255,255,255,0.018);
       pointer-events: none;
       white-space: nowrap;
+      text-transform: uppercase;
     }
 
     /* ── 在场组悬浮在桌面中央（中央聚光底座） ── */
@@ -521,12 +542,14 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 7px 14px;
+      padding: 6px 14px;
       background: rgba(0,0,0,0.5);
       border-bottom: 1px solid var(--border);
       font-size: var(--fs-meta); /* meta: 13-14px */
       color: var(--muted);
-      flex-shrink: 0;
+      flex-shrink: 0;          /* 不参与 flex 伸缩，固定自身高度 */
+      min-height: 6vh;
+      max-height: 8vh;
       gap: 8px;
       backdrop-filter: blur(6px);
     }
@@ -607,7 +630,7 @@
        底部合并区：手牌(上) + 操作按钮(下)，纵向布局（唯一权威定义）
     ══════════════════════════════════════════ */
     #bottom-bar {
-      flex: 2;
+      flex: 26;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -1385,6 +1408,22 @@
   </style>
 </head>
 <body>
+  <!-- SVG 噪点 filter：哑光磨砂桌面质感（不占空间）-->
+  <svg width="0" height="0" style="position:absolute;pointer-events:none;overflow:hidden;" aria-hidden="true">
+    <defs>
+      <filter id="table-noise" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch" result="noiseMap"/>
+        <feColorMatrix type="saturate" values="0" in="noiseMap" result="grayNoise"/>
+        <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="blended"/>
+        <feComponentTransfer in="blended">
+          <feFuncR type="linear" slope="1"/>
+          <feFuncG type="linear" slope="1"/>
+          <feFuncB type="linear" slope="1"/>
+          <feFuncA type="linear" slope="0.94"/>
+        </feComponentTransfer>
+      </filter>
+    </defs>
+  </svg>
   <!-- ══ 最外层 Shell：game-layout + chat-bar 上下排列 ══ -->
   <div id="app-shell">
 

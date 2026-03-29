@@ -385,7 +385,186 @@
       display: flex; align-items: center; justify-content: center;
       font-weight: 700; font-size: 0.95rem;
       color: #1a1a2e; flex-shrink: 0;
+      overflow: hidden;
     }
+    .player-avatar img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+    }
+
+    /* ── 头像选择行 ───────────────────────────────── */
+    .avatar-row-wrap {
+      margin-bottom: 14px;
+    }
+    .avatar-row-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .avatar-row-label span { color: var(--text-muted); font-size: 0.82rem; }
+    .avatar-row-label .avatar-row-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .avatar-row-btn {
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(88,166,255,0.25);
+      background: rgba(88,166,255,0.07);
+      color: var(--blue);
+      font-size: 0.72rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+    .avatar-row-btn:hover { background: rgba(88,166,255,0.15); }
+    .avatar-row-btn.more-btn {
+      border-color: rgba(247,151,30,0.25);
+      background: rgba(247,151,30,0.07);
+      color: var(--gold);
+    }
+    .avatar-row-btn.more-btn:hover { background: rgba(247,151,30,0.15); }
+
+    /* 5 个头像格子 */
+    .avatar-quick-list {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .avatar-quick-item {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      border: 2.5px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.18s;
+      overflow: hidden;
+      flex-shrink: 0;
+      touch-action: manipulation;
+    }
+    .avatar-quick-item img {
+      width: 44px; height: 44px;
+      object-fit: contain;
+    }
+    .avatar-quick-item:hover {
+      border-color: rgba(247,151,30,0.5);
+      background: rgba(247,151,30,0.08);
+      transform: translateY(-2px);
+    }
+    .avatar-quick-item.selected {
+      border-color: var(--gold);
+      background: rgba(247,151,30,0.15);
+      box-shadow: 0 0 10px rgba(247,151,30,0.35);
+    }
+
+    /* ── 全量头像弹窗 ─────────────────────────────── */
+    #avatar-full-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      z-index: 9000;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      padding: 0;
+    }
+    #avatar-full-modal.open { display: flex; }
+    .avatar-full-sheet {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      max-width: 560px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0 0 env(safe-area-inset-bottom, 16px) 0;
+      animation: slideUp 0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0.6; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .avatar-full-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .avatar-full-header h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .avatar-full-close {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.1);
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .avatar-full-close:hover { background: rgba(255,255,255,0.2); }
+    .avatar-full-grid-wrap {
+      overflow-y: auto;
+      padding: 16px;
+      flex: 1;
+    }
+    .avatar-full-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 10px;
+    }
+    .avatar-full-item {
+      aspect-ratio: 1;
+      border-radius: 14px;
+      border: 2px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all 0.18s;
+      touch-action: manipulation;
+    }
+    .avatar-full-item img {
+      width: 52px; height: 52px;
+      object-fit: contain;
+    }
+    .avatar-full-item:hover {
+      border-color: rgba(247,151,30,0.5);
+      background: rgba(247,151,30,0.08);
+      transform: scale(1.05);
+    }
+    .avatar-full-item.selected {
+      border-color: var(--gold);
+      background: rgba(247,151,30,0.18);
+      box-shadow: 0 0 10px rgba(247,151,30,0.35);
+    }
+    .avatar-full-confirm {
+      margin: 12px 16px 4px;
+      padding: 13px;
+      background: linear-gradient(90deg, var(--gold), var(--gold-light));
+      color: #1a1a2e;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+    .avatar-full-confirm:hover { opacity: 0.9; }
 
     .player-info { flex: 1; }
     .player-info .name { font-weight: 600; font-size: 0.92rem; }
@@ -806,6 +985,20 @@
           <div class="card" style="margin-bottom:14px;">
             <h2>🎭 开始游戏</h2>
 
+            <!-- 头像选择行 -->
+            <div class="avatar-row-wrap">
+              <div class="avatar-row-label">
+                <span>选择头像</span>
+                <div class="avatar-row-actions">
+                  <button class="avatar-row-btn" onclick="refreshQuickAvatars()">🔀 换一批</button>
+                  <button class="avatar-row-btn more-btn" onclick="openAvatarFullModal()">🎨 更多</button>
+                </div>
+              </div>
+              <div class="avatar-quick-list" id="avatar-quick-list">
+                <!-- 由 JS 动态渲染 5 个随机头像 -->
+              </div>
+            </div>
+
             <!-- 昵称快捷选项 -->
             <div class="nickname-label-row">
               <label>你的昵称</label>
@@ -986,8 +1179,150 @@
     </div>
   </div>
 
+  <!-- 全量头像选择弹窗 -->
+  <div id="avatar-full-modal">
+    <div class="avatar-full-sheet">
+      <div class="avatar-full-header">
+        <h3>🎨 选择头像</h3>
+        <button class="avatar-full-close" onclick="closeAvatarFullModal()">✕</button>
+      </div>
+      <div class="avatar-full-grid-wrap">
+        <div class="avatar-full-grid" id="avatar-full-grid">
+          <!-- 由 JS 动态渲染 40 张头像 -->
+        </div>
+      </div>
+      <button class="avatar-full-confirm" onclick="confirmAvatarFull()">✅ 确认选择</button>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
+  // ── 头像系统 ──────────────────────────────────────────────────────
+  const AVATAR_LIST = [
+    'thing_alpaca_01.png','thing_alpaca_02.png','thing_alpaca_03.png',
+    'thing_bear_01.png','thing_bee_01.png','thing_butterfly_01.png',
+    'thing_camel_01.png','thing_capybbara_01.png',
+    'thing_cats_02.png','thing_cats_04.png','thing_cats_06.png',
+    'thing_cats_08.png','thing_cats_10.png','thing_cats_13.png',
+    'thing_clownfish_01.png','thing_dog_01.png','thing_ellephant_01.png',
+    'thing_goldfish_01.png','thing_gorilla_01.png',
+    'thing_hippo_01.png','thing_hippo_02.png','thing_horse_01.png',
+    'thing_jellyfish_01.png','thing_koala_01.png',
+    'thing_lion_01.png','thing_lion_02.png',
+    'thing_octopus_01.png','thing_panda_01.png',
+    'thing_penguin_02.png','thing_penguin_03.png',
+    'thing_rabbit_01.png','thing_reindeer_01.png',
+    'thing_shark_01.png','thing_sheep_01.png','thing_squirrel_01.png',
+    'thing_tiger_01.png','thing_tiger_02.png',
+    'thing_whale_01.png','thing_whitebear_01.png','thing_whitebear_02.png',
+  ];
+
+  let selectedAvatar = localStorage.getItem('scout_game_avatar') || '';
+  let quickAvatarPool = [];   // 当前行内展示的 5 张
+  let pendingFullAvatar = ''; // 弹窗里临时选中但未确认的头像
+
+  // 随机打乱数组（Fisher-Yates）
+  function shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // 初始化/刷新行内 5 个头像
+  function refreshQuickAvatars() {
+    const shuffled = shuffleArray(AVATAR_LIST);
+    // 如果当前已选头像不在随机结果里，强行放第一个
+    if (selectedAvatar && !shuffled.slice(0, 5).includes(selectedAvatar)) {
+      shuffled.unshift(selectedAvatar);
+    }
+    quickAvatarPool = shuffled.slice(0, 5);
+    renderQuickAvatars();
+  }
+
+  function renderQuickAvatars() {
+    const el = document.getElementById('avatar-quick-list');
+    if (!el) return;
+    el.innerHTML = quickAvatarPool.map(name => `
+      <div class="avatar-quick-item${selectedAvatar === name ? ' selected' : ''}"
+           onclick="selectQuickAvatar('${name}')">
+        <img src="/avatars/${name}" alt="" loading="lazy" />
+      </div>
+    `).join('');
+  }
+
+  function selectQuickAvatar(name) {
+    selectedAvatar = name;
+    localStorage.setItem('scout_game_avatar', name);
+    renderQuickAvatars();
+  }
+
+  // 打开全量弹窗
+  function openAvatarFullModal() {
+    pendingFullAvatar = selectedAvatar;
+    const grid = document.getElementById('avatar-full-grid');
+    if (grid && !grid.children.length) {
+      // 首次懒加载
+      grid.innerHTML = AVATAR_LIST.map(name => `
+        <div class="avatar-full-item${selectedAvatar === name ? ' selected' : ''}"
+             onclick="selectFullAvatar('${name}')" id="afitem-${name.replace(/[^a-z0-9]/g,'_')}">
+          <img src="/avatars/${name}" alt="" loading="lazy" />
+        </div>
+      `).join('');
+    } else if (grid) {
+      // 更新选中状态
+      grid.querySelectorAll('.avatar-full-item').forEach(el => {
+        const name = el.dataset.name;
+        el.classList.toggle('selected', name === selectedAvatar);
+      });
+    }
+    document.getElementById('avatar-full-modal').classList.add('open');
+  }
+
+  function selectFullAvatar(name) {
+    pendingFullAvatar = name;
+    document.querySelectorAll('.avatar-full-item').forEach(el => {
+      el.classList.remove('selected');
+    });
+    const itemId = 'afitem-' + name.replace(/[^a-z0-9]/g, '_');
+    const itemEl = document.getElementById(itemId);
+    if (itemEl) itemEl.classList.add('selected');
+  }
+
+  function confirmAvatarFull() {
+    if (pendingFullAvatar) {
+      selectedAvatar = pendingFullAvatar;
+      localStorage.setItem('scout_game_avatar', selectedAvatar);
+      // 把选中的插入快捷行第一位
+      if (!quickAvatarPool.includes(selectedAvatar)) {
+        quickAvatarPool[0] = selectedAvatar;
+      }
+      renderQuickAvatars();
+    }
+    closeAvatarFullModal();
+  }
+
+  function closeAvatarFullModal() {
+    document.getElementById('avatar-full-modal').classList.remove('open');
+  }
+
+  // 点击遮罩关闭
+  document.getElementById('avatar-full-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('avatar-full-modal')) closeAvatarFullModal();
+  });
+
+  // 页面初始化
+  (function initAvatars() {
+    if (!selectedAvatar) {
+      // 首次使用：随机选一个
+      selectedAvatar = AVATAR_LIST[Math.floor(Math.random() * AVATAR_LIST.length)];
+      localStorage.setItem('scout_game_avatar', selectedAvatar);
+    }
+    refreshQuickAvatars();
+  })();
+
   // ── 昵称快捷选项 & 随机定语 ────────────────────────────────────────
   const ADJECTIVES = [
     '靠谱又迷糊的','摸鱼专业户','不知道在干嘛的',

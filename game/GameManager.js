@@ -25,14 +25,14 @@ class GameManager {
   }
 
   // 创建房间
-  createRoom(socketId, playerName) {
+  createRoom(socketId, playerName, playerAvatar = '') {
     const roomCode = this.generateRoomCode();
-    const playerId = this.generatePlayerId(); // 独立稳定ID
+    const playerId = this.generatePlayerId();
 
     this.rooms[roomCode] = {
       code: roomCode,
       hostPlayerId: playerId,
-      players: [{ id: playerId, name: playerName, socketId, online: true }],
+      players: [{ id: playerId, name: playerName, avatar: playerAvatar, socketId, online: true }],
       game: null,
       status: 'waiting',
     };
@@ -44,7 +44,7 @@ class GameManager {
   }
 
   // 加入房间（选座位阶段：增加了 seating_phase 事件）
-  joinRoom(socketId, roomCode, playerName) {
+  joinRoom(socketId, roomCode, playerName, playerAvatar = '') {
     const room = this.rooms[roomCode];
     if (!room) return { success: false, message: '房间不存在，请检查房间码' };
     if (room.status !== 'waiting') return { success: false, message: '游戏已经开始，无法加入' };
@@ -54,7 +54,7 @@ class GameManager {
     }
 
     const playerId = this.generatePlayerId();
-    room.players.push({ id: playerId, name: playerName, socketId, online: true });
+    room.players.push({ id: playerId, name: playerName, avatar: playerAvatar, socketId, online: true });
     this.socketToRoom[socketId] = roomCode;
     this.socketToPlayerId[socketId] = playerId;
 

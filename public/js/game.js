@@ -271,7 +271,9 @@ function renderTable(state) {
     if (p.managed) cls += ' managed-seat';
 
     // ── 卡片式玩家信息组件 ──
-    const initials  = (p.name || '?').charAt(0).toUpperCase();
+    const avatarHtml = p.avatar
+      ? `<img src="/avatars/${p.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;" />`
+      : (p.name || '?').charAt(0).toUpperCase();
     const isDanger  = hc <= 3 && hc > 0 && state.state === 'playing';
     const liveClass = live < 0 ? 'neg' : '';
     const liveStr   = `${live >= 0 ? '+' : ''}${live}`;
@@ -311,7 +313,7 @@ function renderTable(state) {
     el.innerHTML = `
       <div class="seat-card">
         <div class="seat-avatar-wrap">
-          <div class="seat-avatar">${initials}</div>
+          <div class="seat-avatar" style="${p.avatar ? 'background:rgba(0,0,0,0.25);padding:2px;' : ''}">${avatarHtml}</div>
         </div>
         <div class="seat-info">
           <div class="seat-name">${displayName}${isMe ? ' 👤' : ''}</div>
@@ -345,7 +347,7 @@ function renderPlayersTop(state) {
     if (hc <= 2 && state.state === 'playing') cls += ' danger';
     if (p.managed) cls += ' managed-chip';
     return `<div class="${cls}" onclick="showPlayerInfo('${p.id}')">
-      <div class="chip-av">${p.name[0]}</div>
+      <div class="chip-av" style="${p.avatar ? 'background:rgba(0,0,0,0.3);padding:1px;overflow:hidden;' : ''}">${p.avatar ? `<img src="/avatars/${p.avatar}" style="width:100%;height:100%;object-fit:contain;"/>` : p.name[0]}</div>
       <div>
         <div class="chip-name">${p.name}${isMe ? ' 👤' : ''}</div>
         <div class="chip-meta">
@@ -1114,11 +1116,17 @@ function appendChatMessage(playerName, content, type, isOwn = false) {
     } else {
       div.className = `chat-msg${isOwn ? ' mine' : ''}`;
       const initials = (playerName || '?').charAt(0).toUpperCase();
+      // 从当前状态找发言者头像
+      const senderP = gameState?.players?.find(pl => isOwn ? pl.id === myPlayerId : pl.name === playerName);
+      const avatarHtmlChat = senderP?.avatar
+        ? `<img src="/avatars/${senderP.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;" />`
+        : initials;
+      const avatarStyleChat = senderP?.avatar ? 'background:rgba(0,0,0,0.3);padding:2px;overflow:hidden;' : '';
       const bubbleContent = isSticker
         ? `<div class="chat-msg-sticker">${content}</div>`
         : `<div class="chat-msg-bubble">${escapeXSS(content)}</div>`;
       div.innerHTML = `
-        <div class="chat-msg-avatar">${initials}</div>
+        <div class="chat-msg-avatar" style="${avatarStyleChat}">${avatarHtmlChat}</div>
         <div class="chat-msg-body">
           <div class="chat-msg-name">${isOwn ? '我' : escapeXSS(playerName)}</div>
           ${bubbleContent}
@@ -1322,8 +1330,16 @@ function showPlayerInfo(playerId) {
   const avatarEl = document.getElementById('pi-avatar');
   const nameEl   = document.getElementById('pi-name');
   const subEl    = document.getElementById('pi-sub');
-  avatarEl.textContent = (p.name || '?').charAt(0).toUpperCase();
-  avatarEl.className   = 'pi-avatar' + (isMe ? ' me' : '');
+  if (p.avatar) {
+    avatarEl.innerHTML = `<img src="/avatars/${p.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:50%;" />`;
+    avatarEl.style.background = 'rgba(0,0,0,0.3)';
+    avatarEl.style.padding = '4px';
+  } else {
+    avatarEl.textContent = (p.name || '?').charAt(0).toUpperCase();
+    avatarEl.style.background = '';
+    avatarEl.style.padding = '';
+  }
+  avatarEl.className = 'pi-avatar' + (isMe ? ' me' : '');
   nameEl.textContent   = p.name + (isMe ? '  👤 我' : '');
   subEl.textContent    = `总积分 ${p.totalScore ?? 0} 分`;
 

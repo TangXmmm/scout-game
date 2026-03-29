@@ -217,7 +217,8 @@ function createRoom() {
   if (!name) return showError('entry-error', '请先输入你的昵称');
   myPlayerName = name;
   saveNickname(name);
-  socket.emit('create_room', { playerName: name });
+  const avatar = localStorage.getItem('scout_game_avatar') || '';
+  socket.emit('create_room', { playerName: name, playerAvatar: avatar });
 }
 
 function joinRoom() {
@@ -227,7 +228,8 @@ function joinRoom() {
   if (!code) return showError('entry-error', '请输入房间码');
   myPlayerName = name;
   saveNickname(name);
-  socket.emit('join_room', { roomCode: code, playerName: name });
+  const avatar = localStorage.getItem('scout_game_avatar') || '';
+  socket.emit('join_room', { roomCode: code, playerName: name, playerAvatar: avatar });
 }
 
 function startGame() {
@@ -240,7 +242,10 @@ function renderPlayers(players) {
   countEl.textContent = players.length;
   container.innerHTML = players.map(p => `
     <div class="player-item">
-      <div class="player-avatar">${p.name.charAt(0).toUpperCase()}</div>
+      <div class="player-avatar">${p.avatar
+        ? `<img src="/avatars/${p.avatar}" alt="" />`
+        : p.name.charAt(0).toUpperCase()
+      }</div>
       <div class="player-info">
         <div class="name">${p.name}${p.id === myPlayerId ? ' (我)' : ''}</div>
         ${p.isHost ? '<div class="role">👑 房主</div>' : ''}

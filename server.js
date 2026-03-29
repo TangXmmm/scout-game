@@ -237,6 +237,7 @@ function getPlayersInfo(room) {
   return room.players.map(p => ({
     id: p.id,
     name: p.name,
+    avatar: p.avatar || '',
     isHost: p.id === room.hostPlayerId,
     online: p.online !== false,
   }));
@@ -321,10 +322,10 @@ io.on('connection', (socket) => {
   console.log(`[连接] ${socket.id}`);
 
   // ── 创建房间 ──────────────────────────────────────────────
-  socket.on('create_room', ({ playerName }) => {
+  socket.on('create_room', ({ playerName, playerAvatar }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: '请输入玩家昵称' });
 
-    const result = gameManager.createRoom(socket.id, playerName.trim());
+    const result = gameManager.createRoom(socket.id, playerName.trim(), playerAvatar || '');
     if (result.success) {
       socket.join(result.roomCode);
       const room = gameManager.rooms[result.roomCode];
@@ -340,10 +341,10 @@ io.on('connection', (socket) => {
   });
 
   // ── 加入房间 ──────────────────────────────────────────────
-  socket.on('join_room', ({ roomCode, playerName }) => {
+  socket.on('join_room', ({ roomCode, playerName, playerAvatar }) => {
     if (!playerName?.trim()) return socket.emit('error', { message: '请输入玩家昵称' });
 
-    const result = gameManager.joinRoom(socket.id, roomCode?.toUpperCase(), playerName.trim());
+    const result = gameManager.joinRoom(socket.id, roomCode?.toUpperCase(), playerName.trim(), playerAvatar || '');
     if (result.success) {
       socket.join(result.roomCode);
       const room = gameManager.rooms[result.roomCode];

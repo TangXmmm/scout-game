@@ -39,6 +39,53 @@
       :root { --card-w: 66px; --card-h: 92px; --card-font: 2rem; }
     }
 
+    /* ══════════════════════════════════════════
+       移动端适配：≤640px 小屏隐藏侧边栏，显示切换按钮
+    ══════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      #leaderboard-sidebar { display: none; }
+      #chat-sidebar        { display: none; }
+      #leaderboard-sidebar.mobile-open { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: 220px; z-index: 300; }
+      #chat-sidebar.mobile-open        { display: flex; position: fixed; right: 0; top: 0; bottom: 0; width: 220px; z-index: 300; }
+      #lb-toggle-btn, #chat-toggle-btn { display: flex !important; }
+      /* 侧边栏打开时显示遮罩 */
+      #sidebar-mask.show { display: block !important; }
+    }
+
+    /* 移动端侧边栏切换按钮（默认隐藏，≤640px 激活） */
+    #lb-toggle-btn, #chat-toggle-btn {
+      display: none;
+      position: fixed;
+      bottom: max(80px, calc(72px + env(safe-area-inset-bottom, 0px)));
+      z-index: 290;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(15, 22, 36, 0.88);
+      backdrop-filter: blur(8px);
+      color: var(--text);
+      font-size: 1.1rem;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.5);
+      touch-action: manipulation;
+      transition: background 0.15s;
+    }
+    #lb-toggle-btn   { left: 12px; }
+    #chat-toggle-btn { right: 12px; }
+    #lb-toggle-btn:hover, #chat-toggle-btn:hover { background: rgba(30, 42, 60, 0.95); }
+
+    /* 遮罩层（点击关闭侧边栏） */
+    #sidebar-mask {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 299;
+    }
+
     html { font-size: 16px; }
 
     /* ══════════════════════════════════════════
@@ -235,14 +282,14 @@
     }
     /* 总分 */
     .lb-total {
-      font-size: 0.68rem;
+      font-size: 0.72rem;  /* 稍微提升，保证可读性 */
       font-weight: 800;
       color: var(--gold);
     }
     .lb-total.neg { color: var(--red); }
     /* 本局实时得分 */
     .lb-live {
-      font-size: 0.62rem;
+      font-size: 0.7rem;  /* 从 0.62rem 提升至 0.7rem */
       color: rgba(255,255,255,0.4);
       padding: 1px 5px;
       border-radius: 6px;
@@ -258,7 +305,7 @@
       flex-wrap: wrap;
     }
     .lb-chip {
-      font-size: 0.58rem;
+      font-size: 0.68rem;  /* 从 0.58rem 提升至 0.68rem，避免极小不可读 */
       padding: 1px 5px;
       border-radius: 5px;
       background: rgba(255,255,255,0.05);
@@ -602,7 +649,7 @@
     /* ── 操作按钮区：底部合并区下层，横向居中 ── */
     /* 此处 #action-area 的权威定义在第 580+ 行（#bottom-bar 区块内）*/
     .act-btn {
-      padding: 6px 12px;
+      padding: 8px 14px;
       border-radius: 18px;
       font-size: var(--fs-meta); /* meta: 13-14px */
       font-weight: 800;
@@ -610,7 +657,7 @@
       border: 2px solid;
       transition: all 0.18s;
       font-family: inherit;
-      min-height: 34px;
+      min-height: 44px;  /* 提升至 44px，符合移动端触摸最小目标 */
       touch-action: manipulation;
       white-space: nowrap;
       position: relative;
@@ -899,7 +946,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 14px;
+      padding: max(6px, env(safe-area-inset-top, 6px)) 14px 6px;  /* 顶部安全区（刘海屏/灵动岛） */
       background: rgba(0,0,0,0.5);
       border-bottom: 1px solid var(--border);
       font-size: var(--fs-meta); /* meta: 13-14px */
@@ -2729,6 +2776,12 @@
       <!-- ══ 牌桌区（flex:8）：排行榜 + 桌面 + 聊天三栏水平布局 ══ -->
       <div id="table-wrapper">
 
+        <!-- 移动端侧边栏切换按钮（≤640px 才可见，fixed 定位不参与 flex 流） -->
+        <button id="lb-toggle-btn"   onclick="toggleSidebar('lb')"   title="排行榜">🏆</button>
+        <button id="chat-toggle-btn" onclick="toggleSidebar('chat')" title="聊天">💬</button>
+        <!-- 侧边栏遮罩层（点击可关闭） -->
+        <div id="sidebar-mask" onclick="closeSidebars()"></div>
+
         <!-- 实时排行榜（左侧，与聊天侧边栏宽高对称） -->
         <div id="leaderboard-sidebar">
           <div id="lb-header">🏆 实时排行榜</div>
@@ -3164,5 +3217,30 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/game.js"></script>
+
+  <!-- 移动端侧边栏切换（≤640px） -->
+  <script>
+    function toggleSidebar(target) {
+      const lb   = document.getElementById('leaderboard-sidebar');
+      const chat = document.getElementById('chat-sidebar');
+      const mask = document.getElementById('sidebar-mask');
+      if (target === 'lb') {
+        const opening = !lb.classList.contains('mobile-open');
+        lb.classList.toggle('mobile-open', opening);
+        chat.classList.remove('mobile-open');
+        mask.classList.toggle('show', opening);
+      } else {
+        const opening = !chat.classList.contains('mobile-open');
+        chat.classList.toggle('mobile-open', opening);
+        lb.classList.remove('mobile-open');
+        mask.classList.toggle('show', opening);
+      }
+    }
+    function closeSidebars() {
+      document.getElementById('leaderboard-sidebar').classList.remove('mobile-open');
+      document.getElementById('chat-sidebar').classList.remove('mobile-open');
+      document.getElementById('sidebar-mask').classList.remove('show');
+    }
+  </script>
 </body>
 </html>

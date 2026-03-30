@@ -431,8 +431,16 @@
     /* 5 个头像格子 */
     .avatar-quick-list {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
+      flex-wrap: wrap;  /* 极小屏（<320px）时自动换行，防止溢出 */
+    }
+
+    /* 极小屏（≤360px）下缩小头像，防止行溢出 */
+    @media (max-width: 360px) {
+      .avatar-quick-item { width: 44px; height: 44px; }
+      .avatar-quick-item img { width: 36px; height: 36px; }
+      .avatar-quick-list { gap: 6px; }
     }
     .avatar-quick-item {
       width: 52px; height: 52px;
@@ -509,7 +517,8 @@
       color: var(--text);
     }
     .avatar-full-close {
-      width: 30px; height: 30px;
+      width: 40px; height: 40px;  /* 从 30px 提升至 40px，接近 44px 最小触摸目标 */
+      min-width: 40px; min-height: 40px;
       border-radius: 50%;
       border: none;
       background: rgba(255,255,255,0.1);
@@ -517,6 +526,7 @@
       font-size: 1rem;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
+      touch-action: manipulation;
       transition: background 0.15s;
     }
     .avatar-full-close:hover { background: rgba(255,255,255,0.2); }
@@ -843,6 +853,24 @@
       body { padding-bottom: env(safe-area-inset-bottom); }
     }
 
+    /* ── 继续游戏弹窗按钮最小触摸高度 ────────────────── */
+    .continue-modal-btns button {
+      min-height: 44px;
+      touch-action: manipulation;
+    }
+
+    /* ══════════════════════════════════════════
+       手机横屏适配（orientation: landscape + 小高度屏幕）
+    ══════════════════════════════════════════ */
+    @media (orientation: landscape) and (max-height: 500px) {
+      .logo { padding: 4px 0; }
+      .logo h1 { font-size: clamp(1.4rem, 5vw, 2rem); }
+      .lobby-wrap { padding: 8px 16px; gap: 12px; }
+      .avatar-full-sheet { max-height: 90vh; }
+      #seating-modal .seating-box { max-height: 85vh; }
+      .continue-modal-content { padding: 16px 20px; }
+    }
+
     /* ── 规则区（新版）容器 ─────────────────────────── */
     .rules-new-wrap {
       background: rgba(255,255,255,0.02);
@@ -959,7 +987,7 @@
       box-shadow: 0 0 12px rgba(88,166,255,0.4);
     }
     .seat-label {
-      font-size: 0.58rem; color: var(--text-muted);
+      font-size: 0.7rem; color: var(--text-muted);  /* 从 0.58rem 提升至 0.7rem，提高可读性 */
       white-space: nowrap; overflow: hidden;
       text-overflow: ellipsis; max-width: 52px;
       text-align: center;

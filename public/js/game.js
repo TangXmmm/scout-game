@@ -732,6 +732,29 @@ function renderHand(hand, newCardIndex = -1) {
   });
 
   bindHandDragSelect(); // 已置空，无副作用
+
+  // ── 修复：手牌居中 + 卡多时可滚动到最左 ──
+  // justify-content:center 与 overflow-x:auto 共存时，左侧溢出内容被截断无法滚动。
+  // 方案：justify-content:flex-start + 首尾各插一个 .hand-spacer，
+  //   当内容宽 < 容器宽时：spacer 各占 (gap)/2，整体视觉居中；
+  //   当内容宽 >= 容器宽时：spacer 宽度为 0，从左起始，滚动正常。
+  requestAnimationFrame(() => {
+    const container = document.getElementById('my-hand-cards');
+    if (!container) return;
+    // 移除旧 spacer
+    container.querySelectorAll('.hand-spacer').forEach(s => s.remove());
+    const gap = Math.max(0, (container.clientWidth - container.scrollWidth) / 2);
+    if (gap > 0) {
+      const makeS = () => {
+        const s = document.createElement('div');
+        s.className = 'hand-spacer';
+        s.style.width = gap + 'px';
+        return s;
+      };
+      container.insertBefore(makeS(), container.firstChild);
+      container.appendChild(makeS());
+    }
+  });
 }
 
 function renderHandWithSlots(hand, newCardIndex = -1) {

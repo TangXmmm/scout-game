@@ -1083,13 +1083,25 @@
       padding-bottom: 14px;      /* 为选中上浮留空间 */
       padding-top: 4px;
       align-items: flex-end;
-      justify-content: center;
+      /* ⚠️ 修复：justify-content:center 与 overflow-x:auto 共存时，
+         flex 负向滚动空间被截断，左侧手牌不可滚动到。
+         改为 flex-start + 首尾 .hand-spacer（JS 动态计算居中偏移），
+         卡少时 spacer 撑开居中显示，卡多时 spacer=0 从左正常滚动。 */
+      justify-content: flex-start;
       min-height: 0;
       flex: 1;
       scrollbar-width: thin;
       scrollbar-color: rgba(255,255,255,0.08) transparent;
       -webkit-overflow-scrolling: touch;
       position: relative;
+    }
+    /* 手牌居中 spacer：卡少时撑开两侧实现居中，卡多时宽度为 0 */
+    .hand-spacer {
+      flex-shrink: 0;
+      min-width: 0;
+      height: 1px;
+      pointer-events: none;
+      transition: none;
     }
     #my-hand-cards::-webkit-scrollbar { height: 3px; }
     #my-hand-cards::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }

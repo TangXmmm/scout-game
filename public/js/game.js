@@ -734,25 +734,35 @@ function renderHand(hand, newCardIndex = -1) {
   bindHandDragSelect(); // 已置空，无副作用
 
   // ── 修复：手牌居中 + 卡多时可滚动到最左 ──
-  // justify-content:center 与 overflow-x:auto 共存时，左侧溢出内容被截断无法滚动。
-  // 方案：justify-content:flex-start + 首尾各插一个 .hand-spacer，
-  //   当内容宽 < 容器宽时：spacer 各占 (gap)/2，整体视觉居中；
-  //   当内容宽 >= 容器宽时：spacer 宽度为 0，从左起始，滚动正常。
+  // justify-content:center 与 overflow-x:auto 共存时，flex 左侧溢出被截断无法滚动。
+  // 方案：justify-content:flex-start + 首尾 .hand-spacer 动态居中偏移
+  //   ⚠️ 不能用 scrollWidth（不溢出时 scrollWidth === clientWidth，永远算出 0）
+  //   正确做法：直接累加所有非 spacer 子元素的 offsetWidth + gap
   requestAnimationFrame(() => {
     const container = document.getElementById('my-hand-cards');
     if (!container) return;
-    // 移除旧 spacer
+    // 先移除旧 spacer，再测量纯内容宽
     container.querySelectorAll('.hand-spacer').forEach(s => s.remove());
-    const gap = Math.max(0, (container.clientWidth - container.scrollWidth) / 2);
-    if (gap > 0) {
-      const makeS = () => {
+
+    const children = Array.from(container.children);
+    if (children.length === 0) return;
+
+    // 测量所有子元素的实际总宽度（含各自左右 margin）
+    const GAP = 2; // 与 CSS gap:2px 一致
+    let contentW = children.reduce((sum, c) => sum + c.offsetWidth, 0)
+                   + GAP * Math.max(0, children.length - 1);
+    const containerW = container.clientWidth;
+    const half = Math.max(0, Math.floor((containerW - contentW) / 2));
+
+    if (half > 0) {
+      const makeS = (w) => {
         const s = document.createElement('div');
         s.className = 'hand-spacer';
-        s.style.width = gap + 'px';
+        s.style.width = w + 'px';
         return s;
       };
-      container.insertBefore(makeS(), container.firstChild);
-      container.appendChild(makeS());
+      container.insertBefore(makeS(half), container.firstChild);
+      container.appendChild(makeS(half));
     }
   });
 }

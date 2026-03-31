@@ -39,57 +39,6 @@
       :root { --card-w: 66px; --card-h: 92px; --card-font: 2rem; }
     }
 
-    /* ══════════════════════════════════════════
-       移动端适配：由 JS ResizeObserver 动态添加 body.mobile-layout
-       (不依赖 CSS 媒体查询，兼容 App WebView viewport 异常场景)
-    ══════════════════════════════════════════ */
-    body.mobile-layout #leaderboard-sidebar { display: none; }
-    body.mobile-layout #chat-sidebar        { display: none; }
-    body.mobile-layout #leaderboard-sidebar.mobile-open {
-      display: flex; position: fixed;
-      left: 0; top: 0; bottom: 0; width: 220px; z-index: 300;
-    }
-    body.mobile-layout #chat-sidebar.mobile-open {
-      display: flex; position: fixed;
-      right: 0; top: 0; bottom: 0; width: 220px; z-index: 300;
-    }
-    body.mobile-layout #lb-toggle-btn,
-    body.mobile-layout #chat-toggle-btn   { display: flex !important; }
-    body.mobile-layout #sidebar-mask.show { display: block !important; }
-
-    /* 移动端侧边栏切换按钮（默认隐藏，≤640px 激活） */
-    #lb-toggle-btn, #chat-toggle-btn {
-      display: none;
-      position: fixed;
-      bottom: max(80px, calc(72px + env(safe-area-inset-bottom, 0px)));
-      z-index: 290;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 1.5px solid rgba(255,255,255,0.15);
-      background: rgba(15, 22, 36, 0.88);
-      backdrop-filter: blur(8px);
-      color: var(--text);
-      font-size: 1.1rem;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 3px 14px rgba(0,0,0,0.5);
-      touch-action: manipulation;
-      transition: background 0.15s;
-    }
-    #lb-toggle-btn   { left: 12px; }
-    #chat-toggle-btn { right: 12px; }
-    #lb-toggle-btn:hover, #chat-toggle-btn:hover { background: rgba(30, 42, 60, 0.95); }
-
-    /* 遮罩层（点击关闭侧边栏） */
-    #sidebar-mask {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 299;
-    }
 
     html { font-size: 16px; }
 
@@ -2793,12 +2742,6 @@
       <!-- ══ 牌桌区（flex:8）：排行榜 + 桌面 + 聊天三栏水平布局 ══ -->
       <div id="table-wrapper">
 
-        <!-- 移动端侧边栏切换按钮（≤640px 才可见，fixed 定位不参与 flex 流） -->
-        <button id="lb-toggle-btn"   onclick="toggleSidebar('lb')"   title="排行榜">🏆</button>
-        <button id="chat-toggle-btn" onclick="toggleSidebar('chat')" title="聊天">💬</button>
-        <!-- 侧边栏遮罩层（点击可关闭） -->
-        <div id="sidebar-mask" onclick="closeSidebars()"></div>
-
         <!-- 实时排行榜（左侧，与聊天侧边栏宽高对称） -->
         <div id="leaderboard-sidebar">
           <div id="lb-header">🏆 实时排行榜</div>
@@ -3235,62 +3178,5 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/game.js"></script>
 
-  <!-- 移动端侧边栏适配：用 ResizeObserver 监听实际渲染宽度，绕过 App WebView 媒体查询失效问题 -->
-  <script>
-    (function() {
-      var MOBILE_THRESHOLD = 640; // px，实际渲染宽度低于此值时切移动模式
-
-      function applyMobileMode(isMobile) {
-        document.body.classList.toggle('mobile-layout', isMobile);
-      }
-
-      // 初次检测（DOMContentLoaded 之前也能用 document.documentElement.clientWidth）
-      function checkWidth() {
-        var w = document.documentElement.clientWidth || window.innerWidth;
-        applyMobileMode(w <= MOBILE_THRESHOLD);
-      }
-
-      // ResizeObserver 监听 body 宽度变化（比 window.resize 更精准）
-      if (window.ResizeObserver) {
-        var ro = new ResizeObserver(function(entries) {
-          var w = entries[0].contentRect.width;
-          applyMobileMode(w <= MOBILE_THRESHOLD);
-        });
-        document.addEventListener('DOMContentLoaded', function() {
-          ro.observe(document.body);
-          checkWidth();
-        });
-      } else {
-        // 降级：window resize
-        window.addEventListener('resize', checkWidth);
-        document.addEventListener('DOMContentLoaded', checkWidth);
-      }
-
-      // 立即检测一次（脚本执行时）
-      checkWidth();
-    })();
-
-    function toggleSidebar(target) {
-      var lb   = document.getElementById('leaderboard-sidebar');
-      var chat = document.getElementById('chat-sidebar');
-      var mask = document.getElementById('sidebar-mask');
-      if (target === 'lb') {
-        var opening = !lb.classList.contains('mobile-open');
-        lb.classList.toggle('mobile-open', opening);
-        chat.classList.remove('mobile-open');
-        mask.classList.toggle('show', opening);
-      } else {
-        var opening = !chat.classList.contains('mobile-open');
-        chat.classList.toggle('mobile-open', opening);
-        lb.classList.remove('mobile-open');
-        mask.classList.toggle('show', opening);
-      }
-    }
-    function closeSidebars() {
-      document.getElementById('leaderboard-sidebar').classList.remove('mobile-open');
-      document.getElementById('chat-sidebar').classList.remove('mobile-open');
-      document.getElementById('sidebar-mask').classList.remove('show');
-    }
-  </script>
 </body>
 </html>

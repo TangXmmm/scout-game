@@ -821,6 +821,27 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
     lastSlot.style.left = `${lastX - 8}px`;
     lastSlot.onclick = () => setInsertFromHand(hand.length);
     el.appendChild(lastSlot);
+
+    // ── 与 renderHand 一致：动态 spacer 居中手牌 ──
+    el.querySelectorAll('.hand-spacer').forEach(s => s.remove());
+    const allChildren = Array.from(el.querySelectorAll('.game-card'));
+    if (allChildren.length > 0) {
+      const GAP = 2;
+      let contentW = allChildren.reduce((sum, c) => sum + c.offsetWidth, 0)
+                     + GAP * Math.max(0, allChildren.length - 1);
+      const containerW = el.clientWidth;
+      const half = Math.max(0, Math.floor((containerW - contentW) / 2));
+      if (half > 0) {
+        const makeS = (w) => {
+          const s = document.createElement('div');
+          s.className = 'hand-spacer';
+          s.style.width = w + 'px';
+          return s;
+        };
+        el.insertBefore(makeS(half), el.firstChild);
+        el.appendChild(makeS(half));
+      }
+    }
   });
 }
 
@@ -1148,6 +1169,8 @@ function doFlip() {
   _hasFlipped = !_hasFlipped;
   updateFlipBtnState();
   showToast(_hasFlipped ? '✅ 已翻转，点「确认手牌，开始游戏」继续' : '已撤销翻转', 'success');
+  // 🔊 翻书音效（翻转 vs 撤销翻转音调不同）
+  if (typeof SoundFX !== 'undefined') SoundFX.pageFlip(_hasFlipped);
 }
 
 function doConfirmFlip() {
@@ -2240,6 +2263,21 @@ socket.on('game_started', (state) => {
     setTimeout(() => SoundFX.startBgm(), 1500);
   }
 });
+
+// ── 手牌容器 resize 时重新计算 spacer 居中 ─────────────────────
+// 解决：拖动窗口改变宽度 / 移动端横竖屏切换时 spacer 宽度过时导致手牌偏移
+(function initHandResizeObserver() {
+  const el = document.getElementById('my-hand-cards');
+  if (!el || typeof ResizeObserver === 'undefined') return;
+  let _lastW = 0;
+  const ro = new ResizeObserver(() => {
+    const w = el.clientWidth;
+    if (Math.abs(w - _lastW) < 2) return; // 微小抖动忽略
+    _lastW = w;
+    if (gameState?.myHand) renderHand(gameState.myHand);
+  });
+  ro.observe(el);
+})();
 
 // ── ESC 收起底部聊天条 ────────────────────────────────────────
 document.addEventListener('keydown', (e) => {

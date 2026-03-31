@@ -551,13 +551,21 @@ socket.on('game_started', () => {
   // 关闭选座位弹窗（如果打开）
   const modal = document.getElementById('seating-modal');
   if (modal) modal.classList.remove('open');
-  
-  // 跳转时传递稳定的 playerId（不是 socketId）
-  const params = new URLSearchParams({
-    room: myRoomCode,
-    pid: myPlayerId,
-  });
-  window.location.href = '/game.html?' + params.toString();
+
+  // 🔊 游戏开始提示音
+  if (typeof SoundFX !== 'undefined') {
+    SoundFX.unlock();
+    SoundFX.gameStart();
+  }
+
+  // 稍作延迟让音效播完再跳转
+  setTimeout(() => {
+    const params = new URLSearchParams({
+      room: myRoomCode,
+      pid: myPlayerId,
+    });
+    window.location.href = '/game.html?' + params.toString();
+  }, 400);
 });
 
 socket.on('error', ({ message }) => {

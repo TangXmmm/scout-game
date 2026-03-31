@@ -262,7 +262,7 @@ const SoundFX = (() => {
   }
 
   /**
-   * 翻牌确认
+   * 翻牌确认（游戏开始时所有人确认手牌后触发，由 phase_changed 调用）
    */
   function playFlip() {
     if (!ensureCtx()) return;
@@ -270,6 +270,46 @@ const SoundFX = (() => {
     playTone(440, 'triangle', t, 0.08, 0.2, 0.01);
     playTone(880, 'sine', t + 0.06, 0.12, 0.18, 0.01);
     playNoise(t, 0.06, 0.12, { type: 'highpass', freq: 3000, Q: 0.5 });
+  }
+
+  /**
+   * 翻转手牌音效：模拟翻书/洗牌声
+   * 由 doFlip()（翻转 / 撤销翻转）调用
+   */
+  function playPageFlip(isFlipping = true) {
+    if (!ensureCtx()) return;
+    const t = ctx.currentTime;
+    // 快速白噪声扫过（纸张摩擦感）
+    const bufSize = Math.floor(ctx.sampleRate * 0.18);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      // 用 shaped 噪声：振幅先升后降，模拟翻页弧度
+      const env = Math.sin(Math.PI * i / bufSize);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    // 带通滤波：突出纸张频段
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = isFlipping ? 2800 : 2000;
+    bpf.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    src.connect(bpf); bpf.connect(g); g.connect(sfxGain);
+    src.start(t);
+    // 轻微的低频撞击感（模拟牌落桌）
+    playNoise(t + 0.05, 0.06, 0.08, { type: 'lowpass', freq: 300, Q: 1.5 });
+    // 翻转：加一个上扬确认音；撤销：加一个下降音
+    if (isFlipping) {
+      playTone(660, 'sine', t + 0.10, 0.09, 0.12, 0.001);
+      playTone(880, 'sine', t + 0.16, 0.08, 0.1,  0.001);
+    } else {
+      playTone(440, 'sine', t + 0.10, 0.09, 0.1, 0.001);
+      playTone(330, 'sine', t + 0.16, 0.08, 0.08, 0.001);
+    }
   }
 
   /**
@@ -300,109 +340,302 @@ const SoundFX = (() => {
   }
 
   // ══════════════════════════════════════════════════════════════
-  //   背景音乐（简约循环节奏 + 和弦）
+  //   背景音乐 v2 — 多段变奏 + 精确排程（无卡顿）
+  //
+  //   解决原版两个问题：
+  //   1. 卡顿：原版用 setTimeout 触发下一轮，JS 线程抖动导致衔接有缝隙。
+  //      新版：用 Web Audio 时间轴锚点（nextSectionStart）精确预排，
+  //            每段结束前 LOOKAHEAD 秒就已完成下一段的全部排程，零缝隙。
+  //   2. 单调：设计 A/B/C/D 四段变奏轮换（主题/副歌/钢琴段/转调段），
+  //            加入装饰音、铃音层、动态速度微变，听感丰富。
   // ══════════════════════════════════════════════════════════════
 
-  let bgmScheduled = false;
-  let bgmStopFlag = false;
-  let bgmLoopTimeout = null;
+  const BGM_TEMPO   = 0.375;  // 每拍时长(s)，约 160bpm
+  const BGM_BEATS   = 32;     // 每段小节数（8小节×4拍）
+  const LOOKAHEAD   = 1.0;    // 提前多少秒排程下一段
 
-  /**
-   * 背景音乐：轻松的卡牌游戏风格小循环
-   * 使用定时排程方式循环播放
-   */
-  function scheduleBgmLoop() {
-    if (bgmStopFlag || !ctx || !bgmGain) return;
+  let bgmStopFlag      = false;
+  // bgmPlaying 已在顶部声明，此处不重复声明
+  let bgmScheduleTimer = null;
+  let bgmSectionIdx    = 0;   // 当前段落索引（决定变奏）
+  let bgmNextStart     = 0;   // 下一段的 AudioContext 绝对起点
 
-    const t = ctx.currentTime;
-    const tempo = 0.4; // 每拍时长（秒）
-    const bars = 8;    // 循环小节数
-    const totalDur = tempo * bars * 4;
+  // ── 辅助：用振荡器模拟钟琴/马林巴音色（快速衰减）──────────
+  function playBell(freq, startTime, dur, gainVal, destination) {
+    if (!ctx) return;
+    const osc  = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const g    = ctx.createGain();
+    osc.type  = 'sine';
+    osc2.type = 'sine';
+    osc.frequency.value  = freq;
+    osc2.frequency.value = freq * 2.756; // 非谐波泛音，让音色更像敲击乐
+    g.gain.setValueAtTime(gainVal, startTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime + dur);
+    osc.connect(g);  osc2.connect(g);
+    g.connect(destination || bgmGain);
+    osc.start(startTime);  osc2.start(startTime);
+    osc.stop(startTime + dur + 0.01);
+    osc2.stop(startTime + dur + 0.01);
+  }
 
-    // ── 低音线 ──────────────────────────────────────────────────
-    const bassNotes = [
-      [98,  0],  [98,  1],  [110, 2],  [110, 3],
-      [87,  4],  [87,  5],  [98,  6],  [98,  7],
-      [110, 8],  [110, 9],  [123, 10], [123, 11],
-      [98,  12], [98,  13], [87,  14], [87,  15],
-      [98,  16], [98,  17], [110, 18], [110, 19],
-      [87,  20], [87,  21], [98,  22], [98,  23],
-      [110, 24], [110, 25], [98,  26], [98,  27],
-      [87,  28], [98,  29], [110, 30], [87,  31],
+  // ── 打击乐模板（共用）──────────────────────────────────────
+  function scheduleDrums(t, beats, tempo) {
+    // kick
+    [0, 4, 8, 12, 16, 20, 24, 28].forEach(b => {
+      if (b >= beats) return;
+      playNoise(t + b * tempo, tempo * 0.28, 0.11,
+        { type: 'lowpass', freq: 110, Q: 2.5 }, bgmGain);
+      // kick 音调
+      playTone(80, 'sine', t + b * tempo, tempo * 0.18, 0.12, 0.001, bgmGain);
+    });
+    // snare
+    [2, 6, 10, 14, 18, 22, 26, 30].forEach(b => {
+      if (b >= beats) return;
+      playNoise(t + b * tempo, tempo * 0.14, 0.055,
+        { type: 'bandpass', freq: 900, Q: 0.6 }, bgmGain);
+    });
+    // hihat（每半拍一次）
+    for (let i = 0; i < beats; i++) {
+      playNoise(t + i * tempo, tempo * 0.08, 0.018,
+        { type: 'highpass', freq: 7000, Q: 1 }, bgmGain);
+    }
+    // open hihat（每4拍）
+    [3, 7, 11, 15, 19, 23, 27, 31].forEach(b => {
+      if (b >= beats) return;
+      playNoise(t + b * tempo, tempo * 0.35, 0.03,
+        { type: 'highpass', freq: 5000, Q: 0.8 }, bgmGain);
+    });
+  }
+
+  // ── A段：主题段（D小调，轻快）────────────────────────────────
+  // 调性：D minor  根音 D=147Hz, A=220, C=131, F=175, Bb=117
+  function scheduleSectionA(t, tempo) {
+    // 低音线 Dm–Dm–C–Dm
+    const bass = [
+      [147,0],[147,1],[147,2],[165,3],   // Dm
+      [147,4],[147,5],[131,6],[147,7],   // Dm→C
+      [131,8],[131,9],[131,10],[147,11], // C
+      [147,12],[165,13],[147,14],[131,15],
+      [117,16],[117,17],[131,18],[117,19],// Bb
+      [131,20],[131,21],[147,22],[131,23],// C
+      [147,24],[147,25],[165,26],[147,27],// Dm
+      [131,28],[147,29],[131,30],[110,31],
     ];
-    bassNotes.forEach(([freq, beat]) => {
-      const st = t + beat * tempo;
-      playTone(freq, 'triangle', st, tempo * 0.85, 0.18, 0.02, bgmGain);
+    bass.forEach(([f, b]) => {
+      playTone(f, 'triangle', t + b * tempo, tempo * 0.88, 0.14, 0.01, bgmGain);
     });
 
-    // ── 和弦层（柔和衬底）──────────────────────────────────────
-    const chords = [
-      [[196, 247, 294], 0],
-      [[196, 247, 294], 8],
-      [[175, 220, 262], 16],
-      [[196, 247, 294], 24],
-    ];
-    chords.forEach(([freqs, beat]) => {
-      freqs.forEach(freq => {
-        const st = t + beat * tempo;
-        playTone(freq, 'sine', st, tempo * 4 * 0.9, 0.05, 0.005, bgmGain);
+    // 和弦衬底（每4拍换一次）
+    [[147,175,220], [147,175,220], [131,165,196], [117,147,175]].forEach(([f1,f2,f3], i) => {
+      const st = t + i * 8 * tempo;
+      [f1, f2, f3].forEach(f => {
+        playTone(f, 'sine', st, 8 * tempo * 0.92, 0.04, 0.003, bgmGain);
       });
     });
 
-    // ── 打击乐（鼓感）──────────────────────────────────────────
-    const kickBeats = [0, 4, 8, 12, 16, 20, 24, 28];
-    kickBeats.forEach(beat => {
-      playNoise(t + beat * tempo, tempo * 0.3, 0.12, { type: 'lowpass', freq: 120, Q: 2 }, bgmGain);
+    // 旋律（D minor pentatonic）
+    const mel = [
+      [294,0],[330,2],[392,4],[440,6],
+      [392,8],[349,10],[330,12],[294,14],
+      [262,16],[294,18],[330,20],[392,22],
+      [440,24],[392,26],[349,28],[294,30],
+    ];
+    mel.forEach(([f, b]) => {
+      playTone(f, 'sine', t + b * tempo, tempo * 1.7, 0.038, 0.001, bgmGain);
     });
-    const snareBeats = [2, 6, 10, 14, 18, 22, 26, 30];
-    snareBeats.forEach(beat => {
-      playNoise(t + beat * tempo, tempo * 0.15, 0.06, { type: 'bandpass', freq: 800, Q: 0.5 }, bgmGain);
+
+    // 钟琴装饰
+    [[880,1],[1047,5],[880,9],[784,13],[880,17],[1047,21],[784,25],[880,29]].forEach(([f,b]) => {
+      playBell(f, t + b * tempo, tempo * 2.5, 0.022, bgmGain);
     });
-    // 踩镲
+
+    scheduleDrums(t, 32, tempo);
+  }
+
+  // ── B段：副歌（同调升八度，密集节奏，活泼）──────────────────
+  function scheduleSectionB(t, tempo) {
+    // 低音线加密（每半拍）
+    const bassB = [
+      147,165,175,165, 147,131,147,131,
+      131,147,131,117, 131,147,165,147,
+      117,131,117,110, 131,117,131,147,
+      147,165,196,165, 147,131,147,131,
+    ];
+    bassB.forEach((f, b) => {
+      playTone(f, 'triangle', t + b * tempo, tempo * 0.75, 0.12, 0.01, bgmGain);
+    });
+
+    // 旋律（高八度，跳跃感）
+    const melB = [
+      [587,0],[659,1],[784,2],[880,3],
+      [784,4],[698,5],[659,6],[587,7],
+      [523,8],[587,9],[659,10],[784,11],
+      [880,12],[784,13],[698,14],[659,15],
+      [523,16],[587,17],[659,18],[523,19],
+      [494,20],[523,21],[587,22],[659,23],
+      [784,24],[880,25],[784,26],[698,27],
+      [659,28],[587,29],[523,30],[587,31],
+    ];
+    melB.forEach(([f, b]) => {
+      playTone(f, 'sine', t + b * tempo, tempo * 0.9, 0.042, 0.001, bgmGain);
+    });
+
+    // 和弦（更密，每2拍换）
+    [[294,349,440],[262,330,392],[233,294,349],[262,330,392],
+     [294,349,440],[262,330,392],[247,311,370],[262,330,392]].forEach(([f1,f2,f3], i) => {
+      const st = t + i * 4 * tempo;
+      [f1,f2,f3].forEach(f =>
+        playTone(f, 'sine', st, 4 * tempo * 0.88, 0.035, 0.002, bgmGain));
+    });
+
+    // 钟琴密集装饰
+    [0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30].forEach((b, i) => {
+      const bells = [1047, 880, 988, 1047, 880, 784, 880, 988,
+                     1047, 988, 880, 784, 880, 988, 1047, 880];
+      playBell(bells[i], t + b * tempo, tempo * 1.8, 0.018, bgmGain);
+    });
+
+    scheduleDrums(t, 32, tempo);
+  }
+
+  // ── C段：间奏（安静，只有钢琴+打击乐，减半密度）────────────
+  function scheduleSectionC(t, tempo) {
+    // 低音（稀疏）
+    [[147,0],[131,4],[117,8],[131,12],[147,16],[165,20],[147,24],[131,28]].forEach(([f,b]) => {
+      playTone(f, 'triangle', t + b * tempo, tempo * 1.8, 0.1, 0.005, bgmGain);
+    });
+
+    // 钟琴主旋律（担纲，当"钢琴"用）
+    const melC = [
+      [392,0],[440,4],[494,8],[523,12],
+      [494,16],[440,20],[392,24],[349,28],
+    ];
+    melC.forEach(([f, b]) => {
+      playBell(f, t + b * tempo, tempo * 3.8, 0.055, bgmGain);
+      // 加低一个八度的共鸣
+      playBell(f / 2, t + b * tempo, tempo * 2.5, 0.025, bgmGain);
+    });
+
+    // 和弦（非常轻柔）
+    [[147,175,220]].forEach(([f1,f2,f3]) => {
+      playTone(f1, 'sine', t, 32 * tempo * 0.95, 0.025, 0.001, bgmGain);
+      playTone(f2, 'sine', t, 32 * tempo * 0.95, 0.018, 0.001, bgmGain);
+    });
+
+    // 极轻的踩镲
     for (let i = 0; i < 32; i++) {
-      playNoise(t + i * tempo, tempo * 0.1, 0.025, { type: 'highpass', freq: 6000, Q: 1 }, bgmGain);
+      playNoise(t + i * tempo, tempo * 0.06, 0.01,
+        { type: 'highpass', freq: 8000, Q: 1 }, bgmGain);
+    }
+    // 轻kick
+    [0, 8, 16, 24].forEach(b => {
+      playNoise(t + b * tempo, tempo * 0.2, 0.07,
+        { type: 'lowpass', freq: 100, Q: 2 }, bgmGain);
+    });
+  }
+
+  // ── D段：转调段（上移小三度到 F minor，情绪起伏）────────────
+  // F minor: F=175, C=262, Db=139, Ab=208, Eb=156
+  function scheduleSectionD(t, tempo) {
+    const bass = [
+      [175,0],[175,1],[196,2],[175,3],
+      [175,4],[156,5],[175,6],[156,7],
+      [139,8],[139,9],[156,10],[139,11],
+      [156,12],[175,13],[156,14],[139,15],
+      [117,16],[131,17],[117,18],[110,19],
+      [131,20],[131,21],[139,22],[131,23],
+      [175,24],[175,25],[196,26],[175,27],
+      [156,28],[175,29],[156,30],[131,31],
+    ];
+    bass.forEach(([f, b]) => {
+      playTone(f, 'triangle', t + b * tempo, tempo * 0.85, 0.15, 0.01, bgmGain);
+    });
+
+    // 和弦
+    [[175,208,262],[139,175,208],[117,156,196],[131,175,208]].forEach(([f1,f2,f3], i) => {
+      const st = t + i * 8 * tempo;
+      [f1,f2,f3].forEach(f =>
+        playTone(f, 'sine', st, 8 * tempo * 0.9, 0.045, 0.003, bgmGain));
+    });
+
+    // 旋律（F minor pentatonic，忧郁感）
+    const melD = [
+      [349,0],[392,2],[440,4],[523,6],
+      [494,8],[440,10],[392,12],[349,14],
+      [311,16],[349,18],[392,20],[440,22],
+      [523,24],[494,26],[440,28],[392,30],
+    ];
+    melD.forEach(([f, b]) => {
+      playTone(f, 'sine', t + b * tempo, tempo * 1.9, 0.04, 0.001, bgmGain);
+    });
+
+    // 钟琴（高音装饰，稀疏）
+    [[880,3],[784,7],[698,11],[784,15],[880,19],[988,23],[880,27],[784,31]].forEach(([f,b]) => {
+      playBell(f, t + b * tempo, tempo * 2.2, 0.02, bgmGain);
+    });
+
+    scheduleDrums(t, 32, tempo);
+  }
+
+  // ── 段落表：A-A-B-C-A-D-A-B 循环，8段一大循环 ──────────────
+  const BGM_SECTIONS = [
+    scheduleSectionA,
+    scheduleSectionA,
+    scheduleSectionB,
+    scheduleSectionC,
+    scheduleSectionA,
+    scheduleSectionD,
+    scheduleSectionA,
+    scheduleSectionB,
+  ];
+
+  // ── 核心排程器：精确锚点，提前 LOOKAHEAD 秒排程下一段 ────────
+  function bgmScheduleTick() {
+    if (bgmStopFlag || !ctx || !bgmGain) return;
+
+    const now = ctx.currentTime;
+    const sectionDur = BGM_BEATS * BGM_TEMPO;
+
+    // 只要距下一段开始不足 LOOKAHEAD 秒，就立即排程
+    if (bgmNextStart - now < LOOKAHEAD) {
+      const tempo  = BGM_TEMPO * (1 + (Math.random() * 0.012 - 0.006)); // ±0.6% 微小速度抖动，增加人味
+      const secFn  = BGM_SECTIONS[bgmSectionIdx % BGM_SECTIONS.length];
+      const startAt = Math.max(bgmNextStart, now + 0.02); // 保证不在过去
+
+      secFn(startAt, tempo);
+
+      bgmNextStart = startAt + BGM_BEATS * tempo;
+      bgmSectionIdx++;
     }
 
-    // ── 旋律层（轻柔）──────────────────────────────────────────
-    const melodyNotes = [
-      [659, 0],  [784, 2],  [880, 4],  [784, 6],
-      [659, 8],  [587, 10], [659, 12], [784, 14],
-      [880, 16], [784, 18], [659, 20], [587, 22],
-      [523, 24], [587, 26], [659, 28], [523, 30],
-    ];
-    melodyNotes.forEach(([freq, beat]) => {
-      const st = t + beat * tempo;
-      playTone(freq, 'sine', st, tempo * 1.8, 0.04, 0.001, bgmGain);
-    });
-
-    // 提前 0.2s 排程下一轮
-    bgmLoopTimeout = setTimeout(() => {
-      if (!bgmStopFlag) scheduleBgmLoop();
-    }, (totalDur - 0.2) * 1000);
+    // 用 setTimeout 轮询（间隔远小于 LOOKAHEAD，保证不遗漏）
+    bgmScheduleTimer = setTimeout(bgmScheduleTick, 200);
   }
 
   function startBgm() {
     if (bgmPlaying) return;
     if (!ensureCtx()) return;
-    bgmStopFlag = false;
-    bgmPlaying = true;
-    scheduleBgmLoop();
+    bgmStopFlag  = false;
+    bgmPlaying   = true;
+    bgmNextStart = ctx.currentTime + 0.1; // 稍作延迟后启动第一段
+    bgmScheduleTick();
   }
 
   function stopBgm() {
     bgmStopFlag = true;
-    bgmPlaying = false;
-    if (bgmLoopTimeout) {
-      clearTimeout(bgmLoopTimeout);
-      bgmLoopTimeout = null;
+    bgmPlaying  = false;
+    if (bgmScheduleTimer) {
+      clearTimeout(bgmScheduleTimer);
+      bgmScheduleTimer = null;
     }
-    // 淡出
+    // 淡出 0.6s
     if (bgmGain && ctx) {
       bgmGain.gain.setValueAtTime(bgmGain.gain.value, ctx.currentTime);
-      bgmGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      bgmGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
       setTimeout(() => {
         if (!bgmPlaying && bgmGain) bgmGain.gain.value = _bgmVolume;
-      }, 600);
+      }, 700);
     }
   }
 
@@ -474,6 +707,7 @@ const SoundFX = (() => {
     roundEnd:      playRoundEnd,
     timeWarning:   playTimeWarning,
     flip:          playFlip,
+    pageFlip:      playPageFlip,
     error:         playError,
     gameStart:     playGameStart,
     // 背景音乐

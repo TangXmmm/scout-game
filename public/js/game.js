@@ -30,7 +30,7 @@ let willFlip     = false;
 // 倒计时
 let timerInterval  = null;
 let timerStartedAt = 0;
-let TIMER_TOTAL    = 30;    // 秒，与服务端对齐
+let TIMER_TOTAL    = 60;    // 秒，与服务端对齐
 
 // 托管状态
 let isManaged = false;
@@ -164,6 +164,7 @@ function startTimer(durationSec) {
   const el = document.getElementById('turn-timer');
   el.style.display = 'inline-block';
   el.className = '';
+  let _warnedAt10 = false;
 
   timerInterval = setInterval(() => {
     const elapsed = (Date.now() - timerStartedAt) / 1000;
@@ -174,6 +175,8 @@ function startTimer(durationSec) {
     if (left <= 10 && left > 0) {
       el.className = 'warning heartbeat';
       startPulseBorder();
+      // 🔊 最后10秒时播放一次超时警告音效
+      if (!_warnedAt10) { _warnedAt10 = true; if (typeof SoundFX !== 'undefined') SoundFX.timeWarning(); }
     } else if (left > 10) {
       el.className = '';
       stopPulseBorder();
@@ -854,12 +857,14 @@ function toggleCard(i) {
   // 非我方回合且不在挣角后演出阶段
   if (!isMyTurn && !pendingFinishScoutAndShow) {
     showToast('还没轮到你', 'error');
+    if (typeof SoundFX !== 'undefined') SoundFX.error();
     return;
   }
 
   if (selectedIndices.length === 0) {
     // 空选状态：直接选中这张
     selectedIndices = [i];
+    if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
   } else {
     const lo = selectedIndices[0];
     const hi = selectedIndices[selectedIndices.length - 1];
@@ -869,27 +874,34 @@ function toggleCard(i) {
       if (i === lo && i === hi) {
         // 唯一已选 → 取消
         selectedIndices = [];
+        if (typeof SoundFX !== 'undefined') SoundFX.cardDeselect();
       } else if (i === lo) {
         // 取消左端
         selectedIndices = selectedIndices.slice(1);
+        if (typeof SoundFX !== 'undefined') SoundFX.cardDeselect();
       } else if (i === hi) {
         // 取消右端
         selectedIndices = selectedIndices.slice(0, -1);
+        if (typeof SoundFX !== 'undefined') SoundFX.cardDeselect();
       } else {
         // 点击中间牌 → 重新单选这张
         selectedIndices = [i];
+        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
       }
     } else {
       // 点击未选中的牌：
       if (i === lo - 1) {
         // 左端扩展
         selectedIndices = [i, ...selectedIndices];
+        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
       } else if (i === hi + 1) {
         // 右端扩展
         selectedIndices = [...selectedIndices, i];
+        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
       } else {
         // 不相邻 → 重新单选
         selectedIndices = [i];
+        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
       }
     }
   }
@@ -1035,9 +1047,17 @@ function updateActionBtns() {
 }
 
 // ── 渲染完整游戏状态 ──────────────────────────────────────────
+let _prevIsMyTurn = false; // 用于检测轮次切换
 function renderState(state) {
   gameState = state;
+  const prevTurn = _prevIsMyTurn;
   isMyTurn  = state.currentPlayerId === myPlayerId && state.state === 'playing';
+  _prevIsMyTurn = isMyTurn;
+
+  // 🔊 刚轮到自己时播放提示音
+  if (isMyTurn && !prevTurn && state.state === 'playing') {
+    if (typeof SoundFX !== 'undefined') SoundFX.yourTurn();
+  }
 
   document.getElementById('round-num').textContent = state.roundNumber;
 
@@ -1136,15 +1156,21 @@ function doConfirmFlip() {
 
 // ── 演出（SHOW）──────────────────────────────────────────────
 function doShow() {
-  if (!selectedIndices.length) return showToast('请先点击手牌（需连续位置）', 'error');
+  if (!selectedIndices.length) {
+    showToast('请先点击手牌（需连续位置）', 'error');
+    if (typeof SoundFX !== 'undefined') SoundFX.error();
+    return;
+  }
   if (pendingFinishScoutAndShow) {
     socket.emit('finish_scout_and_show', { showIndices: selectedIndices });
     pendingFinishScoutAndShow = false;
     selectedIndices = [];
     hideScoutPendingBanner(); // 2.4 演出完成，隐藏 Banner
+    if (typeof SoundFX !== 'undefined') SoundFX.scoutAndShow();
   } else {
     socket.emit('show', { cardIndices: selectedIndices });
     selectedIndices = [];
+    if (typeof SoundFX !== 'undefined') SoundFX.cardPlay();
   }
 }
 
@@ -1467,35 +1493,20 @@ function backToLobby() {
   window.location.href = '/';
 }
 
-// ── 返回房间等待重玩 ──────────────────────────────────────────
+// ── 返回房间（点击后立刻跳转，不再有遮罩等待）─────────────────
+let _hasClickedReturn = false;
+
 function returnToRoom() {
-  // 关闭游戏结束弹窗
-  document.getElementById('game-end-modal').style.display = 'none';
-  // 显示等待重玩弹窗
-  showReturnWaitingOverlay(1, gameState?.players?.length || 1, []);
-  // 通知服务端
+  if (_hasClickedReturn) return;
+  _hasClickedReturn = true;
+  // 先通知服务端（服务端重置房间并回传 redirect_to_waiting）
   socket.emit('return_to_lobby');
 }
 
-// 显示/更新等待重玩覆盖层
-function showReturnWaitingOverlay(readyCount, totalCount, readyNames) {
-  const overlay = document.getElementById('return-waiting-overlay');
-  if (!overlay) return;
-  const countEl = document.getElementById('return-ready-count');
-  const namesEl = document.getElementById('return-ready-names');
-  if (countEl) countEl.textContent = `${readyCount} / ${totalCount}`;
-  if (namesEl) {
-    namesEl.textContent = readyNames?.length
-      ? readyNames.join('、') + ' 已准备好'
-      : '等待其他玩家...';
-  }
-  overlay.style.display = 'flex';
-}
-
-function hideReturnWaitingOverlay() {
-  const overlay = document.getElementById('return-waiting-overlay');
-  if (overlay) overlay.style.display = 'none';
-}
+// 兼容旧遮罩相关调用（保留空函数防止报错）
+function returnToRoomFromOverlay() { returnToRoom(); }
+function showReturnWaitingOverlay() {}
+function hideReturnWaitingOverlay() {}
 
 // ── 单轮结算页（Page 07）────────────────────────────────────
 function showRoundEnd(data) {
@@ -1760,12 +1771,16 @@ function toggleSocialPanel() { toggleChatBar(); }
 function sendQuick(text) {
   if (!checkChatCooldown()) return;
   socket.emit('send_chat', { type: 'quick', content: text });
+  // 🔊 发快捷语音效
+  if (typeof SoundFX !== 'undefined') SoundFX.chatSend();
   // 关闭面板但不冻结
 }
 
 function sendSticker(emoji) {
   if (!checkChatCooldown()) return;
   socket.emit('send_chat', { type: 'sticker', content: emoji });
+  // 🔊 发贴纸音效
+  if (typeof SoundFX !== 'undefined') SoundFX.chatSend();
 }
 
 function sendChatText() {
@@ -1777,6 +1792,8 @@ function sendChatText() {
   if (!checkChatCooldown()) return;
   socket.emit('send_chat', { type: 'text', content });
   if (input) input.value = '';
+  // 🔊 发消息音效
+  if (typeof SoundFX !== 'undefined') SoundFX.chatSend();
 }
 
 // ── 侧边栏聊天输入（新版常显侧边栏入口）────────────────────
@@ -2023,6 +2040,11 @@ socket.on('phase_changed', ({ phase }) => {
   if (phase === 'playing') {
     document.getElementById('flip-modal').style.display = 'none';
     showCaption('游戏正式开始！');
+    // 🔊 翻牌完成 → 开始背景音乐
+    if (typeof SoundFX !== 'undefined') {
+      SoundFX.flip();
+      setTimeout(() => SoundFX.startBgm(), 800);
+    }
   }
 });
 
@@ -2070,6 +2092,8 @@ socket.on('scout_prepared', () => {
   showToast('✅ 挖角成功！', 'success');
   showScoutPendingBanner(); // 2.4 持久 Banner
   updateActionBtns();
+  // 🔊 挖角音效
+  if (typeof SoundFX !== 'undefined') SoundFX.scout();
 });
 
 // 超时托管取消了"挖角并演出"的中间态 → 重置客户端状态
@@ -2090,6 +2114,8 @@ socket.on('action_error', ({ message }) => {
   updateActionBtns();
   // 出牌失败：重启倒计时
   if (isMyTurn) startTimer(TIMER_TOTAL);
+  // 🔊 错误音效
+  if (typeof SoundFX !== 'undefined') SoundFX.error();
 });
 
 socket.on('finish_scout_error', ({ message }) => {
@@ -2135,6 +2161,8 @@ socket.on('round_end', (data) => {
   // 方向2：结算时触发高光动效（先播动效，稍后再弹结算弹窗）
   triggerRoundEndEffect(data);
   setTimeout(() => showRoundEnd(data), 600);
+  // 🔊 回合结束音效
+  if (typeof SoundFX !== 'undefined') SoundFX.roundEnd();
 });
 
 socket.on('game_over', (data) => {
@@ -2144,6 +2172,12 @@ socket.on('game_over', (data) => {
   triggerGameEndEffect(data);
   setTimeout(() => { showRoundEnd(data); }, 600);
   setTimeout(() => showGameEnd(data), 4200);
+  // 🔊 游戏结束音效（胜者 vs 其他玩家）
+  if (typeof SoundFX !== 'undefined') {
+    SoundFX.stopBgm();
+    const isWinner = data.gameWinnerId === myPlayerId;
+    setTimeout(() => isWinner ? SoundFX.victory() : SoundFX.defeat(), 800);
+  }
 });
 
 socket.on('round_started', ({ roundNumber }) => {
@@ -2154,6 +2188,8 @@ socket.on('round_started', ({ roundNumber }) => {
   logItems.length = 0;
   showCaption(`🎪 第 ${roundNumber} 轮开始！`);
   addLog(`第 ${roundNumber} 轮开始`);
+  // 🔊 新轮开始音效
+  if (typeof SoundFX !== 'undefined') SoundFX.gameStart();
 });
 
 socket.on('player_offline', ({ playerName }) => {
@@ -2175,32 +2211,34 @@ socket.on('chat_message', ({ playerName, content, type, senderId }) => {
       : gameState?.players?.find(p => p.name === playerName);
     if (senderPlayer) showSeatBubble(senderPlayer.id, content);
   }
+  // 🔊 收到他人消息时播放提示音
+  if (!isOwn && type !== 'system' && typeof SoundFX !== 'undefined') SoundFX.chatReceive();
 });
 
 socket.on('lobby_error', ({ message }) => showToast('⚠️ ' + message, 'error'));
 socket.on('error',       ({ message }) => showToast('⚠️ ' + message, 'error'));
 
-// ── 返回房间：有人点击了「返回房间等待」────────────────────────
-socket.on('player_return_ready', ({ playerName, readyCount, totalCount, readyNames }) => {
-  showToast(`✅ ${playerName} 准备返回 (${readyCount}/${totalCount})`, 'success');
-  showReturnWaitingOverlay(readyCount, totalCount, readyNames);
+// ── 返回房间：服务端通知立刻跳转 ────────────────────────────
+socket.on('redirect_to_waiting', ({ roomCode, playerId }) => {
+  const pid = playerId || myPlayerId;
+  if (!pid) { window.location.href = '/'; return; }
+  const params = new URLSearchParams({ returnRoom: roomCode, pid });
+  window.location.href = '/?' + params.toString();
 });
 
-// ── 返回房间：所有人准备好，房间已重置 ───────────────────────
-socket.on('room_reset', ({ message, roomCode }) => {
-  hideReturnWaitingOverlay();
-  clearGameSession();
-  const myName = gameState?.players?.find(p => p.id === myPlayerId)?.name || '';
-  sessionStorage.setItem('scoutRoomCode', roomCode);
-  sessionStorage.setItem('scoutPlayerName', myName);
-  showToast('🎉 ' + message, 'success');
-  setTimeout(() => { window.location.href = '/'; }, 1200);
-});
+// ── 兼容旧事件（保留空处理，防止报错） ───────────────────────
+socket.on('player_return_ready', () => {});
+socket.on('room_reset', () => {});
 
 // ── 初始化：添加游戏开始系统消息 ─────────────────────────────
 socket.on('game_started', (state) => {
   appendChatMessage('', '🎪 游戏开始！欢迎来到 Scout！', 'system');
   renderState(state);
+  // 🔊 游戏开始音效 + 启动背景音乐
+  if (typeof SoundFX !== 'undefined') {
+    SoundFX.gameStart();
+    setTimeout(() => SoundFX.startBgm(), 1500);
+  }
 });
 
 // ── ESC 收起底部聊天条 ────────────────────────────────────────

@@ -1159,24 +1159,30 @@
       touch-action: manipulation;
       -webkit-user-select: none;
     }
-    /* 3.3 hover：上浮5px，阴影拉长 */
-    .game-card:not(.stage-card):hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.32), 0 2px 6px rgba(0,0,0,0.2);
-      z-index: 10;
+    /* 3.3 hover：仅在真实鼠标设备上启用上浮效果，避免移动端触摸导致抖动 */
+    @media (hover: hover) and (pointer: fine) {
+      .game-card:not(.stage-card):hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.32), 0 2px 6px rgba(0,0,0,0.2);
+        z-index: 10;
+      }
     }
     .game-card:active { transform: scale(0.95); }
-    /* 3.2/3.3 整段选中：牌本身上浮10px + 去掉单卡金边（整段由外层包裹容器发光） */
+    /* 选中状态：上浮 + 金色边框 + 亮背景 + 发光，视觉区分度明显 */
     .game-card.in-selection {
-      transform: translateY(-10px);
-      border-color: transparent;
-      box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+      transform: translateY(-14px) scale(1.06);
+      border-color: rgba(247,201,72,0.9);
+      box-shadow: 0 0 0 2px rgba(247,201,72,0.6), 0 12px 24px rgba(247,201,72,0.3), 0 4px 10px rgba(0,0,0,0.3);
+      background: #fffbe8;  /* 浅金底色 */
+      z-index: 20;
     }
     /* 兼容旧的 .selected（挖角插槽模式下仍在用）*/
     .game-card.selected {
-      transform: translateY(-10px);
-      border-color: rgba(247,201,72,0.4);
-      box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+      transform: translateY(-14px) scale(1.06);
+      border-color: rgba(247,201,72,0.9);
+      box-shadow: 0 0 0 2px rgba(247,201,72,0.6), 0 12px 24px rgba(247,201,72,0.3), 0 4px 10px rgba(0,0,0,0.3);
+      background: #fffbe8;
+      z-index: 20;
     }
     /* 3.2 hover 时邻牌弱高亮（由 JS 添加类） */
     .game-card.neighbor-hl {
@@ -2730,6 +2736,8 @@
         <span id="header-mid"></span>
         <span id="header-right" style="display:flex;align-items:center;gap:6px;">
           <span id="turn-timer" style="display:none;"></span>
+          <!-- 音效控制按钮 -->
+          <button id="sfx-toggle-btn" onclick="toggleSfx()" title="静音/开音" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:2px 4px;opacity:0.75;transition:opacity 0.2s;" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.75">🔊</button>
           <!-- 移动端入口按钮（桌面端 CSS 隐藏） -->
           <button id="mobile-lb-btn" onclick="openMobileLbDrawer()" title="排行榜">🏆</button>
           <button id="mobile-chat-btn" onclick="openMobileChatDrawer()" title="聊天">
@@ -3058,9 +3066,15 @@
     <div id="return-waiting-box">
       <div style="font-size:2.2rem;margin-bottom:8px;">🔄</div>
       <div style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:6px;">等待其他玩家返回...</div>
-      <div style="font-size:2rem;font-weight:700;color:var(--gold);margin:8px 0;" id="return-ready-count">1 / ?</div>
+      <div style="font-size:2rem;font-weight:700;color:var(--gold);margin:8px 0;" id="return-ready-count">? / ?</div>
       <div style="font-size:0.82rem;color:var(--muted);min-height:20px;" id="return-ready-names">等待其他玩家...</div>
-      <div style="margin-top:16px;font-size:0.75rem;color:var(--muted);">所有人返回后将自动跳转到大厅</div>
+      <!-- 自己还没点「返回房间」时显示此按钮 -->
+      <button id="return-join-btn" class="mbtn mbtn-gold"
+              onclick="returnToRoomFromOverlay()"
+              style="margin-top:18px;width:100%;display:none;">
+        🔄 我也返回房间
+      </button>
+      <div style="margin-top:12px;font-size:0.75rem;color:var(--muted);">所有人返回后将自动跳转到大厅</div>
     </div>
   </div>
 
@@ -3176,7 +3190,36 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/sound.js"></script>
   <script src="/js/game.js"></script>
+  <script>
+    /**
+     * 静音/开音切换（绑定在 header 按钮上）
+     * 需在 game.js 之后执行，SoundFX 已可用
+     */
+    function toggleSfx() {
+      if (typeof SoundFX === 'undefined') return;
+      SoundFX.unlock(); // 首次点击恢复 AudioContext
+      const muted = !SoundFX.isMuted();
+      SoundFX.setMuted(muted);
+      const btn = document.getElementById('sfx-toggle-btn');
+      if (btn) btn.textContent = muted ? '🔇' : '🔊';
+      // 静音时停止背景音乐，恢复时如果游戏在进行则重启
+      if (muted) {
+        SoundFX.stopBgm();
+      } else {
+        // 仅当游戏进行中才重启 BGM
+        if (typeof gameState !== 'undefined' && gameState?.state === 'playing') {
+          SoundFX.startBgm();
+        }
+      }
+    }
 
+    // 首次用户交互时自动解锁 AudioContext
+    document.addEventListener('click', function _unlock() {
+      if (typeof SoundFX !== 'undefined') SoundFX.unlock();
+      document.removeEventListener('click', _unlock);
+    }, { once: true });
+  </script>
 </body>
 </html>

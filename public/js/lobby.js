@@ -110,6 +110,9 @@ function saveHostRoom(roomCode, playerId, playerName) {
 
 // ── 游戏会话检测与恢复 ────────────────────────────────────────
 (function checkGameSession() {
+  // 如果是从游戏结束页返回（?returnRoom=...），跳过会话恢复弹窗
+  if (new URLSearchParams(window.location.search).get('returnRoom')) return;
+
   const session = localStorage.getItem('scout_game_session');
   if (session) {
     try {
@@ -170,11 +173,36 @@ function dismissContinueModal() {
   localStorage.removeItem('scout_game_session');
 }
 
-// ── URL参数检测（房间链接分享） ────────────────────────────────
+// ── URL参数检测（房间链接分享 + 游戏结束返回等待室） ─────────────
 (function checkUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
-  const roomCode = urlParams.get('room');
-  
+  const roomCode  = urlParams.get('room');
+  const returnRoom = urlParams.get('returnRoom');
+  const returnPid  = urlParams.get('pid');
+
+  // 从游戏结束页返回：自动 rejoin 等待室
+  if (returnRoom && returnPid) {
+    // 清理 URL，避免刷新重复触发
+    history.replaceState(null, '', '/');
+    // 清除旧游戏会话（避免会话弹窗干扰）
+    localStorage.removeItem('scout_game_session');
+    localStorage.removeItem('scout_host_room');
+    // 关闭任何已弹出的会话弹窗
+    ['continue-game-modal', 'host-room-modal'].forEach(id => {
+      document.getElementById(id)?.remove();
+    });
+    // 等 socket 连接好后自动发送
+    const doRejoin = () => {
+      socket.emit('rejoin_waiting_room', { roomCode: returnRoom, playerId: returnPid });
+    };
+    if (socket.connected) {
+      doRejoin();
+    } else {
+      socket.once('connect', doRejoin);
+    }
+    return;
+  }
+
   if (roomCode) {
     // 自动填充房间码
     document.getElementById('room-code-input').value = roomCode.toUpperCase();
@@ -204,6 +232,19 @@ function dismissContinueModal() {
     }, 3000);
   }
 })();
+
+// 监听 rejoin_waiting_room 成功
+socket.on('waiting_room_rejoined', ({ roomCode, playerId, players, isHost: h }) => {
+  myPlayerId = playerId;
+  myRoomCode = roomCode;
+  isHost = h;
+  showWaitingRoom(roomCode, players);
+});
+
+// rejoin_waiting_room 失败
+socket.on('rejoin_waiting_failed', ({ message }) => {
+  showError('entry-error', message || '返回等待室失败，请手动输入房间码');
+});
 
 function showError(elId, msg) {
   const el = document.getElementById(elId);
@@ -240,8 +281,15 @@ function renderPlayers(players) {
   const container = document.getElementById('player-list-container');
   const countEl = document.getElementById('player-count');
   countEl.textContent = players.length;
-  container.innerHTML = players.map(p => `
-    <div class="player-item">
+  container.innerHTML = players.map(p => {
+    // returned 字段：如果有则显示返回状态标签
+    const returnTag = (p.returned === true || p.returned === false)
+      ? `<span class="return-status ${p.returned ? 'returned' : 'not-returned'}">${p.returned ? '✅ 已返回' : '⏳ 未返回'}</span>`
+      : '';
+    const cardClass = p.returned === false ? 'not-returned-card'
+      : p.returned === true ? 'returned-card' : '';
+    return `
+    <div class="player-item ${cardClass}">
       <div class="player-avatar">${p.avatar
         ? `<img src="/avatars/${p.avatar}" alt="" />`
         : p.name.charAt(0).toUpperCase()
@@ -249,13 +297,20 @@ function renderPlayers(players) {
       <div class="player-info">
         <div class="name">${p.name}${p.id === myPlayerId ? ' (我)' : ''}</div>
         ${p.isHost ? '<div class="role">👑 房主</div>' : ''}
+        ${returnTag}
       </div>
-      ${isHost && p.id !== myPlayerId ? 
-        `<button class="btn-kick" onclick="kickPlayer('${p.id}')">❌</button>` 
+      ${isHost && p.id !== myPlayerId ?
+        `<button class="btn-kick" onclick="kickPlayer('${p.id}')">❌</button>`
         : ''}
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
+
+// 监听玩家返回状态广播（再来一局过程中实时更新）
+socket.on('players_return_status', ({ players }) => {
+  renderPlayers(players);
+  updateStartButton(players);
+});
 
 function showWaitingRoom(roomCode, players) {
   document.getElementById('lobby-entry').style.display = 'none';
@@ -303,13 +358,38 @@ function updateStartButton(players) {
   const btn = document.getElementById('btn-start');
   const hint = document.getElementById('waiting-hint');
   if (isHost) {
-    btn.style.display = players.length >= 2 ? 'block' : 'none';
-    hint.textContent = players.length < 2
-      ? '还需要至少1名玩家才能开始...'
-      : `${players.length} 人已就绪，可以开始游戏！`;
+    // 检查是否有玩家「未返回」（再来一局流程中）
+    const notReturnedPlayers = players.filter(p => p.returned === false);
+    const hasNotReturned = notReturnedPlayers.length > 0;
+
+    if (players.length < 2) {
+      btn.style.display = 'none';
+      hint.textContent = '还需要至少1名玩家才能开始...';
+    } else if (hasNotReturned) {
+      // 有人未返回：按钮显示但禁用，提示踢掉才能开始
+      btn.style.display = 'block';
+      btn.disabled = true;
+      btn.style.opacity = '0.45';
+      btn.style.cursor = 'not-allowed';
+      const names = notReturnedPlayers.map(p => p.name).join('、');
+      hint.textContent = `⏳ ${names} 尚未返回房间，请等待或将其踢出后开始`;
+    } else {
+      btn.style.display = 'block';
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+      hint.textContent = `${players.length} 人已就绪，可以开始游戏！`;
+    }
   } else {
     btn.style.display = 'none';
-    hint.textContent = '等待房主开始游戏...';
+    // 检查是否有人未返回，给非房主也显示状态
+    const notReturnedPlayers = players.filter(p => p.returned === false);
+    if (notReturnedPlayers.length > 0) {
+      const names = notReturnedPlayers.map(p => p.name).join('、');
+      hint.textContent = `⏳ 等待 ${names} 返回房间...`;
+    } else {
+      hint.textContent = '等待房主开始游戏...';
+    }
   }
 }
 

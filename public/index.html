@@ -610,6 +610,45 @@
       transform: scale(0.95);
     }
 
+    /* 再来一局：玩家返回状态标签 */
+    .return-status {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 8px;
+      margin-top: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      letter-spacing: 0.02em;
+    }
+    .return-status.returned {
+      background: rgba(63,185,80,0.15);
+      color: #3fb950;
+      border: 1px solid rgba(63,185,80,0.35);
+    }
+    .return-status.not-returned {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      border: 1px solid rgba(239,68,68,0.4);
+      animation: pulse-badge 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.55; }
+    }
+
+    /* 未返回玩家的整个卡片：左边橙红色竖条 + 轻微变暗 */
+    .player-item.not-returned-card {
+      border-left: 3px solid rgba(239,68,68,0.6);
+      background: rgba(239,68,68,0.06);
+      opacity: 0.82;
+    }
+    /* 已返回的卡片：绿色左侧细线 */
+    .player-item.returned-card {
+      border-left: 3px solid rgba(63,185,80,0.5);
+    }
+
     .waiting-hint {
       text-align: center;
       color: #718096;

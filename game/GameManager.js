@@ -72,8 +72,10 @@ class GameManager {
     if (room.status !== 'waiting')       return { success: false, message: '游戏已经开始' };
 
     // 进入选座位阶段，重置所有座位选择
-    room.status  = 'seating';
-    room.seating = {}; // playerId -> seatIndex (1~N)
+    room.status        = 'seating';
+    room.seating       = {}; // playerId -> seatIndex (1~N)
+    room.returnStarted = false; // 清除"再来一局"标记，下局游戏结束后可以再次使用
+    room.players.forEach(p => { delete p.returned; }); // 清除返回状态标记
     return { success: true };
   }
 
@@ -194,17 +196,16 @@ class GameManager {
     return this.socketToPlayerId[socketId];
   }
 
-  // 房主踢出玩家（仅限等待室）
+  // 房主踢出玩家（等待室 waiting 状态下可用）
   kickPlayer(hostSocketId, targetPlayerId) {
     const roomCode = this.socketToRoom[hostSocketId];
     const room = this.rooms[roomCode];
     
-    // 验证：房间存在
     if (!room) return { success: false, message: '房间不存在' };
     
-    // 验证：只能在等待状态踢人
+    // 允许在 waiting 状态踢人（包括游戏结束后重置的 waiting）
     if (room.status !== 'waiting') {
-      return { success: false, message: '游戏已开始，无法踢人' };
+      return { success: false, message: '只能在等待室踢人' };
     }
     
     // 验证：操作者是房主
@@ -261,36 +262,36 @@ class GameManager {
         return { roomCode, type: 'offline', player, roomDeleted: false };
       }
       
-      // 等待室：房主离线时保留房间5分钟
+      // 等待室：房主离线时保留房间5分钟，非房主也给30秒宽限（防止页面跳转瞬间被清除）
       const isHost = (room.hostPlayerId === playerId);
-      if (isHost && room.status === 'waiting') {
-        // 设置房间过期时间（5分钟）
-        room.hostOfflineAt = Date.now();
-        room.hostOfflineTimeout = setTimeout(() => {
-          // 5分钟后删除房间
-          if (this.rooms[roomCode]) {
-            console.log(`[房间过期] ${roomCode} - 房主5分钟未返回`);
-            delete this.rooms[roomCode];
-          }
-        }, 5 * 60 * 1000);
-        
-        console.log(`[房主离线] ${roomCode} - 保留房间5分钟等待返回`);
-        return { roomCode, type: 'host_offline', player, roomDeleted: false, players: room.players };
+      if (room.status === 'waiting') {
+        if (isHost) {
+          // 房主离线：保留房间5分钟
+          room.hostOfflineAt = Date.now();
+          room.hostOfflineTimeout = setTimeout(() => {
+            if (this.rooms[roomCode]) {
+              console.log(`[房间过期] ${roomCode} - 房主5分钟未返回`);
+              delete this.rooms[roomCode];
+            }
+          }, 5 * 60 * 1000);
+          console.log(`[房主离线] ${roomCode} - 保留房间5分钟等待返回`);
+          return { roomCode, type: 'host_offline', player, roomDeleted: false, players: room.players };
+        } else {
+          // 非房主离线：给30秒宽限期（防止页面跳转/刷新瞬间被移除）
+          player._offlineTimer = setTimeout(() => {
+            // 30秒后仍未重连，才真正移除
+            if (room.players.find(p => p.id === playerId && !p.online)) {
+              room.players = room.players.filter(p => p.id !== playerId);
+              if (room.players.length === 0) {
+                delete this.rooms[roomCode];
+              }
+              console.log(`[玩家移除] ${player.name} 超时未重连，已从 ${roomCode} 移除`);
+            }
+          }, 30 * 1000);
+          console.log(`[玩家离线] ${player.name} 在等待室断线，30秒宽限期...`);
+          return { roomCode, type: 'offline', player, roomDeleted: false, players: room.players };
+        }
       }
-      
-      // 非房主离线：直接移除
-      room.players = room.players.filter(p => p.id !== playerId);
-      if (room.players.length === 0) {
-        delete this.rooms[roomCode];
-        return { roomCode, type: 'removed', player, roomDeleted: true };
-      }
-      
-      // 转移房主（如果当前房主离线了但不应该到这里）
-      if (room.hostPlayerId === playerId) {
-        room.hostPlayerId = room.players[0].id;
-      }
-      
-      return { roomCode, type: 'removed', player, roomDeleted: false, players: room.players };
     }
 
     return null;

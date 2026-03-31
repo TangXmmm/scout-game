@@ -21,8 +21,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ─────────────────────────────────────────────────────────────
 // 超时配置
 // ─────────────────────────────────────────────────────────────
-const TURN_TIMEOUT_MS = 30000;   // 30秒超时
-const WARN_AT_MS      = 20000;   // 20秒发出预警
+const TURN_TIMEOUT_MS = 60000;   // 60秒超时
+const WARN_AT_MS      = 45000;   // 45秒发出预警
 
 // 每房间的超时定时器
 const roomTimers = {}; // roomCode -> { timer, warnTimer, startedAt }
@@ -427,6 +427,15 @@ io.on('connection', (socket) => {
 
   // ── 开始游戏（触发选座位阶段）──────────────────────────────
   socket.on('start_game', () => {
+    // 服务端防守：有未返回玩家时禁止开始（再来一局流程中）
+    const roomCheck = gameManager.getRoom(socket.id);
+    if (roomCheck?.returnStarted) {
+      const notReturned = roomCheck.players.filter(p => p.returned === false);
+      if (notReturned.length > 0) {
+        const names = notReturned.map(p => p.name).join('、');
+        return socket.emit('error', { message: `${names} 尚未返回房间，请等待或将其踢出后再开始` });
+      }
+    }
     // 先尝试进入选座位阶段
     const result = gameManager.initSeating(socket.id);
     if (result.success) {
@@ -642,56 +651,105 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── 游戏结束后重新加入等待室（rejoin_waiting_room）──────────
+  socket.on('rejoin_waiting_room', ({ roomCode, playerId }) => {
+    const code = roomCode?.toUpperCase();
+    const room = gameManager.rooms[code];
+    if (!room) {
+      return socket.emit('rejoin_waiting_failed', { message: '房间不存在，请重新创建' });
+    }
+    if (room.status !== 'waiting') {
+      return socket.emit('rejoin_waiting_failed', { message: '房间状态异常，无法返回等待室' });
+    }
+
+    // 找到该玩家（先按 id 精确匹配，找不到则记录日志帮助排查）
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      console.warn(`[rejoin_waiting] 玩家 ${playerId} 在房间 ${code} 中不存在，房间玩家列表:`,
+        room.players.map(p => ({ id: p.id, name: p.name })));
+      // 如果传来的是 "null" 字符串（前端 myPlayerId 未初始化的情况），给出更友好的提示
+      const msg = (!playerId || playerId === 'null')
+        ? '玩家身份丢失，请手动重新加入房间'
+        : '未找到玩家信息，请手动重新加入房间';
+      return socket.emit('rejoin_waiting_failed', { message: msg });
+    }
+
+    // 更新 socketId 映射
+    player.socketId = socket.id;
+    player.online   = true;
+    gameManager.socketToRoom[socket.id]     = code;
+    gameManager.socketToPlayerId[socket.id] = playerId;
+    socket.join(code);
+
+    // 构建玩家列表（含 returned 状态，用于前端显示"已返回/未返回"）
+    const playersInfo = room.players.map(p => ({
+      id:       p.id,
+      name:     p.name,
+      avatar:   p.avatar || '',
+      isHost:   p.id === room.hostPlayerId,
+      returned: p.returned,   // undefined=普通加入, true=已返回, false=未返回
+    }));
+
+    // 通知该玩家进入等待室
+    socket.emit('waiting_room_rejoined', {
+      roomCode: code,
+      playerId,
+      players:  playersInfo,
+      isHost:   player.id === room.hostPlayerId,
+    });
+
+    // 通知房间里其他人玩家列表更新（含返回状态）
+    socket.to(code).emit('players_updated', { players: playersInfo });
+    console.log(`[重返等待室] ${player.name} 回到房间 ${code}`);
+  });
+
   // ── 返回房间（游戏结束后重玩）────────────────────────────────
   socket.on('return_to_lobby', () => {
     const room = gameManager.getRoom(socket.id);
     const playerId = gameManager.getPlayerId(socket.id);
     if (!room) return socket.emit('error', { message: '房间不存在' });
 
-    // 仅在游戏结束后允许操作
-    if (room.status !== 'finished') {
+    // 允许：游戏刚结束（finished）或已有人开始返回（returnStarted=true）
+    const canReturn = room.status === 'finished' || room.returnStarted === true;
+    if (!canReturn) {
       return socket.emit('error', { message: '当前不在游戏结束状态' });
     }
 
-    // 记录该玩家已准备好返回等待室
-    if (!room.returnReady) room.returnReady = new Set();
-    room.returnReady.add(playerId);
+    // 第一个人点击时：立刻重置房间为 waiting 状态
+    if (!room.returnStarted) {
+      room.returnStarted = true;
+      room.game    = null;
+      room.status  = 'waiting';
+      room.seating = null;
+      // 给每个玩家加上"未返回"标记
+      room.players.forEach(p => { p.returned = false; });
+      console.log(`[再来一局] ${room.code} 房间已重置，等待玩家陆续返回`);
+    }
 
-    const readyNames = [...room.returnReady]
-      .map(pid => room.players.find(p => p.id === pid)?.name)
-      .filter(Boolean);
+    // 标记该玩家已返回
+    const player = room.players.find(p => p.id === playerId);
+    if (player) player.returned = true;
 
-    // 通知全房间：有人已准备返回
-    io.to(room.code).emit('player_return_ready', {
-      playerId,
-      playerName: room.players.find(p => p.id === playerId)?.name,
-      readyCount: room.returnReady.size,
-      totalCount: room.players.length,
-      readyNames,
+    // 广播最新玩家状态给所有人
+    const playersInfo = room.players.map(p => ({
+      id:       p.id,
+      name:     p.name,
+      avatar:   p.avatar || '',
+      isHost:   p.id === room.hostPlayerId,
+      returned: p.returned || false,
+    }));
+    io.to(room.code).emit('players_return_status', {
+      players: playersInfo,
+      roomCode: room.code,
     });
 
-    // 如果所有人都准备好了，重置房间
-    if (room.returnReady.size >= room.players.length) {
-      room.game = null;
-      room.status = 'waiting';
-      room.returnReady = null;
-      room.seating = null;
+    // 给点击者发跳转指令（携带 playerId 用于 rejoin）
+    socket.emit('redirect_to_waiting', {
+      roomCode: room.code,
+      playerId,
+    });
 
-      const playersInfo = room.players.map(p => ({
-        id: p.id,
-        name: p.name,
-        avatar: p.avatar || '',
-        isHost: p.id === room.hostPlayerId,
-      }));
-
-      io.to(room.code).emit('room_reset', {
-        roomCode: room.code,
-        players: playersInfo,
-        hostPlayerId: room.hostPlayerId,
-        message: '所有人已准备好，房间已重置，可以重新开始！',
-      });
-      console.log(`[房间重置] ${room.code}（全员返回等待室）`);
-    }
+    console.log(`[再来一局] ${player?.name} 返回房间 ${room.code}`);
   });
 
   // ── 房主踢人 ──────────────────────────────────────────────

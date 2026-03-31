@@ -642,6 +642,58 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── 返回房间（游戏结束后重玩）────────────────────────────────
+  socket.on('return_to_lobby', () => {
+    const room = gameManager.getRoom(socket.id);
+    const playerId = gameManager.getPlayerId(socket.id);
+    if (!room) return socket.emit('error', { message: '房间不存在' });
+
+    // 仅在游戏结束后允许操作
+    if (room.status !== 'finished') {
+      return socket.emit('error', { message: '当前不在游戏结束状态' });
+    }
+
+    // 记录该玩家已准备好返回等待室
+    if (!room.returnReady) room.returnReady = new Set();
+    room.returnReady.add(playerId);
+
+    const readyNames = [...room.returnReady]
+      .map(pid => room.players.find(p => p.id === pid)?.name)
+      .filter(Boolean);
+
+    // 通知全房间：有人已准备返回
+    io.to(room.code).emit('player_return_ready', {
+      playerId,
+      playerName: room.players.find(p => p.id === playerId)?.name,
+      readyCount: room.returnReady.size,
+      totalCount: room.players.length,
+      readyNames,
+    });
+
+    // 如果所有人都准备好了，重置房间
+    if (room.returnReady.size >= room.players.length) {
+      room.game = null;
+      room.status = 'waiting';
+      room.returnReady = null;
+      room.seating = null;
+
+      const playersInfo = room.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar || '',
+        isHost: p.id === room.hostPlayerId,
+      }));
+
+      io.to(room.code).emit('room_reset', {
+        roomCode: room.code,
+        players: playersInfo,
+        hostPlayerId: room.hostPlayerId,
+        message: '所有人已准备好，房间已重置，可以重新开始！',
+      });
+      console.log(`[房间重置] ${room.code}（全员返回等待室）`);
+    }
+  });
+
   // ── 房主踢人 ──────────────────────────────────────────────
   socket.on('kick_player', ({ targetPlayerId }) => {
     const result = gameManager.kickPlayer(socket.id, targetPlayerId);

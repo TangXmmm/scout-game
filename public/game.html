@@ -1311,7 +1311,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 0;
     }
     .flip-status-row {
       display: flex; flex-wrap: wrap; gap: 6px;
@@ -2265,6 +2265,425 @@
       flex-shrink: 0;
     }
     #conn-dot.offline { background: var(--red); animation: blink 1s ease infinite; }
+
+    /* ══════════════════════════════════════════
+       📱 移动端适配（< 768px）
+       策略：隐藏左右侧边栏 → 聊天改为底部全屏抽屉 → 增大按钮 → 顶部加 FAB
+    ══════════════════════════════════════════ */
+    @media (max-width: 767px) {
+
+      /* ── 隐藏桌面侧边栏 ── */
+      #leaderboard-sidebar {
+        display: none !important;
+      }
+      #chat-sidebar {
+        display: none !important;
+      }
+
+      /* ── 顶部状态栏：压缩高度，加排行榜入口 ── */
+      #header-bar {
+        padding: 4px 10px;
+        min-height: 44px;
+        max-height: 44px;
+        gap: 4px;
+      }
+      #header-left  { font-size: 0.72rem; min-width: 0; }
+      #header-mid   { font-size: 0.72rem; }
+      #header-right { min-width: 0; }
+      #turn-timer   { font-size: 1rem; }
+
+      /* 移动端排行榜入口按钮（右上角）*/
+      #mobile-lb-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(247,201,72,0.15);
+        border: 1px solid rgba(247,201,72,0.3);
+        color: var(--gold);
+        font-size: 1rem;
+        cursor: pointer;
+        flex-shrink: 0;
+        touch-action: manipulation;
+        transition: background 0.15s;
+      }
+      #mobile-lb-btn:active { background: rgba(247,201,72,0.3); transform: scale(0.95); }
+
+      /* 移动端聊天入口按钮（排行榜按钮旁）*/
+      #mobile-chat-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(88,166,255,0.12);
+        border: 1px solid rgba(88,166,255,0.25);
+        color: var(--blue);
+        font-size: 1rem;
+        cursor: pointer;
+        flex-shrink: 0;
+        touch-action: manipulation;
+        transition: background 0.15s;
+        position: relative;
+      }
+      #mobile-chat-btn:active { background: rgba(88,166,255,0.28); transform: scale(0.95); }
+      #mobile-chat-badge {
+        position: absolute;
+        top: -4px; right: -4px;
+        background: var(--red); color: #fff;
+        font-size: 0.55rem; font-weight: 900;
+        min-width: 14px; height: 14px;
+        border-radius: 7px; padding: 0 3px;
+        display: none; align-items: center; justify-content: center;
+      }
+      #mobile-chat-badge.show { display: flex; }
+
+      /* ── 牌桌区：撑满宽度，去掉侧边栏间距，压缩 flex 比例 ── */
+      #table-wrapper {
+        flex: 44;           /* 桌面区缩小：原 61 → 44，给手牌区让空间 */
+        padding: 4px 6px 2px;
+        gap: 0;
+      }
+      #table-section {
+        width: min(100%, 520px);
+      }
+
+      /* ── 底部操作区：增大 flex 比例，手牌完整显示 ── */
+      #bottom-bar {
+        flex: 56;           /* 手牌+按钮区扩大：原 26 → 56，确保手牌可见 */
+        padding: 4px 8px;
+        padding-bottom: max(6px, env(safe-area-inset-bottom, 6px));
+        gap: 3px;
+      }
+      #my-hand-area {
+        padding: 4px 10px 6px;
+        min-height: 0;
+      }
+      #my-hand-cards {
+        gap: 1px;
+        padding-bottom: 16px;
+        padding-top: 2px;
+        min-height: 0;
+      }
+
+      /* ── 操作按钮：2×2 网格，增大触控区 ── */
+      #action-area {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        width: 100%;
+        padding: 0;
+      }
+      .act-btn {
+        min-height: 44px;
+        font-size: 0.8rem;
+        padding: 8px 4px;
+        border-radius: 12px;
+        white-space: normal;
+        line-height: 1.3;
+        text-align: center;
+      }
+      /* 演出按钮独占一行 */
+      #btn-show {
+        grid-column: 1 / -1;
+        min-height: 46px;
+        font-size: 0.88rem;
+      }
+      /* 托管按钮（显示时）独占一行 */
+      #btn-managed {
+        grid-column: 1 / -1;
+      }
+
+      /* ── 移动端排行榜抽屉 ── */
+      #mobile-lb-drawer {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.85);
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s;
+        backdrop-filter: blur(4px);
+      }
+      #mobile-lb-drawer.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #mobile-lb-sheet {
+        position: absolute;
+        top: 0; right: 0; bottom: 0;
+        width: min(85vw, 320px);
+        background: var(--bg2);
+        border-left: 1px solid rgba(255,255,255,0.08);
+        display: flex;
+        flex-direction: column;
+        transform: translateX(100%);
+        transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      #mobile-lb-drawer.open #mobile-lb-sheet {
+        transform: translateX(0);
+      }
+      #mobile-lb-sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        flex-shrink: 0;
+      }
+      #mobile-lb-sheet-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--gold);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #mobile-lb-sheet-close {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.07);
+        border: none; color: var(--muted);
+        font-size: 0.9rem; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        touch-action: manipulation;
+      }
+      #mobile-lb-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* 移动端排行榜条目（稍大） */
+      #mobile-lb-drawer .lb-row {
+        padding: 8px 12px;
+        border-radius: 10px;
+        gap: 9px;
+      }
+      #mobile-lb-drawer .lb-avatar {
+        width: 32px; height: 32px;
+        font-size: 0.82rem;
+      }
+      #mobile-lb-drawer .lb-name {
+        font-size: 0.88rem;
+      }
+
+      /* ── 移动端聊天底部抽屉 ── */
+      #mobile-chat-drawer {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s;
+        backdrop-filter: blur(3px);
+      }
+      #mobile-chat-drawer.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #mobile-chat-sheet {
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        height: 70vh;
+        background: var(--bg2);
+        border-top: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px 20px 0 0;
+        display: flex;
+        flex-direction: column;
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      #mobile-chat-drawer.open #mobile-chat-sheet {
+        transform: translateY(0);
+      }
+      #mobile-chat-sheet-handle {
+        width: 36px; height: 4px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 2px;
+        margin: 10px auto 0;
+        flex-shrink: 0;
+      }
+      #mobile-chat-sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        flex-shrink: 0;
+      }
+      #mobile-chat-sheet-title {
+        font-size: 0.92rem;
+        font-weight: 800;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #mobile-chat-sheet-close {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.07);
+        border: none; color: var(--muted);
+        font-size: 0.9rem; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        touch-action: manipulation;
+      }
+      #mobile-chat-history {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      #mobile-chat-history::-webkit-scrollbar { display: none; }
+      #mobile-chat-input-area {
+        flex-shrink: 0;
+        padding: 10px 14px;
+        border-top: 1px solid rgba(255,255,255,0.07);
+        background: rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      /* 快捷语网格（移动端聊天内） */
+      #mobile-quick-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+      }
+      .mobile-quick-btn {
+        padding: 7px 4px;
+        border-radius: 9px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 0.75rem;
+        cursor: pointer;
+        touch-action: manipulation;
+        text-align: center;
+        transition: background 0.12s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mobile-quick-btn:active { background: rgba(255,255,255,0.15); transform: scale(0.95); }
+      /* 输入行 */
+      #mobile-chat-text-row {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+      }
+      #mobile-chat-text-row input {
+        flex: 1;
+        padding: 9px 12px;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 10px;
+        color: var(--text);
+        font-size: max(16px, 0.9rem); /* 防 iOS 缩放 */
+        font-family: inherit;
+        outline: none;
+      }
+      #mobile-chat-text-row input:focus {
+        border-color: rgba(88,166,255,0.4);
+        background: rgba(88,166,255,0.08);
+      }
+      #mobile-chat-text-row input::placeholder { color: rgba(255,255,255,0.25); }
+      #mobile-chat-send-btn {
+        flex-shrink: 0;
+        padding: 9px 16px;
+        background: var(--blue);
+        border: none;
+        border-radius: 10px;
+        color: #fff;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        touch-action: manipulation;
+        min-height: 40px;
+        transition: opacity 0.15s;
+      }
+      #mobile-chat-send-btn:active { opacity: 0.75; transform: scale(0.97); }
+
+      /* ── 聊天气泡（移动端抽屉内复用样式）── */
+      #mobile-chat-history .chat-msg { gap: 7px; }
+      #mobile-chat-history .chat-msg-body { max-width: 75vw; }
+
+      /* ── 席位卡片在小屏幕上缩小 ── */
+      .seat-card {
+        min-width: 82px;
+        max-width: 130px;
+        padding: 4px 7px 4px 6px;
+        gap: 5px;
+        border-radius: 10px;
+      }
+      .seat-avatar-wrap {
+        width: 32px; height: 32px;
+      }
+      .seat-name { font-size: 0.7rem; }
+      .seat-stats { font-size: 0.65rem; }
+
+      /* 行为日志条 */
+      #log-bar {
+        font-size: 0.68rem;
+        padding: 1px 0;
+      }
+
+      /* 手牌标签 */
+      .hand-label { font-size: 0.7rem; }
+
+      /* 挖+演 Banner 在小屏幕上的简化版本 */
+      #scout-pending-banner {
+        padding: 7px 10px;
+        font-size: 0.76rem;
+      }
+      .banner-text { font-size: 0.72rem; }
+      .banner-cancel { padding: 3px 8px; font-size: 0.7rem; }
+    }
+
+    /* ── 桌面端隐藏移动端专属按钮 ── */
+    #mobile-lb-btn   { display: none; }
+    #mobile-chat-btn { display: none; }
+    #mobile-lb-drawer   { display: none; }
+    #mobile-chat-drawer { display: none; }
+
+    /* ══ 等待重玩覆盖层 ══ */
+    #return-waiting-overlay {
+      position: fixed; inset: 0; z-index: 600;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #return-waiting-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 36px;
+      text-align: center;
+      max-width: 320px; width: 90%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+      animation: modalIn 0.25s ease;
+    }
   </style>
 </head>
 <body>
@@ -2296,8 +2715,14 @@
           <span id="conn-dot"></span>第 <span id="round-num">1</span> 局
         </span>
         <span id="header-mid"></span>
-        <span id="header-right">
+        <span id="header-right" style="display:flex;align-items:center;gap:6px;">
           <span id="turn-timer" style="display:none;"></span>
+          <!-- 移动端入口按钮（桌面端 CSS 隐藏） -->
+          <button id="mobile-lb-btn" onclick="openMobileLbDrawer()" title="排行榜">🏆</button>
+          <button id="mobile-chat-btn" onclick="openMobileChatDrawer()" title="聊天">
+            💬
+            <span id="mobile-chat-badge"></span>
+          </button>
         </span>
       </div>
 
@@ -2456,10 +2881,13 @@
       <div class="flip-hand-preview" id="flip-preview"></div>
       <div id="flip-action-area">
         <div class="flip-action-row">
-          <button class="mbtn mbtn-gold"  id="btn-do-flip" onclick="doFlip()">🔄 翻转手牌</button>
-          <button class="mbtn mbtn-ghost" id="btn-undo-flip" onclick="doFlip()" style="display:none;">↩️ 撤销翻转</button>
+          <!-- 翻转/撤销翻转互斥，共占左格 -->
+          <div style="display:contents;">
+            <button class="mbtn mbtn-gold"  id="btn-do-flip"   onclick="doFlip()">🔄 翻转手牌</button>
+            <button class="mbtn mbtn-ghost" id="btn-undo-flip" onclick="doFlip()" style="display:none;">↩️ 撤销翻转</button>
+          </div>
+          <button class="mbtn mbtn-green" onclick="doConfirmFlip()">✅ 确认，开始游戏</button>
         </div>
-        <button class="mbtn mbtn-green" onclick="doConfirmFlip()" style="margin-top:10px;width:100%;">✅ 确认手牌，开始游戏</button>
       </div>
       <div class="flip-status-row" id="flip-status-row"></div>
     </div>
@@ -2603,7 +3031,23 @@
         <thead><tr><th>名次</th><th>玩家</th><th>总分</th></tr></thead>
         <tbody id="game-scores-body"></tbody>
       </table>
-      <button class="mbtn mbtn-ghost" onclick="backToLobby()" style="max-width:200px;margin:0 auto;">🏠 返回大厅</button>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <button class="mbtn mbtn-gold" onclick="returnToRoom()" style="max-width:260px;">🔄 返回房间·再来一局</button>
+        <button class="mbtn mbtn-ghost" onclick="backToLobby()" style="max-width:260px;">🏠 返回大厅（退出）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────
+       等待重玩覆盖层（所有人点「返回房间」后自动跳转）
+  ──────────────────────────────────────────────────────── -->
+  <div id="return-waiting-overlay" style="display:none;">
+    <div id="return-waiting-box">
+      <div style="font-size:2.2rem;margin-bottom:8px;">🔄</div>
+      <div style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:6px;">等待其他玩家返回...</div>
+      <div style="font-size:2rem;font-weight:700;color:var(--gold);margin:8px 0;" id="return-ready-count">1 / ?</div>
+      <div style="font-size:0.82rem;color:var(--muted);min-height:20px;" id="return-ready-names">等待其他玩家...</div>
+      <div style="margin-top:16px;font-size:0.75rem;color:var(--muted);">所有人返回后将自动跳转到大厅</div>
     </div>
   </div>
 
@@ -2680,6 +3124,43 @@
   <!-- 兼容旧版：chat-drawer / chat-backdrop（隐藏，保留 JS 引用不报错） -->
   <div id="chat-drawer"  style="display:none;"></div>
   <div id="chat-backdrop" style="display:none;"></div>
+
+  <!-- ══ 移动端排行榜抽屉（右滑入，< 768px 时可用）══ -->
+  <div id="mobile-lb-drawer" onclick="handleMobileLbOverlayClick(event)">
+    <div id="mobile-lb-sheet">
+      <div id="mobile-lb-sheet-header">
+        <div id="mobile-lb-sheet-title">🏆 实时排行榜</div>
+        <button id="mobile-lb-sheet-close" onclick="closeMobileLbDrawer()">✕</button>
+      </div>
+      <div id="mobile-lb-body">
+        <!-- 由 JS syncMobileLb() 动态填充 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 移动端聊天底部抽屉（< 768px 时可用）══ -->
+  <div id="mobile-chat-drawer" onclick="handleMobileChatOverlayClick(event)">
+    <div id="mobile-chat-sheet">
+      <div id="mobile-chat-sheet-handle"></div>
+      <div id="mobile-chat-sheet-header">
+        <div id="mobile-chat-sheet-title">💬 聊天</div>
+        <button id="mobile-chat-sheet-close" onclick="closeMobileChatDrawer()">✕</button>
+      </div>
+      <!-- 聊天记录 -->
+      <div id="mobile-chat-history"></div>
+      <!-- 输入区 -->
+      <div id="mobile-chat-input-area">
+        <!-- 快捷语网格 -->
+        <div id="mobile-quick-grid"></div>
+        <!-- 文字输入行 -->
+        <div id="mobile-chat-text-row">
+          <input id="mobile-chat-text" type="text" placeholder="说点什么..." maxlength="20"
+                 onkeypress="if(event.key==='Enter')sendMobileChatText()" />
+          <button id="mobile-chat-send-btn" onclick="sendMobileChatText()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/game.js"></script>

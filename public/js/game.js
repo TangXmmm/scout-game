@@ -438,6 +438,10 @@ function renderLeaderboard(state) {
         </div>
       </div>`;
   }).join('');
+
+  // 📱 移动端：若排行榜抽屉已打开，同步刷新
+  const _lbDrawer = document.getElementById('mobile-lb-drawer');
+  if (_lbDrawer?.classList.contains('open')) syncMobileLb();
 }
 
 // ── 实时分数条 ────────────────────────────────────────────────
@@ -1430,6 +1434,36 @@ function backToLobby() {
   window.location.href = '/';
 }
 
+// ── 返回房间等待重玩 ──────────────────────────────────────────
+function returnToRoom() {
+  // 关闭游戏结束弹窗
+  document.getElementById('game-end-modal').style.display = 'none';
+  // 显示等待重玩弹窗
+  showReturnWaitingOverlay(1, gameState?.players?.length || 1, []);
+  // 通知服务端
+  socket.emit('return_to_lobby');
+}
+
+// 显示/更新等待重玩覆盖层
+function showReturnWaitingOverlay(readyCount, totalCount, readyNames) {
+  const overlay = document.getElementById('return-waiting-overlay');
+  if (!overlay) return;
+  const countEl = document.getElementById('return-ready-count');
+  const namesEl = document.getElementById('return-ready-names');
+  if (countEl) countEl.textContent = `${readyCount} / ${totalCount}`;
+  if (namesEl) {
+    namesEl.textContent = readyNames?.length
+      ? readyNames.join('、') + ' 已准备好'
+      : '等待其他玩家...';
+  }
+  overlay.style.display = 'flex';
+}
+
+function hideReturnWaitingOverlay() {
+  const overlay = document.getElementById('return-waiting-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
 // ── 单轮结算页（Page 07）────────────────────────────────────
 function showRoundEnd(data) {
   clearTimer();
@@ -1645,6 +1679,9 @@ function appendChatMessage(playerName, content, type, isOwn = false) {
 
   const countEl = document.getElementById('chat-msg-count');
   if (countEl) countEl.textContent = `${chatMessages.length} 条消息`;
+
+  // 📱 移动端：同步消息到底部聊天抽屉
+  appendMobileChatMessage(playerName, content, type, isOwn);
 }
 
 // 显示弹幕气泡（快速浮现，用于他人消息）
@@ -2110,6 +2147,23 @@ socket.on('chat_message', ({ playerName, content, type, senderId }) => {
 socket.on('lobby_error', ({ message }) => showToast('⚠️ ' + message, 'error'));
 socket.on('error',       ({ message }) => showToast('⚠️ ' + message, 'error'));
 
+// ── 返回房间：有人点击了「返回房间等待」────────────────────────
+socket.on('player_return_ready', ({ playerName, readyCount, totalCount, readyNames }) => {
+  showToast(`✅ ${playerName} 准备返回 (${readyCount}/${totalCount})`, 'success');
+  showReturnWaitingOverlay(readyCount, totalCount, readyNames);
+});
+
+// ── 返回房间：所有人准备好，房间已重置 ───────────────────────
+socket.on('room_reset', ({ message, roomCode }) => {
+  hideReturnWaitingOverlay();
+  clearGameSession();
+  const myName = gameState?.players?.find(p => p.id === myPlayerId)?.name || '';
+  sessionStorage.setItem('scoutRoomCode', roomCode);
+  sessionStorage.setItem('scoutPlayerName', myName);
+  showToast('🎉 ' + message, 'success');
+  setTimeout(() => { window.location.href = '/'; }, 1200);
+});
+
 // ── 初始化：添加游戏开始系统消息 ─────────────────────────────
 socket.on('game_started', (state) => {
   appendChatMessage('', '🎪 游戏开始！欢迎来到 Scout！', 'system');
@@ -2121,5 +2175,165 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const bar = document.getElementById('chat-bar');
     if (bar?.classList.contains('expanded')) toggleChatBar();
+    closeMobileLbDrawer();
+    closeMobileChatDrawer();
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+//   📱 移动端抽屉控制（排行榜 + 聊天）
+// ══════════════════════════════════════════════════════════════
+
+let _mobileChatUnread = 0; // 未读计数（聊天抽屉未打开时）
+
+// ── 排行榜抽屉 ────────────────────────────────────────────────
+function openMobileLbDrawer() {
+  const drawer = document.getElementById('mobile-lb-drawer');
+  if (!drawer) return;
+  // 同步最新数据
+  syncMobileLb();
+  drawer.style.display = 'flex';
+  requestAnimationFrame(() => drawer.classList.add('open'));
+  // 阻止背景滚动
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMobileLbDrawer() {
+  const drawer = document.getElementById('mobile-lb-drawer');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  drawer.classList.remove('open');
+  drawer.addEventListener('transitionend', () => {
+    drawer.style.display = 'none';
+  }, { once: true });
+  document.body.style.overflow = '';
+}
+
+function handleMobileLbOverlayClick(e) {
+  // 点击遮罩（而非 sheet）时关闭
+  if (e.target === document.getElementById('mobile-lb-drawer')) {
+    closeMobileLbDrawer();
+  }
+}
+
+// 将 #lb-body 的内容同步到移动端排行榜抽屉
+function syncMobileLb() {
+  const src  = document.getElementById('lb-body');
+  const dest = document.getElementById('mobile-lb-body');
+  if (!src || !dest) return;
+  dest.innerHTML = src.innerHTML;
+}
+
+// ── 聊天抽屉 ──────────────────────────────────────────────────
+function openMobileChatDrawer() {
+  const drawer = document.getElementById('mobile-chat-drawer');
+  if (!drawer) return;
+  // 初始化快捷语
+  initMobileQuickGrid();
+  drawer.style.display = 'flex';
+  requestAnimationFrame(() => drawer.classList.add('open'));
+  document.body.style.overflow = 'hidden';
+  // 清除未读徽章
+  _mobileChatUnread = 0;
+  const badge = document.getElementById('mobile-chat-badge');
+  if (badge) badge.classList.remove('show');
+  // 滚到底部
+  const hist = document.getElementById('mobile-chat-history');
+  if (hist) setTimeout(() => { hist.scrollTop = hist.scrollHeight; }, 60);
+}
+
+function closeMobileChatDrawer() {
+  const drawer = document.getElementById('mobile-chat-drawer');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  drawer.classList.remove('open');
+  drawer.addEventListener('transitionend', () => {
+    drawer.style.display = 'none';
+  }, { once: true });
+  document.body.style.overflow = '';
+}
+
+function handleMobileChatOverlayClick(e) {
+  if (e.target === document.getElementById('mobile-chat-drawer')) {
+    closeMobileChatDrawer();
+  }
+}
+
+// 发送移动端聊天输入框内容
+function sendMobileChatText() {
+  const input = document.getElementById('mobile-chat-text');
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) return;
+  if (content.length > 20) { showToast('消息不超过20字', 'error'); return; }
+  if (!checkChatCooldown()) return;
+  socket.emit('send_chat', { type: 'text', content });
+  input.value = '';
+}
+
+// 初始化移动端快捷语网格
+function initMobileQuickGrid() {
+  const grid = document.getElementById('mobile-quick-grid');
+  if (!grid || grid.children.length > 0) return; // 已初始化则跳过
+  const phrases = CONTEXT_PHRASES['default'];
+  grid.innerHTML = phrases.map(p =>
+    `<button class="mobile-quick-btn" onclick="sendQuick('${escapeHtml(p)}')">${p}</button>`
+  ).join('');
+}
+
+// 刷新移动端快捷语（根据上下文切换）
+function refreshMobileQuickGrid(ctx) {
+  const grid    = document.getElementById('mobile-quick-grid');
+  if (!grid) return;
+  const phrases = CONTEXT_PHRASES[ctx] || CONTEXT_PHRASES.default;
+  grid.innerHTML = phrases.map(p =>
+    `<button class="mobile-quick-btn" onclick="sendQuick('${escapeHtml(p)}')">${p}</button>`
+  ).join('');
+}
+
+// ── 消息同步到移动端聊天抽屉 ─────────────────────────────────
+// 在 appendChatMessage 之后调用，将消息同步到 #mobile-chat-history
+function appendMobileChatMessage(playerName, content, type, isOwn = false) {
+  const hist = document.getElementById('mobile-chat-history');
+  if (!hist) return;
+
+  const div = document.createElement('div');
+  if (type === 'system') {
+    div.className = 'chat-msg';
+    div.innerHTML = `<div class="chat-msg-system">${escapeXSS(content)}</div>`;
+  } else {
+    const isSticker = type === 'sticker';
+    div.className = `chat-msg${isOwn ? ' mine' : ''}`;
+    const initials = (playerName || '?').charAt(0).toUpperCase();
+    const senderP = gameState?.players?.find(pl => isOwn ? pl.id === myPlayerId : pl.name === playerName);
+    const avatarInner = senderP?.avatar
+      ? `<img src="/avatars/${senderP.avatar}" alt="" style="width:100%;height:100%;object-fit:contain;" />`
+      : initials;
+    const avatarStyle = senderP?.avatar ? 'background:rgba(0,0,0,0.3);padding:2px;overflow:hidden;' : '';
+    const bubbleContent = isSticker
+      ? `<div class="chat-msg-sticker">${content}</div>`
+      : `<div class="chat-msg-bubble">${escapeXSS(content)}</div>`;
+    div.innerHTML = `
+      <div class="chat-msg-avatar" style="${avatarStyle}">${avatarInner}</div>
+      <div class="chat-msg-body">
+        <div class="chat-msg-name">${isOwn ? '我' : escapeXSS(playerName)}</div>
+        ${bubbleContent}
+      </div>`;
+  }
+  hist.appendChild(div);
+  while (hist.children.length > 60) hist.removeChild(hist.firstChild);
+  hist.scrollTop = hist.scrollHeight;
+
+  // 如果聊天抽屉未打开，累加未读徽章
+  const drawer = document.getElementById('mobile-chat-drawer');
+  if (!drawer?.classList.contains('open') && !isOwn && type !== 'system') {
+    _mobileChatUnread++;
+    const badge = document.getElementById('mobile-chat-badge');
+    if (badge) {
+      badge.textContent = _mobileChatUnread > 9 ? '9+' : String(_mobileChatUnread);
+      badge.classList.add('show');
+    }
+  }
+}
+
+// ── 移动端排行榜同步（由原 renderLeaderboard 末尾调用）────────
+// 注意：不在此重新定义 renderLeaderboard，避免 hoisting 导致覆盖！
+// 同步逻辑已直接注入到 renderLeaderboard 函数体末尾（见上方）。

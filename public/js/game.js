@@ -151,8 +151,16 @@ function cardHtml(card, opts = {}) {
     </div>`;
 }
 
-function miniCardHtml(card) {
-  const val = cv(card);
+function miniCardHtml(card, showBoth = false) {
+  const val   = cv(card);
+  const other = co(card);
+  if (showBoth && card.top !== card.bottom) {
+    return `<div class="mini-card mini-card-both ${vc(val)}" style="background:${cardBg(val)};color:#1a1a2e;">
+      <div class="mini-card-tl ${vc(other)}">${other}</div>
+      <span class="mini-card-main">${val}</span>
+      <div class="mini-card-br ${vc(other)}">${other}</div>
+    </div>`;
+  }
   return `<div class="mini-card ${vc(val)}" style="background:${cardBg(val)};color:#1a1a2e;">${val}</div>`;
 }
 
@@ -807,7 +815,8 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
       const leftX = rect.left - containerRect.left + el.scrollLeft;
       const slot = document.createElement('div');
       slot.className = `insert-slot-overlay${(i === selInsertIdx && selPos !== null) ? ' active-slot' : ''}`;
-      slot.style.left = `${leftX - 8}px`;  // 居中在卡片左边界
+      slot.style.left = `${leftX - 13}px`;  // 居中在卡片左边界（宽26px，居中偏移13px）
+      slot.setAttribute('data-idx', i + 1);  // 显示插入后的序位（第几张）
       slot.onclick = () => setInsertFromHand(i);
       el.appendChild(slot);
     });
@@ -818,7 +827,8 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
     const lastX = lastRect.right - containerRect.left + el.scrollLeft;
     const lastSlot = document.createElement('div');
     lastSlot.className = `insert-slot-overlay${(hand.length === selInsertIdx && selPos !== null) ? ' active-slot' : ''}`;
-    lastSlot.style.left = `${lastX - 8}px`;
+    lastSlot.style.left = `${lastX - 13}px`;
+    lastSlot.setAttribute('data-idx', hand.length + 1);  // 最右端插槽序位
     lastSlot.onclick = () => setInsertFromHand(hand.length);
     el.appendChild(lastSlot);
 
@@ -1254,7 +1264,7 @@ function renderScoutPositions() {
 
   const pLeft  = document.getElementById('preview-left');
   if (leftCard) {
-    pLeft.innerHTML = miniCardHtml(leftCard);
+    pLeft.innerHTML = miniCardHtml(leftCard, true);
   } else {
     pLeft.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
   }
@@ -1263,7 +1273,7 @@ function renderScoutPositions() {
   if (stage.length === 0) {
     pRight.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
   } else {
-    pRight.innerHTML = miniCardHtml(rightCard);
+    pRight.innerHTML = miniCardHtml(rightCard, true);
   }
 }
 

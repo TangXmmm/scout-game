@@ -1242,6 +1242,10 @@ function openScoutModal(isAndShow = false) {
   // ── 2.1 重置分步进度条到 Step 1 ──
   setScoutStep(1);
 
+  // ── 重置时显示引导提示
+  const pickHint = document.getElementById('scout-pick-hint');
+  if (pickHint) pickHint.style.display = 'flex';
+
   renderScoutPositions();
   renderInsertPreview();
   document.getElementById('scouted-preview').style.display = 'none';
@@ -1282,6 +1286,10 @@ function selectPos(pos) {
   selPos = pos;
   document.getElementById('pos-left').classList.toggle('selected',  pos === 'left');
   document.getElementById('pos-right').classList.toggle('selected', pos === 'right');
+
+  // 用户已点选后，隐藏引导提示
+  const pickHint = document.getElementById('scout-pick-hint');
+  if (pickHint) pickHint.style.display = 'none';
 
   // 重置翻转状态（每次选新端时重置）
   willFlip = false;

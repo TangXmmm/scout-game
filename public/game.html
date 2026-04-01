@@ -1393,6 +1393,11 @@
     ══════════════════════════════════════════ */
     #scout-modal { z-index: 220; }
     .scout-title { color: var(--gold); }
+    /* 选牌引导提示呼吸动画 */
+    @keyframes hintPulse {
+      0%, 100% { opacity: 0.85; }
+      50%       { opacity: 1; box-shadow: 0 0 10px rgba(247,201,72,0.25); }
+    }
 
     /* 2.3 模式标签 */
     .mode-tag {
@@ -1508,16 +1513,30 @@
       transition: color 0.18s;
     }
     .pos-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    /* 默认态：低调虚线边框，明显区别于选中态，用户一眼知道「还没选」 */
     .pos-btn {
       padding: 12px 8px; border-radius: 12px;
-      border: 2px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      color: var(--text); cursor: pointer;
-      font-family: inherit; font-size: var(--fs-meta); font-weight: 600; /* meta: 13-14px */
+      border: 2px dashed rgba(255,255,255,0.15);  /* 改为虚线，低调 */
+      background: rgba(255,255,255,0.01);          /* 几乎透明 */
+      color: rgba(255,255,255,0.45);               /* 文字变淡 */
+      cursor: pointer;
+      font-family: inherit; font-size: var(--fs-meta); font-weight: 600;
       text-align: center; transition: all 0.2s;
       touch-action: manipulation;
+      position: relative;
     }
-    .pos-btn.selected { border-color: var(--gold); background: var(--gold-dim); color: var(--gold); }
+    /* hover 态：轻微提亮，给予可点击反馈 */
+    .pos-btn:hover {
+      border-color: rgba(255,255,255,0.32);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.75);
+    }
+    /* 选中态：金色实线边框 + 金色背景 + 亮文字，与默认态形成强对比 */
+    .pos-btn.selected {
+      border: 2px solid var(--gold);
+      background: var(--gold-dim);
+      color: var(--gold);
+    }
     .scouted-preview {
       display: none; justify-content: center;
       flex-direction: column; align-items: center; margin-bottom: 14px;
@@ -3065,6 +3084,20 @@
       </div>
 
       <!-- Step 1：选端 -->
+      <!-- 引导提示：明确告知用户需要点选，避免与选中状态混淆 -->
+      <div id="scout-pick-hint" style="
+        display:flex; align-items:center; gap:6px;
+        font-size:var(--fs-tag); color:var(--gold);
+        margin-bottom:8px;
+        padding:6px 10px;
+        background:rgba(247,201,72,0.08);
+        border:1px solid rgba(247,201,72,0.2);
+        border-radius:8px;
+        animation: hintPulse 2s ease-in-out infinite;
+      ">
+        <span style="font-size:0.9rem;">👆</span>
+        <span>点击左端或右端，选择要挖取的那张牌</span>
+      </div>
       <div class="pos-btns">
         <button class="pos-btn" id="pos-left" onclick="selectPos('left')">
           <div style="font-size:var(--fs-tag);opacity:0.7;margin-bottom:4px;">← 左端</div>

@@ -155,10 +155,11 @@ function miniCardHtml(card, showBoth = false) {
   const val   = cv(card);
   const other = co(card);
   if (showBoth && card.top !== card.bottom) {
+    // 角标用深色（#333），主体大数字继续用颜色类；确保在浅色卡面上清晰可读
     return `<div class="mini-card mini-card-both ${vc(val)}" style="background:${cardBg(val)};color:#1a1a2e;">
-      <div class="mini-card-tl ${vc(other)}">${other}</div>
-      <span class="mini-card-main">${val}</span>
-      <div class="mini-card-br ${vc(other)}">${other}</div>
+      <div class="mini-card-tl" style="color:#444;">${other}</div>
+      <span class="mini-card-main ${vc(val)}">${val}</span>
+      <div class="mini-card-br" style="color:#444;">${other}</div>
     </div>`;
   }
   return `<div class="mini-card ${vc(val)}" style="background:${cardBg(val)};color:#1a1a2e;">${val}</div>`;

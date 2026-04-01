@@ -1059,51 +1059,74 @@
     .insert-slot-overlay {
       position: absolute;
       top: 0; bottom: 0;
-      width: 26px;
+      width: 28px;
       cursor: pointer;
       z-index: 20;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.15s;
-    }
-    .insert-slot-overlay::before {
-      content: attr(data-idx);
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(20,25,45,0.82);
-      color: rgba(255,255,255,0.3);
-      font-size: 0.52rem;
-      font-weight: 800;
-      padding: 1px 3px;
       border-radius: 4px;
-      pointer-events: none;
-      line-height: 1.3;
-      white-space: nowrap;
-      transition: all 0.15s;
-      z-index: 1;
     }
+    /* 默认态：可见但低调的竖线 */
     .insert-slot-overlay::after {
       content: '';
-      display: block;
-      width: 3px;
-      height: 75%;
-      background: rgba(255,255,255,0.18);
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 65%;
+      background: rgba(255,255,255,0.2);
       border-radius: 3px;
       transition: all 0.15s;
+    }
+    /* 默认态：+ 号图标（不遮住卡牌，用 translateY 偏到下方） */
+    .insert-slot-overlay::before {
+      content: '+';
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(20,25,45,0.75);
+      color: rgba(255,255,255,0.35);
+      font-size: 0.6rem;
+      font-weight: 900;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      pointer-events: none;
+      transition: all 0.15s;
+      z-index: 1;
+      /* 利用 flex 居中文字 */
+      display: grid;
+      place-items: center;
+    }
+    /* hover 态：大幅增强 */
+    .insert-slot-overlay:hover {
+      background: rgba(247,201,72,0.07);
     }
     .insert-slot-overlay:hover::after,
     .insert-slot-overlay.active-slot::after {
       background: var(--gold);
-      width: 4px;
-      height: 85%;
-      box-shadow: 0 0 10px rgba(247,201,72,0.9);
+      width: 3px;
+      height: 80%;
+      box-shadow: 0 0 12px rgba(247,201,72,1);
     }
     .insert-slot-overlay:hover::before,
     .insert-slot-overlay.active-slot::before {
+      content: '+';
       color: var(--gold);
-      background: rgba(40,32,0,0.9);
+      background: rgba(60,45,0,0.95);
+      border: 1px solid rgba(247,201,72,0.6);
+      width: 16px; height: 16px;
+      box-shadow: 0 0 8px rgba(247,201,72,0.6);
+    }
+    /* active-slot 态（已选中）：常亮金色 */
+    .insert-slot-overlay.active-slot {
+      background: rgba(247,201,72,0.1);
     }
 
     /* 3.4 实时判定提示条 */
@@ -1530,45 +1553,90 @@
       position: relative;
       flex-direction: column;
       gap: 0;
+      /* 加宽小牌，为角标腾出空间 */
+      width: 32px;
+      height: 40px;
+      border-radius: 5px;
     }
-    .mini-card-main { font-size: var(--fs-tag); font-weight: 900; line-height: 1; }
+    .mini-card-main {
+      font-size: var(--fs-tag);
+      font-weight: 900;
+      line-height: 1;
+      /* 主数字略小，让角标区域不挤 */
+      font-size: 0.7rem;
+    }
     .mini-card-tl {
-      position: absolute; top: 2px; left: 2px;
-      font-size: 0.42rem; font-weight: 700; opacity: 0.55; line-height: 1;
+      position: absolute; top: 2px; left: 3px;
+      font-size: 0.52rem;   /* 从 0.42 提升到 0.52，更可读 */
+      font-weight: 900;
+      opacity: 0.8;          /* 从 0.55 提升到 0.8 */
+      line-height: 1;
+      /* 角标用专属背景加强对比 */
+      background: rgba(0,0,0,0.1);
+      padding: 0 1px;
+      border-radius: 2px;
     }
     .mini-card-br {
-      position: absolute; bottom: 2px; right: 2px;
-      font-size: 0.42rem; font-weight: 700; opacity: 0.55; line-height: 1;
+      position: absolute; bottom: 2px; right: 3px;
+      font-size: 0.52rem;
+      font-weight: 900;
+      opacity: 0.8;
+      line-height: 1;
+      background: rgba(0,0,0,0.1);
+      padding: 0 1px;
+      border-radius: 2px;
+    }
+    /* 角标与主值颜色区分标记 */
+    .mini-card-both .mini-card-tl::before,
+    .mini-card-both .mini-card-br::after {
+      content: '';
     }
     .mini-insert-line {
       width: 2.5px; height: 36px; background: var(--gold);
       border-radius: 2px; flex-shrink: 0; box-shadow: 0 0 6px rgba(247,201,72,0.7);
     }
     .mini-slot {
-      width: 20px; height: 44px; cursor: pointer;
+      width: 22px; height: 48px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; position: relative;
       transition: all 0.15s;
+      /* 默认轻微背景，让插槽区域有视觉感知 */
+      border-radius: 4px;
     }
     .mini-slot::before {
-      content: '▼';
+      content: '+';
       position: absolute;
-      top: 3px;
-      font-size: 0.48rem;
-      color: rgba(255,255,255,0.12);
-      transition: color 0.15s, transform 0.15s;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.75rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.22);   /* 从 0.12 提升到 0.22 */
       line-height: 1;
+      transition: color 0.15s, transform 0.15s, font-size 0.15s;
+      pointer-events: none;
     }
     .mini-slot::after {
-      content: ''; display: block; width: 2px; height: 28px;
-      background: rgba(255,255,255,0.18); border-radius: 3px;
+      content: '';
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px; height: 32px;
+      background: rgba(255,255,255,0.25); border-radius: 3px;
       transition: all 0.15s;
     }
-    .mini-slot:hover::before { color: var(--gold); transform: translateY(-1px); }
+    .mini-slot:hover {
+      background: rgba(247,201,72,0.08);
+    }
+    .mini-slot:hover::before {
+      color: var(--gold);
+      transform: translate(-50%, -50%) scale(1.2);
+    }
     .mini-slot:hover::after {
       background: var(--gold);
-      height: 34px;
-      box-shadow: 0 0 7px rgba(247,201,72,0.65);
+      width: 3px;
+      height: 38px;
+      box-shadow: 0 0 8px rgba(247,201,72,0.75);
     }
     .mini-scouted {
       width: 26px; height: 36px; border-radius: 4px;

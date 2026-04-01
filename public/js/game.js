@@ -727,19 +727,36 @@ function renderHand(hand, newCardIndex = -1) {
     ).join('');
   }
 
-  // 3.2 hover 邻牌弱高亮：鼠标移入卡片时，前后各1张加 neighbor-hl 类
+  // 手牌交互事件绑定：可扩选提示 + 双击出牌
   el.querySelectorAll('.game-card:not(.stage-card)').forEach(cardEl => {
+    // ① mouseenter：有选区时，在选区边界的相邻牌上显示「+」扩选提示（无悬浮）
     cardEl.addEventListener('mouseenter', () => {
+      el.querySelectorAll('.game-card').forEach(c => {
+        c.classList.remove('can-extend-left', 'can-extend-right');
+      });
+      if (selectedIndices.length === 0) return; // 无选区时不做任何提示
+      const lo  = selectedIndices[0];
+      const hi  = selectedIndices[selectedIndices.length - 1];
       const idx = parseInt(cardEl.dataset.index);
       if (isNaN(idx)) return;
-      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
-      const prev = el.querySelector(`.game-card[data-index="${idx - 1}"]`);
-      const next = el.querySelector(`.game-card[data-index="${idx + 1}"]`);
-      if (prev && !prev.classList.contains('in-selection')) prev.classList.add('neighbor-hl');
-      if (next && !next.classList.contains('in-selection')) next.classList.add('neighbor-hl');
+      // 只在选区左端-1 和右端+1 的牌上添加提示，场景明确，不产生误导
+      if (idx === lo - 1) cardEl.classList.add('can-extend-left');
+      if (idx === hi + 1) cardEl.classList.add('can-extend-right');
     });
     cardEl.addEventListener('mouseleave', () => {
-      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
+      cardEl.classList.remove('can-extend-left', 'can-extend-right');
+    });
+
+    // ② dblclick：已选中的牌双击 → 直接出牌（合法时）
+    cardEl.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      if (!isMyTurn && !pendingFinishScoutAndShow) return;
+      if (!cardEl.classList.contains('in-selection') && !cardEl.classList.contains('selected')) return;
+      const hintState = updatePlayHint();
+      if (hintState === 'valid-beats' || hintState === 'valid-no-beat') {
+        if (typeof SoundFX !== 'undefined') SoundFX.cardPlay();
+        doPlay();
+      }
     });
   });
 

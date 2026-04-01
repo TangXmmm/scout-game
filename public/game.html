@@ -1196,8 +1196,12 @@
       justify-content: center;
       position: relative;
       cursor: pointer;
-      transition: transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s, border-color 0.15s, outline 0.12s;
-      /* 3.3 默认阴影：更干净轻薄 */
+      /* will-change 提示浏览器提前合成层，减少 transform 时的重绘 */
+      will-change: transform;
+      transition: transform 0.18s cubic-bezier(0.22,1,0.36,1),
+                  box-shadow 0.18s ease,
+                  border-color 0.15s ease,
+                  background 0.15s ease;
       box-shadow: 0 1px 3px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.14);
       user-select: none;
       border: 2px solid transparent;
@@ -1205,34 +1209,62 @@
       touch-action: manipulation;
       -webkit-user-select: none;
     }
-    /* 3.3 hover：仅在真实鼠标设备上启用上浮效果，避免移动端触摸导致抖动 */
+
+    /* ── 默认 hover：仅在真实鼠标设备启用，移动端不触发 ── */
     @media (hover: hover) and (pointer: fine) {
-      .game-card:not(.stage-card):hover {
-        transform: translateY(-5px);
+      /* 未选中牌：hover 上浮 */
+      .game-card:not(.stage-card):not(.in-selection):not(.selected):hover {
+        transform: translateY(-6px);
         box-shadow: 0 8px 20px rgba(0,0,0,0.32), 0 2px 6px rgba(0,0,0,0.2);
         z-index: 10;
       }
+      /* 选中牌：hover 在选中基础上再微微上浮 + 加强发光，明确「可再次点击取消」 */
+      .game-card.in-selection:hover,
+      .game-card.selected:hover {
+        transform: translateY(-20px) scale(1.07);
+        box-shadow: 0 0 0 2px rgba(247,201,72,0.85),
+                    0 16px 32px rgba(247,201,72,0.45),
+                    0 6px 12px rgba(0,0,0,0.3);
+        z-index: 25;
+      }
     }
-    .game-card:active { transform: scale(0.95); }
-    /* 选中状态：上浮 + 金色边框 + 亮背景 + 发光，视觉区分度明显 */
+
+    /* ── :active 分情况处理：选中态不缩小，未选中态给下压反馈 ── */
+    /* 未选中牌 按下：轻微下压（给「正在点击」的触感反馈） */
+    .game-card:not(.in-selection):not(.selected):active {
+      transform: translateY(-1px) scale(0.97);
+      transition: transform 0.06s ease;
+    }
+    /* 选中牌 按下：保持上浮，轻微缩放即可（不破坏上浮视觉） */
+    .game-card.in-selection:active,
+    .game-card.selected:active {
+      transform: translateY(-16px) scale(1.04);
+      transition: transform 0.06s ease;
+    }
+
+    /* ── 选中状态：高上浮 + 金色边框 + 浅金底色 + 发光 ── */
     .game-card.in-selection {
-      transform: translateY(-14px) scale(1.06);
+      transform: translateY(-18px) scale(1.06);
       border-color: rgba(247,201,72,0.9);
-      box-shadow: 0 0 0 2px rgba(247,201,72,0.6), 0 12px 24px rgba(247,201,72,0.3), 0 4px 10px rgba(0,0,0,0.3);
-      background: #fffbe8;  /* 浅金底色 */
+      box-shadow: 0 0 0 2px rgba(247,201,72,0.6),
+                  0 14px 28px rgba(247,201,72,0.35),
+                  0 4px 10px rgba(0,0,0,0.3);
+      background: #fffbe8;
       z-index: 20;
     }
     /* 兼容旧的 .selected（挖角插槽模式下仍在用）*/
     .game-card.selected {
-      transform: translateY(-14px) scale(1.06);
+      transform: translateY(-18px) scale(1.06);
       border-color: rgba(247,201,72,0.9);
-      box-shadow: 0 0 0 2px rgba(247,201,72,0.6), 0 12px 24px rgba(247,201,72,0.3), 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 0 0 2px rgba(247,201,72,0.6),
+                  0 14px 28px rgba(247,201,72,0.35),
+                  0 4px 10px rgba(0,0,0,0.3);
       background: #fffbe8;
       z-index: 20;
     }
-    /* 3.2 hover 时邻牌弱高亮（由 JS 添加类） */
-    .game-card.neighbor-hl {
-      transform: translateY(-3px);
+    /* 邻牌弱高亮（由 JS 添加类）— 不干扰选中态 */
+    .game-card.neighbor-hl:not(.in-selection):not(.selected) {
+      transform: translateY(-4px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       border-color: rgba(255,255,255,0.18);
       z-index: 5;
@@ -1253,8 +1285,10 @@
       position: relative;
       flex-shrink: 0;
     }
+    /* stage-card 不可交互 */
     .game-card.stage-card { cursor: default; }
-    .game-card.stage-card:hover, .game-card.stage-card:active { transform: none; }
+    .game-card.stage-card:hover,
+    .game-card.stage-card:active { transform: none !important; box-shadow: 0 1px 3px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.14) !important; }
     .game-card.new-card::after {
       content: '新';
       position: absolute;

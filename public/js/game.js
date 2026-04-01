@@ -106,13 +106,13 @@ function clearGameSession() {
 }
 
 // ── 工具 ──────────────────────────────────────────────────────
-function showToast(msg, type = '') {
+function showToast(msg, type = '', duration = 3200) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = type;
   el.style.display = 'block';
   clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.display = 'none'; }, 3200);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, duration);
 }
 
 function cv(card) { return card.face === 'top' ? card.top : card.bottom; }
@@ -899,6 +899,50 @@ function updateDragSelection() {
 }
 
 // ── 点击选牌（纯点击交互）────────────────────────────────────────────
+
+/**
+ * 智能自动扩选：当选区恰好为 2 张时，识别牌型（同号/顺子）并自动向两侧延伸。
+ * 同号组：继续纳入两侧相邻的同号牌
+ * 顺子：继续纳入两侧相邻且数字连续的牌
+ * @param {number[]} baseIndices 当前 2 张牌的索引（必须相邻）
+ * @returns {number[]} 自动扩展后的完整索引数组
+ */
+function autoExpandSelection(baseIndices) {
+  const hand = gameState?.myHand || [];
+  if (baseIndices.length !== 2) return baseIndices;
+
+  const lo = baseIndices[0];
+  const hi = baseIndices[1];
+  if (hi !== lo + 1) return baseIndices; // 必须相邻
+
+  const valLo = cv(hand[lo]);
+  const valHi = cv(hand[hi]);
+
+  const isSet = valLo === valHi;           // 同号
+  const isSeq = valHi === valLo + 1;       // 顺子方向（从左到右升序）
+
+  if (!isSet && !isSeq) return baseIndices; // 两张牌本身无法形成合法组合，不自动扩选
+
+  let newLo = lo;
+  let newHi = hi;
+
+  if (isSet) {
+    // 同号组：向左延伸同号牌
+    while (newLo - 1 >= 0 && cv(hand[newLo - 1]) === valLo) newLo--;
+    // 向右延伸同号牌
+    while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === valLo) newHi++;
+  } else {
+    // 顺子：向左延伸（数字依次递减 1）
+    while (newLo - 1 >= 0 && cv(hand[newLo - 1]) === cv(hand[newLo]) - 1) newLo--;
+    // 向右延伸（数字依次递增 1）
+    while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === cv(hand[newHi]) + 1) newHi++;
+  }
+
+  const expanded = [];
+  for (let k = newLo; k <= newHi; k++) expanded.push(k);
+  return expanded;
+}
+
 function toggleCard(i) {
   // 翻牌阶段：不处理选牌
   if (gameState?.state === 'flip_phase') return;
@@ -939,19 +983,35 @@ function toggleCard(i) {
       }
     } else {
       // 点击未选中的牌：
+      let newSelection;
       if (i === lo - 1) {
         // 左端扩展
-        selectedIndices = [i, ...selectedIndices];
-        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+        newSelection = [i, ...selectedIndices];
       } else if (i === hi + 1) {
         // 右端扩展
-        selectedIndices = [...selectedIndices, i];
-        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+        newSelection = [...selectedIndices, i];
       } else {
         // 不相邻 → 重新单选
-        selectedIndices = [i];
-        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+        newSelection = [i];
       }
+
+      // ── 智能自动扩选：选区恰好变成 2 张相邻牌时，自动延伸同类牌 ──
+      if (newSelection.length === 2) {
+        const expanded = autoExpandSelection(newSelection);
+        if (expanded.length > 2) {
+          // 成功自动扩选：用特殊音效区分（或复用 cardSelect）
+          selectedIndices = expanded;
+          if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+          // 给用户一个视觉提示
+          showToast(`✨ 自动选中 ${expanded.length} 张`, 'info', 1200);
+          if (gameState) renderHand(gameState.myHand);
+          updateActionBtns();
+          return;
+        }
+      }
+
+      selectedIndices = newSelection;
+      if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
     }
   }
 

@@ -1260,6 +1260,9 @@ function openScoutModal(isAndShow = false) {
 function closeScoutModal() {
   document.getElementById('scout-modal').style.display = 'none';
   selPos = null; willFlip = false;
+  // 清除选中状态，避免下次打开时视觉残留
+  document.getElementById('pos-left')?.classList.remove('selected');
+  document.getElementById('pos-right')?.classList.remove('selected');
 }
 
 function renderScoutPositions() {

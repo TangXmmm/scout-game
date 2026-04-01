@@ -708,7 +708,9 @@ function renderHand(hand, newCardIndex = -1) {
   badge.textContent = `(${hand.length}张)`;
 
   // 挖角模式：显示插槽覆盖层
-  if (isMyTurn && (selPos !== null || pendingFinishScoutAndShow)) {
+  // ⚠️ pendingFinishScoutAndShow 阶段 isMyTurn 可能为 false（轮次已转移到下一步），
+  //    但此时仍需要插槽 UI；selPos !== null 只在 isMyTurn 时出现，无需额外限制。
+  if ((isMyTurn && selPos !== null) || pendingFinishScoutAndShow) {
     renderHandWithSlots(hand, newCardIndex);
     return;
   }
@@ -912,7 +914,9 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
           s.style.width = w + 'px';
           return s;
         };
-        el.insertBefore(makeS(half), el.firstChild);
+        // 插到第一张 .game-card 前面（避免 insertBefore 绝对定位的插槽覆盖层）
+        const firstCard = el.querySelector('.game-card');
+        el.insertBefore(makeS(half), firstCard || el.firstChild);
         el.appendChild(makeS(half));
       }
     }
@@ -965,7 +969,8 @@ function autoExpandSelection(baseIndices) {
   const valHi = cv(hand[hi]);
 
   const isSet = valLo === valHi;           // 同号
-  const isSeq = valHi === valLo + 1;       // 顺子方向（从左到右升序）
+  const diff = valHi - valLo;
+  const isSeq = Math.abs(diff) === 1;      // 顺子：差值为 ±1（兼容升序/降序排列）
 
   if (!isSet && !isSeq) return baseIndices; // 两张牌本身无法形成合法组合，不自动扩选
 
@@ -978,10 +983,12 @@ function autoExpandSelection(baseIndices) {
     // 向右延伸同号牌
     while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === valLo) newHi++;
   } else {
-    // 顺子：向左延伸（数字依次递减 1）
-    while (newLo - 1 >= 0 && cv(hand[newLo - 1]) === cv(hand[newLo]) - 1) newLo--;
-    // 向右延伸（数字依次递增 1）
-    while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === cv(hand[newHi]) + 1) newHi++;
+    // 顺子：根据实际排列方向（diff = +1 升序 / -1 降序）向两侧延伸
+    const step = diff; // valHi - valLo：正值=升序，负值=降序
+    // 向左延伸：左侧牌值应等于当前最左值减去 step（即沿相同方向往回一步）
+    while (newLo - 1 >= 0 && cv(hand[newLo - 1]) === cv(hand[newLo]) - step) newLo--;
+    // 向右延伸：右侧牌值应等于当前最右值加上 step
+    while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === cv(hand[newHi]) + step) newHi++;
   }
 
   const expanded = [];

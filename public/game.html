@@ -1049,7 +1049,7 @@
     .hand-spacer {
       flex-shrink: 0;
       min-width: 0;
-      height: 1px;
+      height: 0;    /* 修复：1px 会在 align-items:flex-end 容器中渲染出可见横线 */
       pointer-events: none;
       transition: none;
     }

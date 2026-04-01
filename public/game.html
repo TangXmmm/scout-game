@@ -2896,13 +2896,26 @@
       /* 手牌标签 */
       .hand-label { font-size: 0.7rem; }
 
-      /* 挖+演 Banner 在小屏幕上的简化版本 */
+      /* 挖+演 Banner 在移动端：改为 fixed 定位，固定在视口底部上方，
+         避免被 #app-shell overflow:hidden 裁剪看不见 */
       #scout-pending-banner {
-        padding: 7px 10px;
+        position: fixed;
+        left: 8px; right: 8px;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 56px + 4px); /* action-area高度约56px + gap */
+        border-radius: 12px;
+        padding: 8px 10px;
         font-size: 0.76rem;
+        z-index: 200;  /* 高于大部分元素，但低于弹窗 */
+        box-shadow: 0 -4px 20px rgba(247,151,30,0.55), 0 4px 16px rgba(0,0,0,0.4);
       }
       .banner-text { font-size: 0.72rem; }
-      .banner-cancel { padding: 3px 8px; font-size: 0.7rem; }
+      .banner-cancel {
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        /* 移动端加大触控区 */
+        min-height: 32px;
+        display: flex; align-items: center;
+      }
     }
 
     /* ── 桌面端隐藏移动端专属按钮 ── */

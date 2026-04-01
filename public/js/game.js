@@ -106,13 +106,13 @@ function clearGameSession() {
 }
 
 // ── 工具 ──────────────────────────────────────────────────────
-function showToast(msg, type = '') {
+function showToast(msg, type = '', duration = 3200) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = type;
   el.style.display = 'block';
   clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.display = 'none'; }, 3200);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, duration);
 }
 
 function cv(card) { return card.face === 'top' ? card.top : card.bottom; }
@@ -151,8 +151,17 @@ function cardHtml(card, opts = {}) {
     </div>`;
 }
 
-function miniCardHtml(card) {
-  const val = cv(card);
+function miniCardHtml(card, showBoth = false) {
+  const val   = cv(card);
+  const other = co(card);
+  if (showBoth && card.top !== card.bottom) {
+    // 角标用深色（#333），主体大数字继续用颜色类；确保在浅色卡面上清晰可读
+    return `<div class="mini-card mini-card-both ${vc(val)}" style="background:${cardBg(val)};color:#1a1a2e;">
+      <div class="mini-card-tl" style="color:#444;">${other}</div>
+      <span class="mini-card-main ${vc(val)}">${val}</span>
+      <div class="mini-card-br" style="color:#444;">${other}</div>
+    </div>`;
+  }
   return `<div class="mini-card ${vc(val)}" style="background:${cardBg(val)};color:#1a1a2e;">${val}</div>`;
 }
 
@@ -718,19 +727,36 @@ function renderHand(hand, newCardIndex = -1) {
     ).join('');
   }
 
-  // 3.2 hover 邻牌弱高亮：鼠标移入卡片时，前后各1张加 neighbor-hl 类
+  // 手牌交互事件绑定：可扩选提示 + 双击出牌
   el.querySelectorAll('.game-card:not(.stage-card)').forEach(cardEl => {
+    // ① mouseenter：有选区时，在选区边界的相邻牌上显示「+」扩选提示（无悬浮）
     cardEl.addEventListener('mouseenter', () => {
+      el.querySelectorAll('.game-card').forEach(c => {
+        c.classList.remove('can-extend-left', 'can-extend-right');
+      });
+      if (selectedIndices.length === 0) return; // 无选区时不做任何提示
+      const lo  = selectedIndices[0];
+      const hi  = selectedIndices[selectedIndices.length - 1];
       const idx = parseInt(cardEl.dataset.index);
       if (isNaN(idx)) return;
-      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
-      const prev = el.querySelector(`.game-card[data-index="${idx - 1}"]`);
-      const next = el.querySelector(`.game-card[data-index="${idx + 1}"]`);
-      if (prev && !prev.classList.contains('in-selection')) prev.classList.add('neighbor-hl');
-      if (next && !next.classList.contains('in-selection')) next.classList.add('neighbor-hl');
+      // 只在选区左端-1 和右端+1 的牌上添加提示，场景明确，不产生误导
+      if (idx === lo - 1) cardEl.classList.add('can-extend-left');
+      if (idx === hi + 1) cardEl.classList.add('can-extend-right');
     });
     cardEl.addEventListener('mouseleave', () => {
-      el.querySelectorAll('.game-card').forEach(c => c.classList.remove('neighbor-hl'));
+      cardEl.classList.remove('can-extend-left', 'can-extend-right');
+    });
+
+    // ② dblclick：已选中的牌双击 → 直接出牌（合法时）
+    cardEl.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      if (!isMyTurn && !pendingFinishScoutAndShow) return;
+      if (!cardEl.classList.contains('in-selection') && !cardEl.classList.contains('selected')) return;
+      const hintState = updatePlayHint();
+      if (hintState === 'valid-beats' || hintState === 'valid-no-beat') {
+        if (typeof SoundFX !== 'undefined') SoundFX.cardPlay();
+        doPlay();
+      }
     });
   });
 
@@ -790,6 +816,40 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
   }
   el.innerHTML = cardHtmlStr;
 
+  // ── 挖+演出模式：绑定与 renderHand 一致的交互事件 ──
+  // （自动扩选 + 双击出牌 + 可扩选提示）
+  if (pendingFinishScoutAndShow) {
+    el.querySelectorAll('.game-card:not(.stage-card)').forEach(cardEl => {
+      // ① mouseenter：有选区时在选区边界相邻牌显示「+」扩选提示
+      cardEl.addEventListener('mouseenter', () => {
+        el.querySelectorAll('.game-card').forEach(c => {
+          c.classList.remove('can-extend-left', 'can-extend-right');
+        });
+        if (selectedIndices.length === 0) return;
+        const lo  = selectedIndices[0];
+        const hi  = selectedIndices[selectedIndices.length - 1];
+        const idx = parseInt(cardEl.dataset.index);
+        if (isNaN(idx)) return;
+        if (idx === lo - 1) cardEl.classList.add('can-extend-left');
+        if (idx === hi + 1) cardEl.classList.add('can-extend-right');
+      });
+      cardEl.addEventListener('mouseleave', () => {
+        cardEl.classList.remove('can-extend-left', 'can-extend-right');
+      });
+      // ② dblclick：已选中牌双击 → 直接出牌（合法时）
+      cardEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (!pendingFinishScoutAndShow) return;
+        if (!cardEl.classList.contains('in-selection') && !cardEl.classList.contains('selected')) return;
+        const hintState = updatePlayHint();
+        if (hintState === 'valid-beats' || hintState === 'valid-no-beat') {
+          if (typeof SoundFX !== 'undefined') SoundFX.cardPlay();
+          doPlay();
+        }
+      });
+    });
+  }
+
   // 2. 延迟一帧等 flex 布局完成，再计算插槽位置叠加
   requestAnimationFrame(() => {
     const cards = el.querySelectorAll('.game-card');
@@ -807,7 +867,8 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
       const leftX = rect.left - containerRect.left + el.scrollLeft;
       const slot = document.createElement('div');
       slot.className = `insert-slot-overlay${(i === selInsertIdx && selPos !== null) ? ' active-slot' : ''}`;
-      slot.style.left = `${leftX - 8}px`;  // 居中在卡片左边界
+      slot.style.left = `${leftX - 13}px`;  // 居中在卡片左边界（宽26px，居中偏移13px）
+      slot.setAttribute('data-idx', i + 1);  // 显示插入后的序位（第几张）
       slot.onclick = () => setInsertFromHand(i);
       el.appendChild(slot);
     });
@@ -818,7 +879,8 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
     const lastX = lastRect.right - containerRect.left + el.scrollLeft;
     const lastSlot = document.createElement('div');
     lastSlot.className = `insert-slot-overlay${(hand.length === selInsertIdx && selPos !== null) ? ' active-slot' : ''}`;
-    lastSlot.style.left = `${lastX - 8}px`;
+    lastSlot.style.left = `${lastX - 13}px`;
+    lastSlot.setAttribute('data-idx', hand.length + 1);  // 最右端插槽序位
     lastSlot.onclick = () => setInsertFromHand(hand.length);
     el.appendChild(lastSlot);
 
@@ -871,6 +933,50 @@ function updateDragSelection() {
 }
 
 // ── 点击选牌（纯点击交互）────────────────────────────────────────────
+
+/**
+ * 智能自动扩选：当选区恰好为 2 张时，识别牌型（同号/顺子）并自动向两侧延伸。
+ * 同号组：继续纳入两侧相邻的同号牌
+ * 顺子：继续纳入两侧相邻且数字连续的牌
+ * @param {number[]} baseIndices 当前 2 张牌的索引（必须相邻）
+ * @returns {number[]} 自动扩展后的完整索引数组
+ */
+function autoExpandSelection(baseIndices) {
+  const hand = gameState?.myHand || [];
+  if (baseIndices.length !== 2) return baseIndices;
+
+  const lo = baseIndices[0];
+  const hi = baseIndices[1];
+  if (hi !== lo + 1) return baseIndices; // 必须相邻
+
+  const valLo = cv(hand[lo]);
+  const valHi = cv(hand[hi]);
+
+  const isSet = valLo === valHi;           // 同号
+  const isSeq = valHi === valLo + 1;       // 顺子方向（从左到右升序）
+
+  if (!isSet && !isSeq) return baseIndices; // 两张牌本身无法形成合法组合，不自动扩选
+
+  let newLo = lo;
+  let newHi = hi;
+
+  if (isSet) {
+    // 同号组：向左延伸同号牌
+    while (newLo - 1 >= 0 && cv(hand[newLo - 1]) === valLo) newLo--;
+    // 向右延伸同号牌
+    while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === valLo) newHi++;
+  } else {
+    // 顺子：向左延伸（数字依次递减 1）
+    while (newLo - 1 >= 0 && cv(hand[newLo - 1]) === cv(hand[newLo]) - 1) newLo--;
+    // 向右延伸（数字依次递增 1）
+    while (newHi + 1 < hand.length && cv(hand[newHi + 1]) === cv(hand[newHi]) + 1) newHi++;
+  }
+
+  const expanded = [];
+  for (let k = newLo; k <= newHi; k++) expanded.push(k);
+  return expanded;
+}
+
 function toggleCard(i) {
   // 翻牌阶段：不处理选牌
   if (gameState?.state === 'flip_phase') return;
@@ -911,19 +1017,35 @@ function toggleCard(i) {
       }
     } else {
       // 点击未选中的牌：
+      let newSelection;
       if (i === lo - 1) {
         // 左端扩展
-        selectedIndices = [i, ...selectedIndices];
-        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+        newSelection = [i, ...selectedIndices];
       } else if (i === hi + 1) {
         // 右端扩展
-        selectedIndices = [...selectedIndices, i];
-        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+        newSelection = [...selectedIndices, i];
       } else {
         // 不相邻 → 重新单选
-        selectedIndices = [i];
-        if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+        newSelection = [i];
       }
+
+      // ── 智能自动扩选：选区恰好变成 2 张相邻牌时，自动延伸同类牌 ──
+      if (newSelection.length === 2) {
+        const expanded = autoExpandSelection(newSelection);
+        if (expanded.length > 2) {
+          // 成功自动扩选：用特殊音效区分（或复用 cardSelect）
+          selectedIndices = expanded;
+          if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
+          // 给用户一个视觉提示
+          showToast(`✨ 自动选中 ${expanded.length} 张`, 'info', 1200);
+          if (gameState) renderHand(gameState.myHand);
+          updateActionBtns();
+          return;
+        }
+      }
+
+      selectedIndices = newSelection;
+      if (typeof SoundFX !== 'undefined') SoundFX.cardSelect();
     }
   }
 
@@ -1231,6 +1353,10 @@ function openScoutModal(isAndShow = false) {
   // ── 2.1 重置分步进度条到 Step 1 ──
   setScoutStep(1);
 
+  // ── 重置时显示引导提示
+  const pickHint = document.getElementById('scout-pick-hint');
+  if (pickHint) pickHint.style.display = 'flex';
+
   renderScoutPositions();
   renderInsertPreview();
   document.getElementById('scouted-preview').style.display = 'none';
@@ -1245,6 +1371,9 @@ function openScoutModal(isAndShow = false) {
 function closeScoutModal() {
   document.getElementById('scout-modal').style.display = 'none';
   selPos = null; willFlip = false;
+  // 清除选中状态，避免下次打开时视觉残留
+  document.getElementById('pos-left')?.classList.remove('selected');
+  document.getElementById('pos-right')?.classList.remove('selected');
 }
 
 function renderScoutPositions() {
@@ -1254,7 +1383,7 @@ function renderScoutPositions() {
 
   const pLeft  = document.getElementById('preview-left');
   if (leftCard) {
-    pLeft.innerHTML = miniCardHtml(leftCard);
+    pLeft.innerHTML = miniCardHtml(leftCard, true);
   } else {
     pLeft.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
   }
@@ -1263,7 +1392,7 @@ function renderScoutPositions() {
   if (stage.length === 0) {
     pRight.innerHTML = '<div style="color:var(--muted);font-size:0.75rem;">无</div>';
   } else {
-    pRight.innerHTML = miniCardHtml(rightCard);
+    pRight.innerHTML = miniCardHtml(rightCard, true);
   }
 }
 
@@ -1271,6 +1400,10 @@ function selectPos(pos) {
   selPos = pos;
   document.getElementById('pos-left').classList.toggle('selected',  pos === 'left');
   document.getElementById('pos-right').classList.toggle('selected', pos === 'right');
+
+  // 用户已点选后，隐藏引导提示
+  const pickHint = document.getElementById('scout-pick-hint');
+  if (pickHint) pickHint.style.display = 'none';
 
   // 重置翻转状态（每次选新端时重置）
   willFlip = false;

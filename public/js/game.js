@@ -127,8 +127,20 @@ function vc(val) {
   return 'vc1';
 }
 function cardBg(val) {
-  const bgs = ['#fde8e8','#fde8cc','#fef9e7','#e8f8ed','#e8f0fe'];
-  return bgs[Math.min(Math.floor((val - 1) / 2), 4)];
+  // 方案A增强版：底色与文字颜色同向（低值浅蓝→高值浅红），145°渐变增加纵深感
+  const bgs = [
+    'linear-gradient(145deg,#e8f0fe,#f4f7ff)', // 1-2 浅蓝（配蓝字）
+    'linear-gradient(145deg,#e8f0fe,#f4f7ff)',
+    'linear-gradient(145deg,#edf7ed,#f4fbf4)', // 3-4 浅绿（配绿字）
+    'linear-gradient(145deg,#edf7ed,#f4fbf4)',
+    'linear-gradient(145deg,#fef9e7,#fffdf4)', // 5-6 浅黄（配暗金字）
+    'linear-gradient(145deg,#fef9e7,#fffdf4)',
+    'linear-gradient(145deg,#fff3e8,#fffaf4)', // 7-8 浅橙（配橙字）
+    'linear-gradient(145deg,#fff3e8,#fffaf4)',
+    'linear-gradient(145deg,#fde8e8,#fff4f4)', // 9-10 浅红（配红字）
+    'linear-gradient(145deg,#fde8e8,#fff4f4)',
+  ];
+  return bgs[Math.min(val - 1, 9)];
 }
 
 // ── 渲染卡牌 HTML ──────────────────────────────────────────────

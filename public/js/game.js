@@ -816,6 +816,40 @@ function renderHandWithSlots(hand, newCardIndex = -1) {
   }
   el.innerHTML = cardHtmlStr;
 
+  // ── 挖+演出模式：绑定与 renderHand 一致的交互事件 ──
+  // （自动扩选 + 双击出牌 + 可扩选提示）
+  if (pendingFinishScoutAndShow) {
+    el.querySelectorAll('.game-card:not(.stage-card)').forEach(cardEl => {
+      // ① mouseenter：有选区时在选区边界相邻牌显示「+」扩选提示
+      cardEl.addEventListener('mouseenter', () => {
+        el.querySelectorAll('.game-card').forEach(c => {
+          c.classList.remove('can-extend-left', 'can-extend-right');
+        });
+        if (selectedIndices.length === 0) return;
+        const lo  = selectedIndices[0];
+        const hi  = selectedIndices[selectedIndices.length - 1];
+        const idx = parseInt(cardEl.dataset.index);
+        if (isNaN(idx)) return;
+        if (idx === lo - 1) cardEl.classList.add('can-extend-left');
+        if (idx === hi + 1) cardEl.classList.add('can-extend-right');
+      });
+      cardEl.addEventListener('mouseleave', () => {
+        cardEl.classList.remove('can-extend-left', 'can-extend-right');
+      });
+      // ② dblclick：已选中牌双击 → 直接出牌（合法时）
+      cardEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (!pendingFinishScoutAndShow) return;
+        if (!cardEl.classList.contains('in-selection') && !cardEl.classList.contains('selected')) return;
+        const hintState = updatePlayHint();
+        if (hintState === 'valid-beats' || hintState === 'valid-no-beat') {
+          if (typeof SoundFX !== 'undefined') SoundFX.cardPlay();
+          doPlay();
+        }
+      });
+    });
+  }
+
   // 2. 延迟一帧等 flex 布局完成，再计算插槽位置叠加
   requestAnimationFrame(() => {
     const cards = el.querySelectorAll('.game-card');

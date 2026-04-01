@@ -998,7 +998,8 @@
       background: rgba(0,0,0,0.32);
       border-top: 1px solid var(--border);
       gap: 4px;
-      overflow: hidden;
+      overflow: visible;      /* 改为 visible，允许 Banner 绝对定位浮出上方 */
+      position: relative;     /* 为 Banner 绝对定位提供上下文 */
     }
 
     /* 手牌区（上层，flex:1 撑满剩余空间） */
@@ -1010,13 +1011,13 @@
       flex-direction: column;
       justify-content: center;
       padding: 6px 14px 8px;
-      /* 加深背景色 + 加强边框对比，让底座明显区分 */
       background: linear-gradient(180deg, rgba(15,25,40,0.72) 0%, rgba(8,15,28,0.80) 100%);
       border: 1px solid rgba(88,166,255,0.12);
       border-radius: 14px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 2px 14px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.03);
-      overflow: hidden;
+      overflow: visible;       /* 改为 visible，允许选中卡片上浮超出容器 */
       backdrop-filter: blur(6px);
+      position: relative;      /* 为 Banner 绝对定位提供上下文 */
     }
     .hand-label {
       font-size: var(--fs-tag); color: var(--muted); /* tag: 12-13px */
@@ -1517,19 +1518,25 @@
     /* insert-section 过渡 */
     #insert-section-wrap { transition: opacity 0.2s; }
 
-    /* 2.4 挖+演持久 Banner */
+    /* 2.4 挖+演持久 Banner —— 绝对定位浮在手牌区上方，不占 flex 高度 */
     #scout-pending-banner {
       display: none;
       align-items: center; gap: 10px;
-      padding: 9px 14px;
-      background: linear-gradient(90deg, rgba(247,151,30,0.22), rgba(247,201,72,0.15));
-      border: 1px solid rgba(247,151,30,0.4);
-      border-radius: 12px;
-      margin: 0 0 4px;
+      padding: 7px 12px;
+      background: linear-gradient(90deg, rgba(247,151,30,0.92), rgba(247,201,72,0.85));
+      border: none;
+      border-radius: 10px;
       font-size: var(--fs-meta);
-      color: var(--gold-light);
-      position: relative;
-      animation: bannerSlideIn 0.35s ease;
+      color: #1a1a2e;
+      font-weight: 600;
+      /* 绝对定位：悬浮在 #bottom-bar 顶部，不挤压手牌区 */
+      position: absolute;
+      left: 10px; right: 10px;
+      bottom: calc(100% + 2px);   /* 紧贴 #bottom-bar 上边缘之上 */
+      z-index: 50;
+      box-shadow: 0 4px 16px rgba(247,151,30,0.45);
+      animation: bannerSlideIn 0.3s ease;
+      pointer-events: auto;
     }
     @keyframes bannerSlideIn {
       from { opacity:0; transform: translateY(8px); }
@@ -3035,13 +3042,6 @@
           <div id="my-hand-cards"></div>
         </div>
 
-        <!-- 2.4 挖+演进行中持久 Banner -->
-        <div id="scout-pending-banner">
-          <span class="banner-icon">⚡</span>
-          <div class="banner-text">挖+演进行中 · 现在请在手牌中选连续的牌，然后点「演出」完成绝招！</div>
-          <button class="banner-cancel" onclick="confirmDismissScoutBanner()">放弃演出</button>
-        </div>
-
         <!-- 操作按钮区：实时判定提示条 + 按钮行，二者整体高度固定，避免手牌跳动 -->
         <div id="action-area-wrap">
           <!-- 3.4 实时判定提示条（绝对定位在 action-area-wrap 内，不占流式高度） -->
@@ -3053,6 +3053,13 @@
             <button class="act-btn scout-show" id="btn-scout-show" onclick="openScoutModal(true)"  disabled>⚡ 挖+演</button>
             <button class="act-btn managed-btn" id="btn-managed"   onclick="requestManaged()"  style="display:none;">🤖 托管</button>
           </div>
+        </div>
+
+        <!-- 2.4 挖+演进行中持久 Banner（绝对定位，悬浮在 #bottom-bar 上方，不占 flex 高度） -->
+        <div id="scout-pending-banner">
+          <span class="banner-icon">⚡</span>
+          <div class="banner-text">挖+演进行中 · 现在请在手牌中选连续的牌，然后点「演出」完成绝招！</div>
+          <button class="banner-cancel" onclick="confirmDismissScoutBanner()">放弃演出</button>
         </div>
       </div>
 

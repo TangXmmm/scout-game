@@ -23,14 +23,16 @@ let isHost = false;
 // 保存昵称到 localStorage（同时写入历史记录，供首页 chips 使用）
 function saveNickname(name) {
   if (!name?.trim()) return;
-  // 1. 保存"上次昵称"（用于自动回填）
+  // 1. 保存"上次昵称"（用于自动回填，含定语）
   localStorage.setItem('scout_game_nickname', name.trim());
-  // 2. 写入历史昵称列表（最多 8 条，最新在最前）
+  // 2. 历史记录只存纯 base 昵称（不含定语）
+  //    index.html 内联脚本会把 base 挂到 window._nicknameBase
+  const baseName = (window._nicknameBase?.trim()) || name.trim();
   const HISTORY_KEY = 'scout_nickname_history';
   const MAX = 8;
   let history = [];
   try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) {}
-  history = [name.trim(), ...history.filter(n => n !== name.trim())].slice(0, MAX);
+  history = [baseName, ...history.filter(n => n !== baseName)].slice(0, MAX);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
 }
 

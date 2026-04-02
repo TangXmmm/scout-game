@@ -1431,11 +1431,11 @@
   // 页面加载时渲染历史昵称
   renderNicknameChips();
 
-  let _currentBase = '';     // 当前选中的预设基础昵称
+  window._nicknameBase = ''; // 纯 base 昵称（无定语），供 lobby.js 存历史用
   let _currentAdj  = '';     // 当前附加的定语
 
   function pickPreset(name) {
-    _currentBase = name;
+    window._nicknameBase = name;
     // 高亮选中 chip（用 onclick 属性内容匹配，避免 textContent 含特殊字符失效）
     document.querySelectorAll('.preset-chip').forEach(el => {
       el.classList.toggle('selected', el.textContent.trim() === name);
@@ -1459,18 +1459,18 @@
   function clearAdjective() {
     _currentAdj = '';
     const input = document.getElementById('player-name');
-    if (input) input.value = _currentBase;
+    if (input) input.value = window._nicknameBase;
     const preview = document.getElementById('adjective-preview');
     if (preview) preview.innerHTML = '';
     const clearBtn = document.getElementById('clear-adj-btn');
     if (clearBtn) clearBtn.style.display = 'none';
     // 如果输入框仍有内容，保留定语行（方便用户重新生成人设）
     const adjRow = document.getElementById('adjective-row');
-    if (adjRow) adjRow.style.display = (_currentBase.trim()) ? 'flex' : 'none';
+    if (adjRow) adjRow.style.display = (window._nicknameBase.trim()) ? 'flex' : 'none';
   }
 
   function updateNameWithAdj() {
-    const finalName = _currentAdj ? _currentAdj + _currentBase : _currentBase;
+    const finalName = _currentAdj ? _currentAdj + window._nicknameBase : window._nicknameBase;
     const input = document.getElementById('player-name');
     if (input) input.value = finalName;
     const preview = document.getElementById('adjective-preview');
@@ -1486,11 +1486,11 @@
 
     // 如果当前有定语前缀，把前缀从输入值里剥离，得到纯 base
     if (_currentAdj && raw.startsWith(_currentAdj)) {
-      _currentBase = raw.slice(_currentAdj.length);
+      window._nicknameBase = raw.slice(_currentAdj.length);
     } else {
       // 没有定语，或者用户已经完全改掉了，重置定语
       _currentAdj  = '';
-      _currentBase = raw;
+      window._nicknameBase = raw;
     }
 
     // 取消 chip 高亮

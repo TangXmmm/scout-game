@@ -1418,9 +1418,14 @@
       container.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted,#666);">还没有历史昵称，输入后会自动记录 ✨</span>';
       return;
     }
-    container.innerHTML = history.map(name =>
-      `<span class="preset-chip" onclick="pickPreset(${JSON.stringify(name)})">${name}</span>`
-    ).join('');
+    container.innerHTML = '';
+    history.forEach(name => {
+      const span = document.createElement('span');
+      span.className = 'preset-chip';
+      span.textContent = name;
+      span.addEventListener('click', () => pickPreset(name));
+      container.appendChild(span);
+    });
   }
 
   // 页面加载时渲染历史昵称

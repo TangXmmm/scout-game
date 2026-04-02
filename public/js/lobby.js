@@ -29,7 +29,7 @@ function saveNickname(name) {
   //    index.html 内联脚本会把 base 挂到 window._nicknameBase
   const baseName = (window._nicknameBase?.trim()) || name.trim();
   const HISTORY_KEY = 'scout_nickname_history';
-  const MAX = 8;
+  const MAX = 10;
   let history = [];
   try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) {}
   history = [baseName, ...history.filter(n => n !== baseName)].slice(0, MAX);

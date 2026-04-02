@@ -1403,7 +1403,7 @@
 
   // ── 历史昵称（存 localStorage，最多 8 条，最近使用排前面）──────────
   const NICKNAME_HISTORY_KEY = 'scout_nickname_history';
-  const NICKNAME_HISTORY_MAX = 8;
+  const NICKNAME_HISTORY_MAX = 10;
 
   function getNicknameHistory() {
     try { return JSON.parse(localStorage.getItem(NICKNAME_HISTORY_KEY) || '[]'); }

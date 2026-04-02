@@ -1842,6 +1842,12 @@ function showGameEnd(data) {
     </tr>`;
   }).join('');
 
+  // 旁观者：改变按钮文案
+  const btnReturn = document.getElementById('btn-return-room');
+  if (btnReturn) {
+    btnReturn.textContent = isSpectator ? '🎮 加入下一局（以玩家身份）' : '🔄 返回房间·再来一局';
+  }
+
   document.getElementById('game-end-modal').style.display = 'flex';
 }
 

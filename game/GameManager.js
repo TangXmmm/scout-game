@@ -319,10 +319,16 @@ class GameManager {
   rejoinAsSpectator(socketId, roomCode, specId) {
     const room = this.rooms[roomCode?.toUpperCase()];
     if (!room) return { success: false, message: '房间不存在' };
-    if (!room.spectators) return { success: false, message: '旁观者信息已过期' };
+    if (!room.spectators) return { success: false, message: '旁观者信息已过期，请重新旁观' };
 
     const spec = room.spectators.find(s => s.id === specId);
     if (!spec) return { success: false, message: '旁观者信息已过期，请重新旁观' };
+
+    // 取消待清除定时器（重连成功，不再清除）
+    if (spec._cleanupTimer) {
+      clearTimeout(spec._cleanupTimer);
+      spec._cleanupTimer = null;
+    }
 
     const oldSocketId = spec.socketId;
     if (oldSocketId && oldSocketId !== socketId) {
@@ -335,6 +341,37 @@ class GameManager {
     this.socketToPlayerId[socketId] = specId;
 
     return { success: true, room, spectator: spec };
+  }
+
+  // 旁观者以正式玩家身份加入（游戏结束后再来一局）
+  spectatorJoinAsPlayer(socketId, roomCode, spectatorName) {
+    const room = this.rooms[roomCode?.toUpperCase()];
+    if (!room) return { success: false, message: '房间不存在' };
+    // 房间需处于 waiting 状态（游戏结束后已重置）
+    if (room.status !== 'waiting') {
+      return { success: false, message: '游戏还未结束，无法以玩家身份加入' };
+    }
+    if (room.players.length >= 6) {
+      return { success: false, message: '房间已满（最多6人）' };
+    }
+    // 昵称冲突检查（旁观者昵称可能和玩家重名）
+    let name = spectatorName.trim();
+    if (room.players.find(p => p.name === name)) {
+      name = name + '★'; // 自动加后缀避免冲突
+    }
+
+    const playerId = this.generatePlayerId();
+    room.players.push({ id: playerId, name, avatar: '', socketId, online: true, returned: true });
+    this.socketToRoom[socketId] = room.code;
+    this.socketToPlayerId[socketId] = playerId;
+
+    // 从旁观者列表中移除
+    const specId = room.spectators?.find(s => s.socketId === socketId)?.id;
+    if (specId) {
+      room.spectators = room.spectators.filter(s => s.id !== specId);
+    }
+
+    return { success: true, room, playerId, playerName: name };
   }
 
   // 旁观者断线处理

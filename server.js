@@ -783,6 +783,53 @@ io.on('connection', (socket) => {
     const playerId = gameManager.getPlayerId(socket.id);
     if (!room) return socket.emit('error', { message: '房间不存在' });
 
+    // ── 旁观者特判：以正式玩家身份加入 ──────────────────────────
+    const isSpecId = typeof playerId === 'string' && playerId.startsWith('spec_');
+    if (isSpecId) {
+      // 找到旁观者昵称
+      const spec = (room.spectators || []).find(s => s.id === playerId);
+      const specName = spec?.name || '旁观者';
+
+      // 如果房间还在 finished 状态，先触发重置
+      if (room.status === 'finished') {
+        room.returnStarted = true;
+        room.game    = null;
+        room.status  = 'waiting';
+        room.seating = null;
+        room.players.forEach(p => { p.returned = false; });
+        console.log(`[再来一局] ${room.code} 旁观者首先触发重置`);
+      }
+
+      if (room.status !== 'waiting') {
+        return socket.emit('error', { message: '游戏还未结束，无法加入' });
+      }
+
+      // 将旁观者转换为正式玩家
+      const joinResult = gameManager.spectatorJoinAsPlayer(socket.id, room.code, specName);
+      if (!joinResult.success) {
+        return socket.emit('error', { message: joinResult.message });
+      }
+
+      // 广播更新后的玩家列表
+      const playersInfo = room.players.map(p => ({
+        id:       p.id,
+        name:     p.name,
+        avatar:   p.avatar || '',
+        isHost:   p.id === room.hostPlayerId,
+        returned: p.returned || false,
+      }));
+      io.to(room.code).emit('players_return_status', { players: playersInfo, roomCode: room.code });
+
+      // 以新的正式 playerId 跳转等待室
+      socket.emit('redirect_to_waiting', {
+        roomCode: room.code,
+        playerId: joinResult.playerId,
+      });
+      console.log(`[旁观转玩家] ${joinResult.playerName} 加入 ${room.code}`);
+      return;
+    }
+
+    // ── 正式玩家流程 ──────────────────────────────────────────────
     // 允许：游戏刚结束（finished）或已有人开始返回（returnStarted=true）
     const canReturn = room.status === 'finished' || room.returnStarted === true;
     if (!canReturn) {
@@ -927,14 +974,15 @@ io.on('connection', (socket) => {
     if (roomCode) {
       const room = gameManager.rooms[roomCode];
       const specId = gameManager.socketToPlayerId[socket.id];
-      if (room?.spectators) {
+      if (specId?.startsWith('spec_') && room?.spectators) {
         const spec = room.spectators.find(s => s.id === specId);
         if (spec) {
-          // 旁观者断线：标记离线，30s 后清除
           spec.online = false;
           delete gameManager.socketToRoom[socket.id];
           delete gameManager.socketToPlayerId[socket.id];
-          setTimeout(() => {
+          // 游戏进行中给足 10 分钟重连时间；其他状态 2 分钟
+          const delay = (room.status === 'playing') ? 10 * 60 * 1000 : 2 * 60 * 1000;
+          spec._cleanupTimer = setTimeout(() => {
             if (room.spectators) {
               room.spectators = room.spectators.filter(s => s.id !== specId);
               io.to(roomCode).emit('spectator_update', {
@@ -942,8 +990,8 @@ io.on('connection', (socket) => {
                 left: spec.name,
               });
             }
-          }, 30 * 1000);
-          console.log(`[旁观断线] ${spec.name} 离开 ${roomCode}`);
+          }, delay);
+          console.log(`[旁观断线] ${spec.name} 离开 ${roomCode}，${delay / 60000}分钟内可重连`);
           return;
         }
       }

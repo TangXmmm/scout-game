@@ -1801,8 +1801,14 @@ function showRoundEnd(data) {
     nextRow.style.display = 'flex';
     document.getElementById('re-next-label').textContent = '下一轮先手';
     document.getElementById('re-next-val').textContent   = data.nextFirstPlayerName || '';
-    btnNext.style.display = 'block';
-    // 不再自动倒计时推进，等待玩家手动点击
+    if (isSpectator) {
+      // 旁观者：不显示「下一轮」按钮，改为提示文字；等 round_started 事件自动关闭弹窗
+      btnNext.style.display = 'none';
+      btnNext.textContent = '等待下一轮...';
+    } else {
+      btnNext.style.display = 'block';
+      btnNext.textContent = '✅ 准备好了，开始下一轮！';
+    }
   } else {
     nextRow.style.display = 'none';
     btnNext.style.display = 'none';
@@ -2459,6 +2465,11 @@ socket.on('round_started', ({ roundNumber }) => {
   logItems.length = 0;
   showCaption(`🎪 第 ${roundNumber} 轮开始！`);
   addLog(`第 ${roundNumber} 轮开始`);
+  // 旁观者：自动关闭结算弹窗（旁观者不点下一轮按钮，由此事件触发关闭）
+  if (isSpectator) {
+    document.getElementById('round-end-modal').style.display = 'none';
+    stopRoundEndCountdown();
+  }
   // 🔊 新轮开始音效
   if (typeof SoundFX !== 'undefined') SoundFX.gameStart();
 });

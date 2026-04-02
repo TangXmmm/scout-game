@@ -273,6 +273,38 @@ function joinRoom() {
   socket.emit('join_room', { roomCode: code, playerName: name, playerAvatar: avatar });
 }
 
+function joinAsSpectator() {
+  const name = document.getElementById('player-name').value.trim();
+  const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (!name) return showError('entry-error', '请先输入你的昵称');
+  if (!code) return showError('entry-error', '请输入要旁观的房间码');
+
+  // 禁用按钮防止重复点击
+  const btn = document.getElementById('btn-spectate');
+  if (btn) { btn.disabled = true; btn.textContent = '连接中...'; }
+
+  socket.emit('join_as_spectator', { roomCode: code, spectatorName: name });
+}
+
+socket.on('spectator_joined', ({ spectatorId, roomCode, state, players }) => {
+  // 跳转到游戏页面，带旁观标记
+  const params = new URLSearchParams({
+    room: roomCode,
+    pid: spectatorId,
+    spectator: '1',
+    specId: spectatorId,
+  });
+  window.location.href = '/game.html?' + params.toString();
+});
+
+// 旁观加入失败处理（复用 error 事件）
+const _origErrorHandler = null;
+socket.on('error', ({ message }) => {
+  const btn = document.getElementById('btn-spectate');
+  if (btn) { btn.disabled = false; btn.textContent = '👁️ 旁观进行中的游戏'; }
+  showError('entry-error', message || '旁观失败');
+});
+
 function startGame() {
   socket.emit('start_game');
 }

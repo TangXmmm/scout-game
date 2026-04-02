@@ -245,11 +245,20 @@ function buildHighlightCards(roomCode, playerNames) {
 // ─────────────────────────────────────────────────────────────
 
 function broadcastGameState(room) {
+  // 推送给正式玩家
   room.players.forEach(p => {
     if (p.socketId && p.online !== false) {
       const state = room.game.getStateForPlayer(p.id);
       io.to(p.socketId).emit('game_state', state);
     }
+  });
+  // 推送给旁观者（按各自当前观看的视角）
+  (room.spectators || []).forEach(s => {
+    if (!s.socketId || s.online === false) return;
+    const viewId = s.viewPlayerId || room.game.players[0]?.id;
+    if (!viewId) return;
+    const state = room.game.getStateForSpectator(viewId);
+    io.to(s.socketId).emit('game_state', state);
   });
 }
 
@@ -383,6 +392,71 @@ io.on('connection', (socket) => {
     } else {
       socket.emit('error', { message: result.message });
     }
+  });
+
+  // ── 旁观者加入游戏 ──────────────────────────────────────────
+  socket.on('join_as_spectator', ({ roomCode, spectatorName }) => {
+    if (!spectatorName?.trim()) return socket.emit('error', { message: '请输入昵称' });
+    const result = gameManager.joinAsSpectator(socket.id, roomCode?.toUpperCase(), spectatorName.trim());
+    if (result.success) {
+      const room = result.room;
+      socket.join(room.code);
+      // 默认看第一个玩家视角
+      const firstPlayerId = room.game.players[0]?.id;
+      result.spectator.viewPlayerId = firstPlayerId;
+      const state = firstPlayerId ? room.game.getStateForSpectator(firstPlayerId) : null;
+      socket.emit('spectator_joined', {
+        spectatorId: result.spectator.id,
+        spectatorName: result.spectator.name,
+        roomCode: room.code,
+        state,
+        players: room.players.map(p => ({ id: p.id, name: p.name, avatar: p.avatar || '' })),
+      });
+      // 通知房间内有旁观者加入
+      socket.to(room.code).emit('spectator_update', {
+        spectators: (room.spectators || []).map(s => ({ id: s.id, name: s.name })),
+        joined: result.spectator.name,
+      });
+      console.log(`[旁观] ${result.spectator.name} 加入 ${room.code} 观战`);
+    } else {
+      socket.emit('error', { message: result.message });
+    }
+  });
+
+  // ── 旁观者重连 ───────────────────────────────────────────────
+  socket.on('rejoin_as_spectator', ({ roomCode, specId }) => {
+    const result = gameManager.rejoinAsSpectator(socket.id, roomCode?.toUpperCase(), specId);
+    if (result.success) {
+      const room = result.room;
+      socket.join(room.code);
+      const spec = result.spectator;
+      const viewId = spec.viewPlayerId || room.game?.players[0]?.id;
+      const state = viewId && room.game ? room.game.getStateForSpectator(viewId) : null;
+      socket.emit('spectator_rejoined', {
+        spectatorId: spec.id,
+        spectatorName: spec.name,
+        roomCode: room.code,
+        state,
+        players: room.players.map(p => ({ id: p.id, name: p.name, avatar: p.avatar || '' })),
+      });
+      console.log(`[旁观重连] ${spec.name} 重新加入 ${room.code}`);
+    } else {
+      socket.emit('spectator_rejoin_failed', { message: result.message });
+    }
+  });
+
+  // ── 旁观者切换视角 ──────────────────────────────────────────
+  socket.on('spectator_switch_view', ({ viewPlayerId }) => {
+    const roomCode = gameManager.getRoomCode(socket.id);
+    const specId   = gameManager.getPlayerId(socket.id);
+    if (!roomCode) return;
+    const room = gameManager.rooms[roomCode];
+    if (!room?.game) return;
+    const spec = (room.spectators || []).find(s => s.id === specId);
+    if (!spec) return;
+    spec.viewPlayerId = viewPlayerId;
+    const state = room.game.getStateForSpectator(viewPlayerId);
+    socket.emit('game_state', state);
   });
 
   // ── 重新加入（页面跳转/刷新重连）──────────────────────────
@@ -812,10 +886,18 @@ io.on('connection', (socket) => {
     }
 
     const playerId = gameManager.getPlayerId(socket.id);
-    const player = room.players.find(p => p.id === playerId);
+    // 优先从正式玩家中查找；找不到则查旁观者
+    let player = room.players.find(p => p.id === playerId);
+    let isSpectator = false;
     if (!player) {
-      socket.emit('lobby_error', { message: '玩家不存在' });
-      return;
+      const spec = (room.spectators || []).find(s => s.id === playerId);
+      if (spec) {
+        player = { id: spec.id, name: spec.name + ' 👁️' };
+        isSpectator = true;
+      } else {
+        socket.emit('lobby_error', { message: '玩家不存在' });
+        return;
+      }
     }
 
     // 内容长度限制
@@ -831,7 +913,8 @@ io.on('connection', (socket) => {
       playerName: player.name,
       type,
       content,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      isSpectator,
     };
 
     io.to(room.code).emit('chat_message', message);
@@ -839,6 +922,33 @@ io.on('connection', (socket) => {
 
   // ── 断线处理 ──────────────────────────────────────────────
   socket.on('disconnect', () => {
+    // 检查是否是旁观者断线
+    const roomCode = gameManager.socketToRoom[socket.id];
+    if (roomCode) {
+      const room = gameManager.rooms[roomCode];
+      const specId = gameManager.socketToPlayerId[socket.id];
+      if (room?.spectators) {
+        const spec = room.spectators.find(s => s.id === specId);
+        if (spec) {
+          // 旁观者断线：标记离线，30s 后清除
+          spec.online = false;
+          delete gameManager.socketToRoom[socket.id];
+          delete gameManager.socketToPlayerId[socket.id];
+          setTimeout(() => {
+            if (room.spectators) {
+              room.spectators = room.spectators.filter(s => s.id !== specId);
+              io.to(roomCode).emit('spectator_update', {
+                spectators: room.spectators.map(s => ({ id: s.id, name: s.name })),
+                left: spec.name,
+              });
+            }
+          }, 30 * 1000);
+          console.log(`[旁观断线] ${spec.name} 离开 ${roomCode}`);
+          return;
+        }
+      }
+    }
+
     const result = gameManager.handleDisconnect(socket.id);
     if (result && !result.roomDeleted) {
       if (result.type === 'offline') {

@@ -19,6 +19,8 @@ let myRoomCode   = null;
 let gameState    = null;
 let selectedIndices = [];
 let isMyTurn     = false;
+let isSpectator  = false;  // 旁观者模式标志
+let mySpecId     = null;   // 旁观者 ID（旁观模式下使用）
 
 // 挖角 & 挖角并演出
 let scoutAndShowMode          = false;
@@ -65,36 +67,42 @@ const CONTEXT_PHRASES = {
   const p = new URLSearchParams(window.location.search);
   myRoomCode = p.get('room');
   myPlayerId = p.get('pid');
+  isSpectator = p.get('spectator') === '1';
+  mySpecId    = p.get('specId') || null;
+
   if (!myRoomCode || !myPlayerId) {
     window.location.href = '/';
     return;
   }
-  saveGameSession({ roomCode: myRoomCode, playerId: myPlayerId, timestamp: Date.now() });
+
+  if (!isSpectator) {
+    saveGameSession({ roomCode: myRoomCode, playerId: myPlayerId, timestamp: Date.now() });
+  }
 
   // 初始化社交面板快捷语
   renderQuickGrid('default');
 
-  // ★ 必须在 IIFE 内注册 connect 事件：
-  // socket = io() 在第14行即创建，本地连接极快（<1ms），
-  // 若在文件末尾注册 on('connect')，事件可能已经触发过而错过。
-  // 放在 IIFE 内、myRoomCode/myPlayerId 赋值之后，保证监听器先于事件触发注册好。
-  // ★ bugfix(not-in-game): 仅在此处注册唯一的 connect 监听器（原第1875行全局重复注册已删除）。
-  // 重复注册会导致每次连接 rejoin_game 发送两次，第二次抵达时服务端映射出现短暂空白窗口，
-  // 若用户恰好在此窗口内操作就会命中「未在游戏中」错误。
   socket.on('connect', () => {
     const dot = document.getElementById('conn-dot');
     if (dot) dot.className = '';
     if (myRoomCode && myPlayerId) {
-      // 禁用操作按钮，等待 rejoin_result 确认映射建立后再启用（防御性措施）
       setActionBtnsDisabled(true);
-      socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+      if (isSpectator && mySpecId) {
+        // 旁观者重连
+        socket.emit('rejoin_as_spectator', { roomCode: myRoomCode, specId: mySpecId });
+      } else {
+        socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+      }
     }
   });
 
-  // 若 socket 已经是 connected 状态（极罕见，防御性兜底）
   if (socket.connected && myRoomCode && myPlayerId) {
     setActionBtnsDisabled(true);
-    socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+    if (isSpectator && mySpecId) {
+      socket.emit('rejoin_as_spectator', { roomCode: myRoomCode, specId: mySpecId });
+    } else {
+      socket.emit('rejoin_game', { roomCode: myRoomCode, playerId: myPlayerId });
+    }
   }
 })();
 
@@ -1217,12 +1225,19 @@ let _prevIsMyTurn = false; // 用于检测轮次切换
 function renderState(state) {
   gameState = state;
   const prevTurn = _prevIsMyTurn;
-  isMyTurn  = state.currentPlayerId === myPlayerId && state.state === 'playing';
-  _prevIsMyTurn = isMyTurn;
 
-  // 🔊 刚轮到自己时播放提示音
-  if (isMyTurn && !prevTurn && state.state === 'playing') {
-    if (typeof SoundFX !== 'undefined') SoundFX.yourTurn();
+  if (isSpectator) {
+    // 旁观者：不绑定自己的回合，不启动倒计时
+    isMyTurn = false;
+    // 更新旁观者工具栏
+    updateSpectatorBar(state);
+  } else {
+    isMyTurn  = state.currentPlayerId === myPlayerId && state.state === 'playing';
+    _prevIsMyTurn = isMyTurn;
+    // 🔊 刚轮到自己时播放提示音
+    if (isMyTurn && !prevTurn && state.state === 'playing') {
+      if (typeof SoundFX !== 'undefined') SoundFX.yourTurn();
+    }
   }
 
   document.getElementById('round-num').textContent = state.roundNumber;
@@ -1252,7 +1267,14 @@ function renderState(state) {
   }
 
   const waiting = document.getElementById('waiting-bar');
-  waiting.style.display = (!isMyTurn && !pendingFinishScoutAndShow && state.state === 'playing') ? 'block' : 'none';
+  if (isSpectator) {
+    // 旁观者：隐藏等待条和操作按钮区，显示旁观工具栏
+    waiting.style.display = 'none';
+    const actionWrap = document.getElementById('action-area-wrap');
+    if (actionWrap) actionWrap.style.display = 'none';
+  } else {
+    waiting.style.display = (!isMyTurn && !pendingFinishScoutAndShow && state.state === 'playing') ? 'block' : 'none';
+  }
 
   if (state.state === 'flip_phase') showFlipModal(state);
   else document.getElementById('flip-modal').style.display = 'none';
@@ -1272,6 +1294,40 @@ function renderState(state) {
   // 连接状态更新
   const dot = document.getElementById('conn-dot');
   if (dot) dot.className = '';
+}
+
+// ── 旁观者工具栏更新 ─────────────────────────────────────────
+function updateSpectatorBar(state) {
+  const bar = document.getElementById('spectator-bar');
+  if (!bar) return;
+  bar.style.display = 'flex';
+
+  // 当前观看的玩家名
+  const viewId  = state.spectatorViewingId;
+  const viewP   = state.players?.find(p => p.id === viewId);
+  const nameEl  = document.getElementById('spectator-view-name');
+  if (nameEl) nameEl.textContent = viewP ? viewP.name : '—';
+
+  // 视角切换按钮（每个玩家一个）
+  const btnsEl = document.getElementById('spectator-view-btns');
+  if (btnsEl && state.players) {
+    btnsEl.innerHTML = state.players.map(p => {
+      const active = p.id === viewId ? ' spec-btn-active' : '';
+      return `<button class="spec-view-btn${active}" onclick="switchSpectatorView('${p.id}','${p.name}')">${p.name}</button>`;
+    }).join('');
+  }
+
+  // 手牌标签提示
+  const label = document.getElementById('spectator-hand-label');
+  if (label) label.textContent = viewP ? `👁️ ${viewP.name} 的手牌` : '旁观中';
+}
+
+// 切换旁观视角
+function switchSpectatorView(playerId, playerName) {
+  socket.emit('spectator_switch_view', { viewPlayerId: playerId });
+  // 乐观更新名字
+  const nameEl = document.getElementById('spectator-view-name');
+  if (nameEl) nameEl.textContent = playerName;
 }
 
 // ── 翻牌阶段 ──────────────────────────────────────────────────
@@ -2183,18 +2239,54 @@ socket.on('rejoin_result', ({ success, state, message }) => {
   if (success && state) {
     renderState(state);
     // ★ bugfix(not-in-game): rejoin 确认成功后才恢复操作按钮，防止服务端映射建立前触发操作
-    setActionBtnsDisabled(false);
+    if (!isSpectator) setActionBtnsDisabled(false);
     document.getElementById('header-mid').textContent = '已重新连接';
     if (isManaged) {
       showManagedOverlay('已恢复连接', '当前处于托管状态，是否立即接管？', true);
     }
   } else {
     // rejoin 失败时也恢复按钮（会跳转回首页，但避免卡死）
-    setActionBtnsDisabled(false);
+    if (!isSpectator) setActionBtnsDisabled(false);
     showToast('⚠️ ' + (message || '连接失败'), 'error');
     clearGameSession();
     setTimeout(() => { window.location.href = '/'; }, 2500);
   }
+});
+
+// ── 旁观者相关事件 ──────────────────────────────────────────────
+socket.on('spectator_joined', ({ spectatorId, spectatorName, roomCode, state, players }) => {
+  // 保存旁观者 ID（用于重连）
+  mySpecId = spectatorId;
+  if (state) {
+    renderState(state);
+    // 旁观者视角：显示旁观工具栏，隐藏操作区
+    const actionWrap = document.getElementById('action-area-wrap');
+    if (actionWrap) actionWrap.style.display = 'none';
+    updateSpectatorBar(state);
+  }
+  showToast(`👁️ 已进入旁观模式`, 'success');
+});
+
+socket.on('spectator_rejoined', ({ spectatorId, spectatorName, roomCode, state, players }) => {
+  mySpecId = spectatorId;
+  if (state) {
+    renderState(state);
+    const actionWrap = document.getElementById('action-area-wrap');
+    if (actionWrap) actionWrap.style.display = 'none';
+    updateSpectatorBar(state);
+  }
+  showToast(`👁️ 旁观重连成功`, 'success');
+});
+
+socket.on('spectator_rejoin_failed', ({ message }) => {
+  showToast('⚠️ 旁观重连失败：' + message, 'error');
+  setTimeout(() => { window.location.href = '/'; }, 2500);
+});
+
+socket.on('spectator_update', ({ spectators, joined, left }) => {
+  // 显示旁观人数提示
+  if (joined) showToast(`👁️ ${joined} 开始旁观`, 'info');
+  if (left)   showToast(`👁️ ${left} 离开旁观`, 'info');
 });
 
 socket.on('game_state', (state) => {

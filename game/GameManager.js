@@ -297,6 +297,62 @@ class GameManager {
     return null;
   }
   
+  // 以旁观者身份加入游戏（游戏进行中可用）
+  joinAsSpectator(socketId, roomCode, spectatorName) {
+    const room = this.rooms[roomCode?.toUpperCase()];
+    if (!room) return { success: false, message: '房间不存在，请检查房间码' };
+    if (!['seating', 'playing'].includes(room.status)) {
+      return { success: false, message: '游戏尚未开始，请直接加入房间' };
+    }
+    if (!room.spectators) room.spectators = [];
+
+    const specId = 'spec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const spectator = { id: specId, name: spectatorName.trim(), socketId, online: true, viewPlayerId: null };
+    room.spectators.push(spectator);
+    this.socketToRoom[socketId] = roomCode.toUpperCase();
+    this.socketToPlayerId[socketId] = specId;
+
+    return { success: true, room, spectator };
+  }
+
+  // 旁观者重连（页面刷新后）
+  rejoinAsSpectator(socketId, roomCode, specId) {
+    const room = this.rooms[roomCode?.toUpperCase()];
+    if (!room) return { success: false, message: '房间不存在' };
+    if (!room.spectators) return { success: false, message: '旁观者信息已过期' };
+
+    const spec = room.spectators.find(s => s.id === specId);
+    if (!spec) return { success: false, message: '旁观者信息已过期，请重新旁观' };
+
+    const oldSocketId = spec.socketId;
+    if (oldSocketId && oldSocketId !== socketId) {
+      delete this.socketToRoom[oldSocketId];
+      delete this.socketToPlayerId[oldSocketId];
+    }
+    spec.socketId = socketId;
+    spec.online = true;
+    this.socketToRoom[socketId] = roomCode.toUpperCase();
+    this.socketToPlayerId[socketId] = specId;
+
+    return { success: true, room, spectator: spec };
+  }
+
+  // 旁观者断线处理
+  handleSpectatorDisconnect(socketId, roomCode) {
+    const room = this.rooms[roomCode];
+    if (!room?.spectators) return;
+    const spec = room.spectators.find(s => s.socketId === socketId);
+    if (spec) {
+      spec.online = false;
+      // 旁观者断线直接移除（不需要重连机制）
+      setTimeout(() => {
+        if (room.spectators) {
+          room.spectators = room.spectators.filter(s => s.id !== spec.id);
+        }
+      }, 30 * 1000);
+    }
+  }
+
   // 房主重新进入等待室
   rejoinAsHost(socketId, roomCode, playerId) {
     const room = this.rooms[roomCode];

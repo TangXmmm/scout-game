@@ -1554,6 +1554,51 @@
     #scout-pending-banner.show { display: flex; }
     .banner-icon { font-size: 1.1rem; flex-shrink: 0; }
     .banner-text { flex: 1; line-height: 1.4; }
+
+    /* ── 旁观者工具栏 ── */
+    #spectator-bar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: linear-gradient(90deg, rgba(88,166,255,0.15), rgba(88,166,255,0.08));
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 10px;
+      font-size: var(--fs-meta);
+      color: var(--fg);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .spec-icon { font-size: 1rem; flex-shrink: 0; }
+    .spec-label { color: rgba(255,255,255,0.55); flex-shrink: 0; }
+    .spec-viewing { color: var(--blue); font-weight: 700; flex-shrink: 0; }
+    .spec-btns {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex: 1;
+      justify-content: flex-end;
+    }
+    .spec-view-btn {
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(88,166,255,0.3);
+      background: rgba(88,166,255,0.08);
+      color: var(--fg);
+      font-size: var(--fs-tag);
+      cursor: pointer;
+      font-family: inherit;
+      touch-action: manipulation;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .spec-view-btn:hover { background: rgba(88,166,255,0.2); }
+    .spec-view-btn.spec-btn-active {
+      background: rgba(88,166,255,0.3);
+      border-color: var(--blue);
+      color: var(--blue);
+      font-weight: 700;
+    }
+
     .banner-cancel {
       background: none; border: 1px solid rgba(247,151,30,0.4);
       color: var(--gold); border-radius: 8px; padding: 3px 10px;
@@ -3054,10 +3099,19 @@
 
       <!-- ══ 底部合并区（flex:2）：手牌(上) + 操作按钮(下) 纵向布局 ══ -->
       <div id="bottom-bar">
+
+        <!-- 旁观者工具栏（旁观模式下显示，正常玩家隐藏） -->
+        <div id="spectator-bar" style="display:none;">
+          <span class="spec-icon">👁️</span>
+          <span class="spec-label">旁观中 · 视角：</span>
+          <span id="spectator-view-name" class="spec-viewing">—</span>
+          <div id="spectator-view-btns" class="spec-btns"></div>
+        </div>
+
         <!-- 我的手牌（上层） -->
         <div id="my-hand-area">
           <div class="hand-label">
-            🃏 我的手牌
+            <span id="spectator-hand-label">🃏 我的手牌</span>
             <span id="hand-count-badge" style="color:var(--blue);"></span>
             <span id="hand-new-badge" style="display:none;color:var(--gold);font-size:var(--fs-tag);">新牌插入</span>
           </div>

@@ -550,6 +550,17 @@ class ScoutGame {
       usedScoutAndShow: this.usedScoutAndShow[viewPlayerId] || false,
     };
   }
+
+  /**
+   * 旁观者视角：复用 getStateForPlayer，但额外标记旁观信息
+   * @param {string} viewPlayerId - 旁观者当前观看的玩家 ID
+   */
+  getStateForSpectator(viewPlayerId) {
+    const state = this.getStateForPlayer(viewPlayerId);
+    state.isSpectatorView    = true;
+    state.spectatorViewingId = viewPlayerId;
+    return state;
+  }
 }
 
 module.exports = ScoutGame;

@@ -1076,17 +1076,8 @@
               <label>你的昵称</label>
               <span class="clear-adj" id="clear-adj-btn" onclick="clearAdjective()" style="display:none;">✕ 去掉定语</span>
             </div>
-            <!-- 快捷昵称 chips -->
-            <div class="nickname-presets" id="nickname-presets">
-              <span class="preset-chip" onclick="pickPreset('汤胖')">汤胖</span>
-              <span class="preset-chip" onclick="pickPreset('Nico')">Nico</span>
-              <span class="preset-chip" onclick="pickPreset('王姐')">王姐</span>
-              <span class="preset-chip" onclick="pickPreset('娜姐')">娜姐</span>
-              <span class="preset-chip" onclick="pickPreset('🐒')">🐒</span>
-              <span class="preset-chip" onclick="pickPreset('三分甜哥哥')">三分甜哥哥</span>
-              <span class="preset-chip" onclick="pickPreset('亮仔')">亮仔</span>
-              <span class="preset-chip" onclick="pickPreset('路人甲')">路人甲</span>
-            </div>
+            <!-- 快捷昵称 chips（由 JS 从历史记录动态渲染） -->
+            <div class="nickname-presets" id="nickname-presets"></div>
             <!-- 随机定语行 -->
             <div class="adjective-row" id="adjective-row" style="display:none;">
               <button class="adjective-btn" onclick="randomAdjective()">✨ 生成人设</button>
@@ -1410,14 +1401,39 @@
     '永远不看规则直接玩的','眼神死但心里有数的','随机应变选手',
   ];
 
+  // ── 历史昵称（存 localStorage，最多 8 条，最近使用排前面）──────────
+  const NICKNAME_HISTORY_KEY = 'scout_nickname_history';
+  const NICKNAME_HISTORY_MAX = 8;
+
+  function getNicknameHistory() {
+    try { return JSON.parse(localStorage.getItem(NICKNAME_HISTORY_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+
+  function renderNicknameChips() {
+    const container = document.getElementById('nickname-presets');
+    if (!container) return;
+    const history = getNicknameHistory();
+    if (history.length === 0) {
+      container.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted,#666);">还没有历史昵称，输入后会自动记录 ✨</span>';
+      return;
+    }
+    container.innerHTML = history.map(name =>
+      `<span class="preset-chip" onclick="pickPreset(${JSON.stringify(name)})">${name}</span>`
+    ).join('');
+  }
+
+  // 页面加载时渲染历史昵称
+  renderNicknameChips();
+
   let _currentBase = '';     // 当前选中的预设基础昵称
   let _currentAdj  = '';     // 当前附加的定语
 
   function pickPreset(name) {
     _currentBase = name;
-    // 高亮选中 chip
+    // 高亮选中 chip（用 onclick 属性内容匹配，避免 textContent 含特殊字符失效）
     document.querySelectorAll('.preset-chip').forEach(el => {
-      el.classList.toggle('selected', el.textContent === name);
+      el.classList.toggle('selected', el.textContent.trim() === name);
     });
     // 展示定语行
     const adjRow = document.getElementById('adjective-row');
@@ -1425,8 +1441,8 @@
     if (adjRow) adjRow.style.display = 'flex';
     if (clearBtn) clearBtn.style.display = '';
     // 如果没有定语，先随机一个
-    if (!_currentAdj) randomAdjective();
-    else updateNameWithAdj();
+    _currentAdj = '';
+    randomAdjective();
   }
 
   function randomAdjective() {

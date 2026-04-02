@@ -873,6 +873,41 @@ io.on('connection', (socket) => {
     console.log(`[再来一局] ${player?.name} 返回房间 ${room.code}`);
   });
 
+  // ── 主动退出房间（等待室中玩家自愿离开）────────────────────
+  socket.on('leave_room', () => {
+    const room = gameManager.getRoom(socket.id);
+    const playerId = gameManager.getPlayerId(socket.id);
+    if (!room || room.status !== 'waiting') return;
+
+    // 从玩家列表移除
+    room.players = room.players.filter(p => p.id !== playerId);
+    delete gameManager.socketToRoom[socket.id];
+    delete gameManager.socketToPlayerId[socket.id];
+
+    // 如果离开的是房主，转让给下一个玩家；若房间空了则销毁
+    if (room.hostPlayerId === playerId) {
+      if (room.players.length > 0) {
+        room.hostPlayerId = room.players[0].id;
+        console.log(`[退出房间] 房主 ${playerId} 离开，新房主: ${room.players[0].name}`);
+      } else {
+        delete gameManager.rooms[room.code];
+        console.log(`[退出房间] 房间 ${room.code} 已空，销毁`);
+        return;
+      }
+    }
+
+    // 广播最新玩家列表
+    io.to(room.code).emit('players_updated', {
+      players: room.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        isHost: p.id === room.hostPlayerId,
+        avatar: p.avatar || '',
+      })),
+    });
+    console.log(`[退出房间] ${playerId} 离开 ${room.code}`);
+  });
+
   // ── 房主踢人 ──────────────────────────────────────────────
   socket.on('kick_player', ({ targetPlayerId }) => {
     const result = gameManager.kickPlayer(socket.id, targetPlayerId);

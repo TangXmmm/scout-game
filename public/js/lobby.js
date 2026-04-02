@@ -309,6 +309,17 @@ function startGame() {
   socket.emit('start_game');
 }
 
+function leaveRoom() {
+  socket.emit('leave_room');
+  // 清理本地状态后跳回首页（服务端也会广播玩家列表更新）
+  myPlayerId  = null;
+  myRoomCode  = null;
+  myPlayerName = null;
+  isHost      = false;
+  localStorage.removeItem('scout_host_room');
+  window.location.href = '/';
+}
+
 function renderPlayers(players) {
   const container = document.getElementById('player-list-container');
   const countEl = document.getElementById('player-count');

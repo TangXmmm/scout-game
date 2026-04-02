@@ -707,10 +707,10 @@ function renderHand(hand, newCardIndex = -1) {
   const badge = document.getElementById('hand-count-badge');
   badge.textContent = `(${hand.length}张)`;
 
-  // 挖角模式：显示插槽覆盖层
-  // ⚠️ pendingFinishScoutAndShow 阶段 isMyTurn 可能为 false（轮次已转移到下一步），
-  //    但此时仍需要插槽 UI；selPos !== null 只在 isMyTurn 时出现，无需额外限制。
-  if ((isMyTurn && selPos !== null) || pendingFinishScoutAndShow) {
+  // 挖角模式（选端阶段）：显示插槽覆盖层
+  // 仅在 selPos !== null（用户正在选插入位置）时才渲染插槽 UI。
+  // pendingFinishScoutAndShow（演出阶段）走普通渲染路径——不需要插槽，只需正常选牌。
+  if (isMyTurn && selPos !== null) {
     renderHandWithSlots(hand, newCardIndex);
     return;
   }
@@ -787,13 +787,17 @@ function renderHand(hand, newCardIndex = -1) {
     // 先移除旧 spacer，再测量纯内容宽
     container.querySelectorAll('.hand-spacer').forEach(s => s.remove());
 
-    const children = Array.from(container.children);
-    if (children.length === 0) return;
+    // 展开 hand-sel-wrap 内的子元素一起计算（避免把选区容器当一个宽元素导致 spacer 偏大）
+    const rawChildren = Array.from(container.children);
+    const cards = rawChildren.flatMap(c =>
+      c.classList.contains('hand-sel-wrap') ? Array.from(c.children) : [c]
+    );
+    if (cards.length === 0) return;
 
-    // 测量所有子元素的实际总宽度（含各自左右 margin）
+    // 测量所有卡片的实际总宽度
     const GAP = 2; // 与 CSS gap:2px 一致
-    let contentW = children.reduce((sum, c) => sum + c.offsetWidth, 0)
-                   + GAP * Math.max(0, children.length - 1);
+    let contentW = cards.reduce((sum, c) => sum + c.offsetWidth, 0)
+                   + GAP * Math.max(0, cards.length - 1);
     const containerW = container.clientWidth;
     const half = Math.max(0, Math.floor((containerW - contentW) / 2));
 

@@ -1441,9 +1441,11 @@
     if (input) input.value = _currentBase;
     const preview = document.getElementById('adjective-preview');
     if (preview) preview.innerHTML = '';
-    document.getElementById('clear-adj-btn').style.display = 'none';
+    const clearBtn = document.getElementById('clear-adj-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    // 如果输入框仍有内容，保留定语行（方便用户重新生成人设）
     const adjRow = document.getElementById('adjective-row');
-    if (adjRow) adjRow.style.display = 'none';
+    if (adjRow) adjRow.style.display = (_currentBase.trim()) ? 'flex' : 'none';
   }
 
   function updateNameWithAdj() {
@@ -1456,15 +1458,44 @@
     }
   }
 
-  // 用户手动输入时取消快捷选中状态
+  // 用户手动输入时：取消预设 chip 选中，但保留定语行，允许继续加定语
   function onNameInput() {
-    _currentBase = '';
-    _currentAdj  = '';
+    const input = document.getElementById('player-name');
+    const raw = input ? input.value : '';
+
+    // 如果当前有定语前缀，把前缀从输入值里剥离，得到纯 base
+    if (_currentAdj && raw.startsWith(_currentAdj)) {
+      _currentBase = raw.slice(_currentAdj.length);
+    } else {
+      // 没有定语，或者用户已经完全改掉了，重置定语
+      _currentAdj  = '';
+      _currentBase = raw;
+    }
+
+    // 取消 chip 高亮
     document.querySelectorAll('.preset-chip').forEach(el => el.classList.remove('selected'));
-    const adjRow = document.getElementById('adjective-row');
+
+    // 有内容时展示定语行（让用户可以随时加定语）；空输入则收起
+    const adjRow  = document.getElementById('adjective-row');
     const clearBtn = document.getElementById('clear-adj-btn');
-    if (adjRow) adjRow.style.display = 'none';
-    if (clearBtn) clearBtn.style.display = 'none';
+    if (raw.trim()) {
+      if (adjRow) adjRow.style.display = 'flex';
+      if (clearBtn) clearBtn.style.display = _currentAdj ? '' : 'none';
+    } else {
+      _currentAdj = '';
+      if (adjRow) adjRow.style.display = 'none';
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    // 更新预览（有定语时才显示）
+    const preview = document.getElementById('adjective-preview');
+    if (preview) {
+      if (_currentAdj && _currentBase) {
+        preview.innerHTML = `昵称将是：<span class="preview-name">${_currentAdj + _currentBase}</span>`;
+      } else {
+        preview.innerHTML = '';
+      }
+    }
   }
 
   // ── 完整规则折叠 ────────────────────────────────────────────────────
